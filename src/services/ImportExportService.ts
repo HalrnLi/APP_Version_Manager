@@ -1,0 +1,277 @@
+import { App as ObsidianApp } from 'obsidian';
+import AppVersionManagerPlugin from '../main';
+import { Project, Version, ProjectProgress, PROGRESS_ORDER } from '../types';
+
+export class ImportExportService {
+  app: ObsidianApp;
+  plugin: AppVersionManagerPlugin;
+
+  constructor(app: ObsidianApp, plugin: AppVersionManagerPlugin) {
+    this.app = app;
+    this.plugin = plugin;
+  }
+
+  async exportToCSV(projects: Project[], versions: Version[]): Promise<string> {
+    const headers = [
+      '项目名称',
+      'APP版本号',
+      'BLL版本',
+      'IPP版本',
+      'Web版本',
+      '项目经理',
+      '项目链接',
+      '组件库链接',
+      '项目需求',
+      '项目进度',
+      '计划提测时间',
+      '计划发布时间',
+      '实际发布时间',
+      '创建时间',
+      '更新时间'
+    ];
+    
+    const rows = projects.map(project => {
+      const version = versions.find(v => v.id === project.versionId);
+      return [
+        project.name,
+        version?.versionNumber || '',
+        version?.bllVersion || '',
+        version?.ippVersion || '',
+        version?.webVersion || '',
+        project.manager,
+        project.projectLink,
+        project.componentLink,
+        project.requirements.replace(/\n/g, '\\n'),
+        project.progress,
+        project.plannedTestTime,
+        project.plannedReleaseTime,
+        project.actualReleaseTime,
+        project.createdAt,
+        project.updatedAt
+      ];
+    });
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => this.escapeCSV(cell)).join(','))
+    ].join('\n');
+    
+    return csvContent;
+  }
+
+  private escapeCSV(value: string): string {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  }
+
+  async importFromCSV(content: string, appId: string): Promise<{ success: number; errors: string[] }> {
+    const lines = content.split('\n');
+    const headers = this.parseCSVLine(lines[0]);
+    
+    const result = { success: 0, errors: [] as string[] };
+    
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      
+      try {
+        const values = this.parseCSVLine(lines[i]);
+        const rowData: Record<string, string> = {};
+        
+        headers.forEach((header, index) => {
+          rowData[header] = values[index] || '';
+        });
+        
+        let version = await this.findOrCreateVersion(appId, rowData);
+        
+        const projectName = rowData['项目名称'];
+        if (!projectName) {
+          result.errors.push(`第 ${i + 1} 行: 缺少项目名称`);
+          continue;
+        }
+        
+        const existingProjects = await this.plugin.dataService.getAllProjects();
+        const existingProject = existingProjects.find(p => p.name === projectName);
+        
+        const projectData = {
+          name: projectName,
+          versionId: version.id,
+          manager: rowData['项目经理'] || '',
+          projectLink: rowData['项目链接'] || '',
+          componentLink: rowData['组件库链接'] || '',
+          requirements: (rowData['项目需求'] || '').replace(/\\n/g, '\n'),
+          progress: this.parseProgress(rowData['项目进度']),
+          plannedTestTime: rowData['计划提测时间'] || '',
+          plannedReleaseTime: rowData['计划发布时间'] || '',
+          actualReleaseTime: rowData['实际发布时间'] || ''
+        };
+        
+        if (existingProject) {
+          await this.plugin.dataService.updateProject(existingProject.id, projectData);
+        } else {
+          await this.plugin.dataService.createProject(projectData);
+        }
+        
+        result.success++;
+      } catch (error) {
+        result.errors.push(`第 ${i + 1} 行: ${error}`);
+      }
+    }
+    
+    return result;
+  }
+
+  private parseCSVLine(line: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    result.push(current);
+    return result;
+  }
+
+  private async findOrCreateVersion(appId: string, rowData: Record<string, string>): Promise<Version> {
+    const versionNumber = rowData['APP版本号'];
+    if (!versionNumber) {
+      throw new Error('缺少版本号');
+    }
+    
+    const versions = await this.plugin.dataService.getVersionsByAppId(appId);
+    let version = versions.find(v => v.versionNumber === versionNumber);
+    
+    if (!version) {
+      version = await this.plugin.dataService.createVersion({
+        appId,
+        versionNumber,
+        bllVersion: rowData['BLL版本'] || '',
+        ippVersion: rowData['IPP版本'] || '',
+        webVersion: rowData['Web版本'] || '',
+        updateContent: ''
+      });
+    } else {
+      if (rowData['BLL版本'] || rowData['IPP版本'] || rowData['Web版本']) {
+        version = await this.plugin.dataService.updateVersion(version.id, {
+          bllVersion: rowData['BLL版本'] || version.bllVersion,
+          ippVersion: rowData['IPP版本'] || version.ippVersion,
+          webVersion: rowData['Web版本'] || version.webVersion
+        }) || version;
+      }
+    }
+    
+    return version;
+  }
+
+  private parseProgress(value: string): ProjectProgress {
+    if (PROGRESS_ORDER.includes(value as ProjectProgress)) {
+      return value as ProjectProgress;
+    }
+    return ProjectProgress.REQUIREMENT_DECOMPOSITION;
+  }
+
+  async exportToExcel(projects: Project[], versions: Version[]): Promise<ArrayBuffer> {
+    const XLSX = await import('xlsx');
+    
+    const data = projects.map(project => {
+      const version = versions.find(v => v.id === project.versionId);
+      return {
+        '项目名称': project.name,
+        'APP版本号': version?.versionNumber || '',
+        'BLL版本': version?.bllVersion || '',
+        'IPP版本': version?.ippVersion || '',
+        'Web版本': version?.webVersion || '',
+        '项目经理': project.manager,
+        '项目链接': project.projectLink,
+        '组件库链接': project.componentLink,
+        '项目需求': project.requirements,
+        '项目进度': project.progress,
+        '计划提测时间': project.plannedTestTime,
+        '计划发布时间': project.plannedReleaseTime,
+        '实际发布时间': project.actualReleaseTime,
+        '创建时间': project.createdAt,
+        '更新时间': project.updatedAt
+      };
+    });
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Projects');
+    
+    return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  }
+
+  async importFromExcel(buffer: ArrayBuffer, appId: string): Promise<{ success: number; errors: string[] }> {
+    const XLSX = await import('xlsx');
+    
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws) as Record<string, any>[];
+    
+    const result = { success: 0, errors: [] as string[] };
+    
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      
+      try {
+        let version = await this.findOrCreateVersion(appId, {
+          'APP版本号': row['APP版本号'] || '',
+          'BLL版本': row['BLL版本'] || '',
+          'IPP版本': row['IPP版本'] || '',
+          'Web版本': row['Web版本'] || ''
+        });
+        
+        const projectName = row['项目名称'];
+        if (!projectName) {
+          result.errors.push(`第 ${i + 2} 行: 缺少项目名称`);
+          continue;
+        }
+        
+        const existingProjects = await this.plugin.dataService.getAllProjects();
+        const existingProject = existingProjects.find(p => p.name === projectName);
+        
+        const projectData = {
+          name: projectName,
+          versionId: version.id,
+          manager: row['项目经理'] || '',
+          projectLink: row['项目链接'] || '',
+          componentLink: row['组件库链接'] || '',
+          requirements: row['项目需求'] || '',
+          progress: this.parseProgress(row['项目进度']),
+          plannedTestTime: row['计划提测时间'] || '',
+          plannedReleaseTime: row['计划发布时间'] || '',
+          actualReleaseTime: row['实际发布时间'] || ''
+        };
+        
+        if (existingProject) {
+          await this.plugin.dataService.updateProject(existingProject.id, projectData);
+        } else {
+          await this.plugin.dataService.createProject(projectData);
+        }
+        
+        result.success++;
+      } catch (error) {
+        result.errors.push(`第 ${i + 2} 行: ${error}`);
+      }
+    }
+    
+    return result;
+  }
+}
