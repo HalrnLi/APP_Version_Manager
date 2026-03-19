@@ -186,9 +186,13 @@ export class AppVersionManagerView extends ItemView {
       attr: { type: 'text', placeholder: '搜索项目...' }
     });
     searchInput.value = this.currentFilter.keyword;
+    let debounceTimer: number;
     searchInput.addEventListener('input', (e) => {
       this.currentFilter.keyword = (e.target as HTMLInputElement).value;
-      this.renderMainView();
+      clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        this.renderMainView();
+      }, 300);
     });
     
     const progressFilter = filterBar.createEl('select', { cls: 'avm-select' });
@@ -224,6 +228,21 @@ export class AppVersionManagerView extends ItemView {
           this.applySavedFilter(filterId);
         }
       });
+      
+      new ButtonComponent(filterActions)
+        .setIcon('trash')
+        .setTooltip('删除筛选')
+        .onClick(() => {
+          if (this.savedFilters.length === 0) {
+            alert('没有可删除的筛选条件');
+            return;
+          }
+          new DeleteFilterModal(this.app, this.savedFilters, async (filterId) => {
+            this.savedFilters = this.savedFilters.filter(f => f.id !== filterId);
+            await this.saveSavedFilters();
+            this.render();
+          }).open();
+        });
     }
     
     const actionButtons = filterBar.createDiv({ cls: 'avm-action-buttons' });
@@ -257,6 +276,7 @@ export class AppVersionManagerView extends ItemView {
         new DualPaneView(
           this.mainEl,
           this.plugin,
+          this.apps,
           filteredVersions,
           appFilteredProjects,
           this.selectedVersionId,
@@ -275,6 +295,7 @@ export class AppVersionManagerView extends ItemView {
           this.plugin,
           appFilteredProjects,
           filteredVersions,
+          this.apps,
           () => this.refresh()
         );
         break;
@@ -284,6 +305,7 @@ export class AppVersionManagerView extends ItemView {
           this.plugin,
           appFilteredProjects,
           filteredVersions,
+          this.apps,
           () => this.refresh()
         );
         break;
@@ -363,7 +385,7 @@ export class AppVersionManagerView extends ItemView {
     
     new RenameAppModal(this.app, app.name, async (newName) => {
       try {
-        await this.plugin.dataService.updateApp(this.selectedAppId!, newName);
+        await this.plugin.dataService.updateApp(this.selectedAppId!, newName, app.version);
         await this.refresh();
       } catch (error) {
         alert(error);
@@ -440,6 +462,17 @@ export class AppVersionManagerView extends ItemView {
     await this.refresh();
   }
 
+  private async deleteSavedFilter(filterId: string) {
+    const filter = this.savedFilters.find(f => f.id === filterId);
+    if (!filter) return;
+    
+    if (confirm(`确定要删除筛选条件 "${filter.name}" 吗？`)) {
+      this.savedFilters = this.savedFilters.filter(f => f.id !== filterId);
+      await this.saveSavedFilters();
+      this.render();
+    }
+  }
+
   private showExportModal() {
     new ExportModal(this.app, this.importExportService, this.getFilteredProjects(), this.versions).open();
   }
@@ -485,6 +518,9 @@ class CreateAppModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()))
+      .addButton(btn => btn
         .setButtonText('创建')
         .setCta()
         .onClick(() => {
@@ -492,10 +528,7 @@ class CreateAppModal extends Modal {
             this.onSubmit(appName.trim());
             this.close();
           }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        }));
   }
   
   onClose() {
@@ -529,6 +562,9 @@ class RenameAppModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()))
+      .addButton(btn => btn
         .setButtonText('保存')
         .setCta()
         .onClick(() => {
@@ -536,10 +572,7 @@ class RenameAppModal extends Modal {
             this.onSubmit(newName.trim());
             this.close();
           }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        }));
   }
   
   onClose() {
@@ -598,6 +631,9 @@ class CreateVersionModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()))
+      .addButton(btn => btn
         .setButtonText('创建')
         .setCta()
         .onClick(() => {
@@ -605,10 +641,7 @@ class CreateVersionModal extends Modal {
             this.onSubmit(data);
             this.close();
           }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        }));
   }
   
   onClose() {
@@ -699,6 +732,9 @@ class CreateProjectModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()))
+      .addButton(btn => btn
         .setButtonText('创建')
         .setCta()
         .onClick(() => {
@@ -706,10 +742,7 @@ class CreateProjectModal extends Modal {
             this.onSubmit(data);
             this.close();
           }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        }));
   }
   
   onClose() {
@@ -741,6 +774,9 @@ class SaveFilterModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()))
+      .addButton(btn => btn
         .setButtonText('保存')
         .setCta()
         .onClick(() => {
@@ -748,7 +784,45 @@ class SaveFilterModal extends Modal {
             this.onSubmit(filterName.trim());
             this.close();
           }
-        }))
+        }));
+  }
+  
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+class DeleteFilterModal extends Modal {
+  filters: SavedFilter[];
+  onSubmit: (filterId: string) => void;
+  
+  constructor(app: ObsidianApp, filters: SavedFilter[], onSubmit: (filterId: string) => void) {
+    super(app);
+    this.filters = filters;
+    this.onSubmit = onSubmit;
+  }
+  
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass('avm-modal');
+    
+    contentEl.createEl('h2', { text: '删除筛选条件' });
+    
+    this.filters.forEach(filter => {
+      new Setting(contentEl)
+        .setName(filter.name)
+        .addButton(btn => btn
+          .setButtonText('删除')
+          .setWarning()
+          .onClick(() => {
+            if (confirm(`确定要删除筛选条件 "${filter.name}" 吗？`)) {
+              this.onSubmit(filter.id);
+              this.close();
+            }
+          }));
+    });
+    
+    new Setting(contentEl)
       .addButton(btn => btn
         .setButtonText('取消')
         .onClick(() => this.close()));
@@ -786,6 +860,9 @@ class ExportModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()))
+      .addButton(btn => btn
         .setButtonText('导出CSV')
         .setCta()
         .onClick(async () => {
@@ -800,10 +877,7 @@ class ExportModal extends Modal {
           const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
           this.downloadFile(buffer, 'projects.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
           this.close();
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        }));
   }
   
   private downloadFile(content: string | ArrayBuffer, filename: string, mimeType: string) {
@@ -845,6 +919,9 @@ class ImportModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()))
+      .addButton(btn => btn
         .setButtonText('导入')
         .setCta()
         .onClick(async () => {
@@ -853,7 +930,7 @@ class ImportModal extends Modal {
             alert('请选择文件');
             return;
           }
-
+          
           try {
             let result;
             if (file.name.endsWith('.csv')) {
@@ -863,17 +940,14 @@ class ImportModal extends Modal {
               const buffer = await file.arrayBuffer();
               result = await this.importExportService.importFromExcel(buffer, this.appId);
             }
-
+            
             alert(`导入完成！成功: ${result.success} 条${result.errors.length > 0 ? `\n错误: ${result.errors.join('\n')}` : ''}`);
             this.onComplete();
             this.close();
           } catch (error) {
             alert(`导入失败: ${error}`);
           }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        }));
   }
   
   onClose() {

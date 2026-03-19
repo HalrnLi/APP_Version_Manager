@@ -1,12 +1,13 @@
 import { Menu, Modal, App as ObsidianApp, Setting } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Project, Version, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS } from '../types';
+import { Project, Version, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS, App } from '../types';
 
 export class KanbanView {
   containerEl: HTMLElement;
   plugin: AppVersionManagerPlugin;
   projects: Project[];
   versions: Version[];
+  apps: App[];
   onRefresh: () => void;
   
   constructor(
@@ -14,12 +15,14 @@ export class KanbanView {
     plugin: AppVersionManagerPlugin,
     projects: Project[],
     versions: Version[],
+    apps: App[],
     onRefresh: () => void = () => {}
   ) {
     this.containerEl = containerEl;
     this.plugin = plugin;
     this.projects = projects;
     this.versions = versions;
+    this.apps = apps;
     this.onRefresh = onRefresh;
     
     this.render();
@@ -119,6 +122,23 @@ export class KanbanView {
       e.preventDefault();
       this.showCardContextMenu(project, e);
     });
+
+    card.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      this.openProjectNote(project);
+    });
+  }
+
+  private async openProjectNote(project: Project) {
+    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name);
+    let file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
+    
+    if (!file) {
+      file = await this.plugin.app.vault.create(memoPath, '');
+    }
+    
+    const leaf = this.plugin.app.workspace.getLeaf(false);
+    await leaf.openFile(file as any);
   }
   
   private ensureProtocol(url: string): string {
@@ -170,9 +190,9 @@ export class KanbanView {
   }
   
   private showEditProjectModal(project: Project) {
-    new KanbanEditProjectModal(this.plugin.app, project, async (data) => {
+    new KanbanEditProjectModal(this.plugin.app, project, this.apps, this.versions, async (data) => {
       try {
-        await this.plugin.dataService.updateProject(project.id, data);
+        await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
         alert(error);
@@ -183,7 +203,7 @@ export class KanbanView {
   private showProgressChangeModal(project: Project) {
     new ProgressChangeModal(this.plugin.app, project, async (newProgress) => {
       try {
-        await this.plugin.dataService.updateProject(project.id, { progress: newProgress });
+        await this.plugin.dataService.updateProject(project.id, { progress: newProgress }, project.version);
         this.onRefresh();
       } catch (error) {
         alert(error);
@@ -194,11 +214,21 @@ export class KanbanView {
 
 class KanbanEditProjectModal extends Modal {
   project: Project;
+  apps: App[];
+  versions: Version[];
   onSubmit: (data: Partial<Project>) => void;
   
-  constructor(app: ObsidianApp, project: Project, onSubmit: (data: Partial<Project>) => void) {
+  constructor(
+    app: ObsidianApp, 
+    project: Project, 
+    apps: App[], 
+    versions: Version[], 
+    onSubmit: (data: Partial<Project>) => void
+  ) {
     super(app);
     this.project = project;
+    this.apps = apps;
+    this.versions = versions;
     this.onSubmit = onSubmit;
   }
   
@@ -210,6 +240,7 @@ class KanbanEditProjectModal extends Modal {
     
     const data = {
       name: this.project.name,
+      versionId: this.project.versionId,
       manager: this.project.manager,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
@@ -224,6 +255,20 @@ class KanbanEditProjectModal extends Modal {
       .addText(text => text
         .setValue(data.name)
         .onChange(value => data.name = value));
+    
+    new Setting(contentEl)
+      .setName('所属版本')
+      .addDropdown(dropdown => {
+        this.versions.forEach(version => {
+          const app = this.apps.find(a => a.id === version.appId);
+          const label = app ? `${app.name} - ${version.versionNumber}` : version.versionNumber;
+          dropdown.addOption(version.id, label);
+        });
+        if (data.versionId) {
+          dropdown.setValue(data.versionId);
+        }
+        dropdown.onChange(value => data.versionId = value);
+      });
     
     new Setting(contentEl)
       .setName('项目经理')
@@ -280,7 +325,7 @@ class KanbanEditProjectModal extends Modal {
         .setButtonText('保存')
         .setCta()
         .onClick(() => {
-          if (data.name) {
+          if (data.name && data.versionId) {
             this.onSubmit(data);
             this.close();
           }

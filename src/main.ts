@@ -595,11 +595,14 @@ export default class AppVersionManagerPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = await this.loadData() || {};
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
   }
 
   async saveSettings() {
-    await this.saveData(this.settings);
+    const data = await this.loadData() || {};
+    Object.assign(data, this.settings);
+    await this.saveData(data);
   }
 
   async activateView() {
@@ -637,6 +640,20 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+
+    new Setting(containerEl)
+      .setName('数据存储路径')
+      .setDesc('在文件管理器中打开数据存储目录')
+      .addButton(btn => btn
+        .setButtonText('打开数据目录')
+        .onClick(() => {
+          const dataFolder = this.app.vault.getAbstractFileByPath('app-version-manager');
+          if (dataFolder) {
+            (this.app as any).showInFolder(dataFolder.path);
+          } else {
+            alert('数据目录尚未创建，请先创建一些数据后再试');
+          }
+        }));
 
     new Setting(containerEl)
       .setName('Auto Backup')

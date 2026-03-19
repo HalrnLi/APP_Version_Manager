@@ -1,10 +1,11 @@
 import { App as ObsidianApp, TFile, TFolder, normalizePath } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { App, Version, Project, ProjectProgress, ProgressHistoryItem } from '../types';
+import { App, Version, Project, ProjectProgress, ProgressHistoryItem, ConcurrencyConflictError } from '../types';
 
 const APPS_FOLDER = 'app-version-manager/apps';
 const VERSIONS_FOLDER = 'app-version-manager/versions';
 const PROJECTS_FOLDER = 'app-version-manager/projects';
+const MEMOS_FOLDER = 'app-version-manager/memos';
 
 export class DataService {
   app: ObsidianApp;
@@ -30,6 +31,7 @@ export class DataService {
     await this.ensureFolder(APPS_FOLDER);
     await this.ensureFolder(VERSIONS_FOLDER);
     await this.ensureFolder(PROJECTS_FOLDER);
+    await this.ensureFolder(MEMOS_FOLDER);
   }
 
   async getAllApps(): Promise<App[]> {
@@ -59,7 +61,8 @@ export class DataService {
         id: frontmatter.id || file.basename,
         name: frontmatter.name || file.basename,
         createdAt: frontmatter.createdAt || file.stat.ctime.toString(),
-        updatedAt: frontmatter.updatedAt || file.stat.mtime.toString()
+        updatedAt: frontmatter.updatedAt || file.stat.mtime.toString(),
+        version: frontmatter.version || 1
       };
     } catch {
       return null;
@@ -119,13 +122,14 @@ export class DataService {
     
     const id = this.generateId();
     const now = Date.now().toString();
-    const app: App = { id, name, createdAt: now, updatedAt: now };
+    const app: App = { id, name, createdAt: now, updatedAt: now, version: 1 };
     
     const frontmatter = this.createFrontmatter({
       id: app.id,
       name: app.name,
       createdAt: app.createdAt,
-      updatedAt: app.updatedAt
+      updatedAt: app.updatedAt,
+      version: app.version
     });
     
     const fileName = this.sanitizeFileName(name);
@@ -134,10 +138,14 @@ export class DataService {
     return app;
   }
 
-  async updateApp(id: string, name: string): Promise<App | null> {
+  async updateApp(id: string, name: string, expectedVersion?: number): Promise<App | null> {
     const apps = await this.getAllApps();
     const app = apps.find(a => a.id === id);
     if (!app) return null;
+    
+    if (expectedVersion !== undefined && app.version !== expectedVersion) {
+      throw new ConcurrencyConflictError(`APP: ${app.name}`, app.version, expectedVersion);
+    }
     
     if (apps.some(a => a.name === name && a.id !== id)) {
       throw new Error('APP name already exists');
@@ -146,6 +154,7 @@ export class DataService {
     const oldName = app.name;
     app.name = name;
     app.updatedAt = Date.now().toString();
+    app.version = (app.version || 1) + 1;
     
     const oldFileName = this.sanitizeFileName(oldName);
     const newFileName = this.sanitizeFileName(name);
@@ -158,7 +167,8 @@ export class DataService {
         id: app.id,
         name: app.name,
         createdAt: app.createdAt,
-        updatedAt: app.updatedAt
+        updatedAt: app.updatedAt,
+        version: app.version
       });
       
       await this.app.vault.modify(file, frontmatter);
@@ -241,7 +251,8 @@ export class DataService {
         updateContent: frontmatter.updateContent || '',
         isArchived: frontmatter.isArchived === true,
         createdAt: frontmatter.createdAt || file.stat.ctime.toString(),
-        updatedAt: frontmatter.updatedAt || file.stat.mtime.toString()
+        updatedAt: frontmatter.updatedAt || file.stat.mtime.toString(),
+        version: frontmatter.version || 1
       };
     } catch {
       return null;
@@ -271,7 +282,8 @@ export class DataService {
       updateContent: data.updateContent || '',
       isArchived: false,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      version: 1
     };
     
     const frontmatter = this.createFrontmatter({
@@ -284,7 +296,8 @@ export class DataService {
       updateContent: version.updateContent,
       isArchived: version.isArchived,
       createdAt: version.createdAt,
-      updatedAt: version.updatedAt
+      updatedAt: version.updatedAt,
+      version: version.version
     });
     
     const app = (await this.getAllApps()).find(a => a.id === data.appId);
@@ -297,10 +310,14 @@ export class DataService {
     return version;
   }
 
-  async updateVersion(id: string, data: Partial<Version>): Promise<Version | null> {
+  async updateVersion(id: string, data: Partial<Version>, expectedVersion?: number): Promise<Version | null> {
     const allVersions = await this.getAllVersions();
     const version = allVersions.find(v => v.id === id);
     if (!version) return null;
+    
+    if (expectedVersion !== undefined && version.version !== expectedVersion) {
+      throw new ConcurrencyConflictError(`版本: ${version.versionNumber}`, version.version, expectedVersion);
+    }
     
     if (data.versionNumber && data.versionNumber !== version.versionNumber) {
       const appVersions = await this.getVersionsByAppId(version.appId);
@@ -310,6 +327,7 @@ export class DataService {
     }
     
     Object.assign(version, data, { updatedAt: Date.now().toString() });
+    version.version = (version.version || 1) + 1;
     
     const app = (await this.getAllApps()).find(a => a.id === version.appId);
     const appName = app ? this.sanitizeFileName(app.name) : 'unknown';
@@ -330,7 +348,8 @@ export class DataService {
         updateContent: version.updateContent,
         isArchived: version.isArchived,
         createdAt: version.createdAt,
-        updatedAt: version.updatedAt
+        updatedAt: version.updatedAt,
+        version: version.version
       });
       
       await this.app.vault.modify(file, frontmatter);
@@ -386,12 +405,12 @@ export class DataService {
     return versions;
   }
 
-  async archiveVersion(id: string): Promise<Version | null> {
-    return this.updateVersion(id, { isArchived: true });
+  async archiveVersion(id: string, expectedVersion?: number): Promise<Version | null> {
+    return this.updateVersion(id, { isArchived: true }, expectedVersion);
   }
 
-  async unarchiveVersion(id: string): Promise<Version | null> {
-    return this.updateVersion(id, { isArchived: false });
+  async unarchiveVersion(id: string, expectedVersion?: number): Promise<Version | null> {
+    return this.updateVersion(id, { isArchived: false }, expectedVersion);
   }
 
   async getProjectsByVersionId(versionId: string): Promise<Project[]> {
@@ -443,7 +462,8 @@ export class DataService {
         plannedReleaseTime: frontmatter.plannedReleaseTime || '',
         actualReleaseTime: frontmatter.actualReleaseTime || '',
         createdAt: frontmatter.createdAt || file.stat.ctime.toString(),
-        updatedAt: frontmatter.updatedAt || file.stat.mtime.toString()
+        updatedAt: frontmatter.updatedAt || file.stat.mtime.toString(),
+        version: frontmatter.version || 1
       };
     } catch {
       return null;
@@ -488,7 +508,8 @@ export class DataService {
       plannedReleaseTime: data.plannedReleaseTime || '',
       actualReleaseTime: data.actualReleaseTime || '',
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      version: 1
     };
     
     const frontmatter = this.createFrontmatter({
@@ -505,19 +526,26 @@ export class DataService {
       plannedReleaseTime: project.plannedReleaseTime,
       actualReleaseTime: project.actualReleaseTime,
       createdAt: project.createdAt,
-      updatedAt: project.updatedAt
+      updatedAt: project.updatedAt,
+      version: project.version
     });
     
     const fileName = this.sanitizeFileName(data.name);
     await this.app.vault.create(normalizePath(`${PROJECTS_FOLDER}/${fileName}.md`), frontmatter);
     
+    await this.app.vault.create(normalizePath(`${MEMOS_FOLDER}/${fileName}.md`), '');
+    
     return project;
   }
 
-  async updateProject(id: string, data: Partial<Project>): Promise<Project | null> {
+  async updateProject(id: string, data: Partial<Project>, expectedVersion?: number): Promise<Project | null> {
     const allProjects = await this.getAllProjects();
     const project = allProjects.find(p => p.id === id);
     if (!project) return null;
+    
+    if (expectedVersion !== undefined && project.version !== expectedVersion) {
+      throw new ConcurrencyConflictError(`项目: ${project.name}`, project.version, expectedVersion);
+    }
     
     if (data.name && data.name !== project.name) {
       if (allProjects.some(p => p.name === data.name && p.id !== id)) {
@@ -529,6 +557,7 @@ export class DataService {
     const progressChanged = data.progress && data.progress !== project.progress;
     
     Object.assign(project, data, { updatedAt: Date.now().toString() });
+    project.version = (project.version || 1) + 1;
     
     if (progressChanged && data.progress) {
       project.progressHistory.push({
@@ -551,7 +580,8 @@ export class DataService {
       plannedReleaseTime: project.plannedReleaseTime,
       actualReleaseTime: project.actualReleaseTime,
       createdAt: project.createdAt,
-      updatedAt: project.updatedAt
+      updatedAt: project.updatedAt,
+      version: project.version
     });
     
     const oldFileName = this.sanitizeFileName(oldName);
@@ -566,6 +596,13 @@ export class DataService {
       if (oldFileName !== newFileName) {
         const newPath = normalizePath(`${PROJECTS_FOLDER}/${newFileName}.md`);
         await this.app.vault.rename(file, newPath);
+        
+        const oldMemoPath = normalizePath(`${MEMOS_FOLDER}/${oldFileName}.md`);
+        const newMemoPath = normalizePath(`${MEMOS_FOLDER}/${newFileName}.md`);
+        const memoFile = this.app.vault.getAbstractFileByPath(oldMemoPath);
+        if (memoFile instanceof TFile) {
+          await this.app.vault.rename(memoFile, newMemoPath);
+        }
       }
     }
     
@@ -581,12 +618,18 @@ export class DataService {
     const filePath = normalizePath(`${PROJECTS_FOLDER}/${fileName}.md`);
     const file = this.app.vault.getAbstractFileByPath(filePath);
     
+    const memoPath = normalizePath(`${MEMOS_FOLDER}/${fileName}.md`);
+    const memoFile = this.app.vault.getAbstractFileByPath(memoPath);
+    
     if (file instanceof TFile) {
       await this.app.vault.delete(file);
-      return true;
     }
     
-    return false;
+    if (memoFile instanceof TFile) {
+      await this.app.vault.delete(memoFile);
+    }
+    
+    return true;
   }
 
   async getAllProjects(): Promise<Project[]> {
@@ -634,5 +677,10 @@ export class DataService {
   async getAppById(id: string): Promise<App | null> {
     const allApps = await this.getAllApps();
     return allApps.find(a => a.id === id) || null;
+  }
+
+  getProjectMemoPath(projectName: string): string {
+    const fileName = this.sanitizeFileName(projectName);
+    return normalizePath(`${MEMOS_FOLDER}/${fileName}.md`);
   }
 }

@@ -1,10 +1,11 @@
 import { Menu, Modal, App as ObsidianApp, Setting, ButtonComponent } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Version, Project, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS } from '../types';
+import { Version, Project, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS, App } from '../types';
 
 export class DualPaneView {
   containerEl: HTMLElement;
   plugin: AppVersionManagerPlugin;
+  apps: App[];
   versions: Version[];
   projects: Project[];
   selectedVersionId: string | null;
@@ -16,6 +17,7 @@ export class DualPaneView {
   constructor(
     containerEl: HTMLElement,
     plugin: AppVersionManagerPlugin,
+    apps: App[],
     versions: Version[],
     projects: Project[],
     selectedVersionId: string | null,
@@ -26,6 +28,7 @@ export class DualPaneView {
   ) {
     this.containerEl = containerEl;
     this.plugin = plugin;
+    this.apps = apps;
     this.versions = versions;
     this.projects = projects;
     this.selectedVersionId = selectedVersionId;
@@ -150,7 +153,7 @@ export class DualPaneView {
   private showEditVersionModal(version: Version) {
     new EditVersionModal(this.plugin.app, version, async (data) => {
       try {
-        await this.plugin.dataService.updateVersion(version.id, data);
+        await this.plugin.dataService.updateVersion(version.id, data, version.version);
         this.onRefresh();
       } catch (error) {
         alert(error);
@@ -260,6 +263,23 @@ export class DualPaneView {
       e.preventDefault();
       this.showProjectContextMenu(project, e);
     });
+
+    item.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      this.openProjectNote(project);
+    });
+  }
+
+  private async openProjectNote(project: Project) {
+    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name);
+    let file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
+    
+    if (!file) {
+      file = await this.plugin.app.vault.create(memoPath, '');
+    }
+    
+    const leaf = this.plugin.app.workspace.getLeaf(false);
+    await leaf.openFile(file as any);
   }
   
   private ensureProtocol(url: string): string {
@@ -306,9 +326,9 @@ export class DualPaneView {
   }
   
   private showEditProjectModal(project: Project) {
-    new EditProjectModal(this.plugin.app, project, async (data) => {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, async (data) => {
       try {
-        await this.plugin.dataService.updateProject(project.id, data);
+        await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
         alert(error);
@@ -394,10 +414,20 @@ class EditVersionModal extends Modal {
 class EditProjectModal extends Modal {
   project: Project;
   onSubmit: (data: Partial<Project>) => void;
+  apps: App[];
+  versions: Version[];
   
-  constructor(app: ObsidianApp, project: Project, onSubmit: (data: Partial<Project>) => void) {
+  constructor(
+    app: ObsidianApp, 
+    project: Project, 
+    apps: App[], 
+    versions: Version[], 
+    onSubmit: (data: Partial<Project>) => void
+  ) {
     super(app);
     this.project = project;
+    this.apps = apps;
+    this.versions = versions;
     this.onSubmit = onSubmit;
   }
   
@@ -409,6 +439,7 @@ class EditProjectModal extends Modal {
     
     const data = {
       name: this.project.name,
+      versionId: this.project.versionId,
       manager: this.project.manager,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
@@ -423,6 +454,20 @@ class EditProjectModal extends Modal {
       .addText(text => text
         .setValue(data.name)
         .onChange(value => data.name = value));
+    
+    new Setting(contentEl)
+      .setName('所属版本')
+      .addDropdown(dropdown => {
+        this.versions.forEach(version => {
+          const app = this.apps.find(a => a.id === version.appId);
+          const label = app ? `${app.name} - ${version.versionNumber}` : version.versionNumber;
+          dropdown.addOption(version.id, label);
+        });
+        if (data.versionId) {
+          dropdown.setValue(data.versionId);
+        }
+        dropdown.onChange(value => data.versionId = value);
+      });
     
     new Setting(contentEl)
       .setName('项目经理')
@@ -479,7 +524,7 @@ class EditProjectModal extends Modal {
         .setButtonText('保存')
         .setCta()
         .onClick(() => {
-          if (data.name) {
+          if (data.name && data.versionId) {
             this.onSubmit(data);
             this.close();
           }

@@ -1,3 +1,14 @@
+export class ConcurrencyConflictError extends Error {
+  constructor(
+    public entityName: string,
+    public currentVersion: number,
+    public expectedVersion: number
+  ) {
+    super(`并发冲突：${entityName} 已被其他用户修改。当前版本: ${currentVersion}，期望版本: ${expectedVersion}`);
+    this.name = 'ConcurrencyConflictError';
+  }
+}
+
 export enum ProjectProgress {
   REQUIREMENT_DECOMPOSITION = '需求分解',
   CONFIG_COMPONENT_FILL = '配置组件填写',
@@ -22,6 +33,7 @@ export interface Project {
   actualReleaseTime: string;
   createdAt: string;
   updatedAt: string;
+  version: number;
 }
 
 export interface ProgressHistoryItem {
@@ -40,6 +52,7 @@ export interface Version {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  version: number;
 }
 
 export interface App {
@@ -47,6 +60,7 @@ export interface App {
   name: string;
   createdAt: string;
   updatedAt: string;
+  version: number;
 }
 
 export interface SavedFilter {
