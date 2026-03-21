@@ -1,6 +1,6 @@
 import { Menu, Modal, App as ObsidianApp, Setting } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Project, Version, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS, App } from '../types';
+import { Project, Version, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS, App, getNextStageInfo } from '../types';
 
 export class KanbanView {
   containerEl: HTMLElement;
@@ -82,18 +82,6 @@ export class KanbanView {
       card.createDiv({ cls: 'avm-card-meta', text: `👤 ${project.manager}` });
     }
     
-    if (project.plannedTestTime) {
-      const testTime = card.createDiv({ cls: 'avm-card-meta' });
-      testTime.createSpan({ text: `📅 提测: ${project.plannedTestTime}` });
-      if (isOverdue) {
-        testTime.addClass('avm-overdue-text');
-      }
-    }
-    
-    if (project.plannedReleaseTime) {
-      card.createDiv({ cls: 'avm-card-meta', text: `🚀 发布: ${project.plannedReleaseTime}` });
-    }
-    
     const links = card.createDiv({ cls: 'avm-card-links' });
     
     if (project.projectLink) {
@@ -122,23 +110,6 @@ export class KanbanView {
       e.preventDefault();
       this.showCardContextMenu(project, e);
     });
-
-    card.addEventListener('dblclick', (e) => {
-      e.preventDefault();
-      this.openProjectNote(project);
-    });
-  }
-
-  private async openProjectNote(project: Project) {
-    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name);
-    let file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
-    
-    if (!file) {
-      file = await this.plugin.app.vault.create(memoPath, '');
-    }
-    
-    const leaf = this.plugin.app.workspace.getLeaf(false);
-    await leaf.openFile(file as any);
   }
   
   private ensureProtocol(url: string): string {
@@ -150,14 +121,20 @@ export class KanbanView {
   }
 
   private checkOverdue(project: Project): boolean {
-    if (!project.plannedTestTime) return false;
     if (project.progress === ProjectProgress.SUBMITTED || project.progress === ProjectProgress.RELEASED) return false;
     
-    const plannedDate = new Date(project.plannedTestTime);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const nextStageInfo = getNextStageInfo(project);
+    if (!nextStageInfo.time) return false;
     
-    return plannedDate < today;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    const nextDate = new Date(nextStageInfo.time);
+    nextDate.setHours(0, 0, 0, 0);
+    
+    const diffDays = Math.floor((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    return diffDays >= 0 && diffDays <= 1;
   }
   
   private showCardContextMenu(project: Project, event: MouseEvent) {
@@ -245,9 +222,7 @@ class KanbanEditProjectModal extends Modal {
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
       requirements: this.project.requirements,
-      progress: this.project.progress,
-      plannedTestTime: this.project.plannedTestTime,
-      plannedReleaseTime: this.project.plannedReleaseTime
+      progress: this.project.progress
     };
     
     new Setting(contentEl)
@@ -302,22 +277,6 @@ class KanbanEditProjectModal extends Modal {
         });
         dropdown.setValue(data.progress);
         dropdown.onChange(value => data.progress = value as ProjectProgress);
-      });
-    
-    new Setting(contentEl)
-      .setName('计划提测时间')
-      .addText(text => {
-        text.inputEl.type = 'date';
-        text.setValue(data.plannedTestTime)
-          .onChange(value => data.plannedTestTime = value);
-      });
-    
-    new Setting(contentEl)
-      .setName('计划发布时间')
-      .addText(text => {
-        text.inputEl.type = 'date';
-        text.setValue(data.plannedReleaseTime)
-          .onChange(value => data.plannedReleaseTime = value);
       });
     
     new Setting(contentEl)

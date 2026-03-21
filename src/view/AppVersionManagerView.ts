@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, Menu, Modal, App as ObsidianApp, Setting, ButtonComponent, EventRef } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Modal, App as ObsidianApp, Setting, ButtonComponent, EventRef } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { App, Version, Project, ProjectProgress, SavedFilter, PROGRESS_ORDER, PROGRESS_COLORS } from '../types';
 import { DualPaneView } from './DualPaneView';
@@ -26,6 +26,7 @@ export class AppVersionManagerView extends ItemView {
   private headerEl: HTMLElement;
   private mainEl: HTMLElement;
   private eventRefs: EventRef[] = [];
+  private searchDebounceTimer: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: AppVersionManagerPlugin) {
     super(leaf);
@@ -77,9 +78,7 @@ export class AppVersionManagerView extends ItemView {
   }
 
   private registerEvents() {
-    this.eventRefs.push(
-      this.app.workspace.on('file-menu', (menu, file) => {})
-    );
+    // Reserved for future event wiring.
   }
 
   handleCreateVersion() {
@@ -183,14 +182,15 @@ export class AppVersionManagerView extends ItemView {
     
     const searchInput = filterBar.createEl('input', {
       cls: 'avm-search-input',
-      attr: { type: 'text', placeholder: '搜索项目...' }
+      attr: { type: 'text', placeholder: '搜索项目、项目经理、项目需求...' }
     });
     searchInput.value = this.currentFilter.keyword;
-    let debounceTimer: number;
     searchInput.addEventListener('input', (e) => {
       this.currentFilter.keyword = (e.target as HTMLInputElement).value;
-      clearTimeout(debounceTimer);
-      debounceTimer = window.setTimeout(() => {
+      if (this.searchDebounceTimer) {
+        clearTimeout(this.searchDebounceTimer);
+      }
+      this.searchDebounceTimer = window.setTimeout(() => {
         this.renderMainView();
       }, 300);
     });
@@ -240,6 +240,7 @@ export class AppVersionManagerView extends ItemView {
           new DeleteFilterModal(this.app, this.savedFilters, async (filterId) => {
             this.savedFilters = this.savedFilters.filter(f => f.id !== filterId);
             await this.saveSavedFilters();
+          }, () => {
             this.render();
           }).open();
         });
@@ -374,7 +375,7 @@ export class AppVersionManagerView extends ItemView {
         await this.plugin.dataService.createApp(name);
         await this.refresh();
       } catch (error) {
-        alert(error);
+        alert(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -388,7 +389,7 @@ export class AppVersionManagerView extends ItemView {
         await this.plugin.dataService.updateApp(this.selectedAppId!, newName, app.version);
         await this.refresh();
       } catch (error) {
-        alert(error);
+        alert(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -399,9 +400,13 @@ export class AppVersionManagerView extends ItemView {
     
     const confirmed = confirm(`确定要删除APP "${app.name}" 吗？\n这将同时删除该APP下的所有版本和项目数据！`);
     if (confirmed) {
-      await this.plugin.dataService.deleteApp(this.selectedAppId!);
-      this.selectedAppId = this.apps.length > 1 ? this.apps.find(a => a.id !== this.selectedAppId)?.id || null : null;
-      await this.refresh();
+      try {
+        await this.plugin.dataService.deleteApp(this.selectedAppId!);
+        this.selectedAppId = this.apps.length > 1 ? this.apps.find(a => a.id !== this.selectedAppId)?.id || null : null;
+        await this.refresh();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : String(error));
+      }
     }
   }
 
@@ -416,7 +421,7 @@ export class AppVersionManagerView extends ItemView {
         });
         await this.refresh();
       } catch (error) {
-        alert(error);
+        alert(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -429,25 +434,26 @@ export class AppVersionManagerView extends ItemView {
         await this.plugin.dataService.createProject(data);
         await this.refresh();
       } catch (error) {
-        alert(error);
+        alert(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
 
-  private showSaveFilterModal() {
-    new SaveFilterModal(this.app, async (name) => {
-      const filter: SavedFilter = {
-        id: Date.now().toString(),
-        name,
-        appId: this.selectedAppId,
-        versionId: this.selectedVersionId,
-        progress: this.currentFilter.progress,
-        keyword: this.currentFilter.keyword
-      };
-      this.savedFilters.push(filter);
-      await this.saveSavedFilters();
-      this.render();
-    }).open();
+  private async showSaveFilterModal() {
+    const keyword = this.currentFilter.keyword.trim();
+    if (!keyword) return;
+    
+    const filter: SavedFilter = {
+      id: Date.now().toString(),
+      name: keyword,
+      appId: this.selectedAppId,
+      versionId: this.selectedVersionId,
+      progress: this.currentFilter.progress,
+      keyword: this.currentFilter.keyword
+    };
+    this.savedFilters.push(filter);
+    await this.saveSavedFilters();
+    this.render();
   }
 
   private async applySavedFilter(filterId: string) {
@@ -488,6 +494,10 @@ export class AppVersionManagerView extends ItemView {
   }
 
   async onClose() {
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+      this.searchDebounceTimer = null;
+    }
     this.eventRefs.forEach(ref => this.app.workspace.offref(ref));
     this.eventRefs = [];
     this.containerEl.empty();
@@ -518,9 +528,6 @@ class CreateAppModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()))
-      .addButton(btn => btn
         .setButtonText('创建')
         .setCta()
         .onClick(() => {
@@ -528,7 +535,10 @@ class CreateAppModal extends Modal {
             this.onSubmit(appName.trim());
             this.close();
           }
-        }));
+        }))
+      .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()));
   }
   
   onClose() {
@@ -562,9 +572,6 @@ class RenameAppModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()))
-      .addButton(btn => btn
         .setButtonText('保存')
         .setCta()
         .onClick(() => {
@@ -572,7 +579,10 @@ class RenameAppModal extends Modal {
             this.onSubmit(newName.trim());
             this.close();
           }
-        }));
+        }))
+      .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()));
   }
   
   onClose() {
@@ -631,9 +641,6 @@ class CreateVersionModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()))
-      .addButton(btn => btn
         .setButtonText('创建')
         .setCta()
         .onClick(() => {
@@ -641,7 +648,10 @@ class CreateVersionModal extends Modal {
             this.onSubmit(data);
             this.close();
           }
-        }));
+        }))
+      .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()));
   }
   
   onClose() {
@@ -673,8 +683,7 @@ class CreateProjectModal extends Modal {
       componentLink: '',
       requirements: '',
       progress: ProjectProgress.REQUIREMENT_DECOMPOSITION,
-      plannedTestTime: '',
-      plannedReleaseTime: ''
+      plannedTestTime: ''
     };
     
     new Setting(contentEl)
@@ -701,12 +710,6 @@ class CreateProjectModal extends Modal {
         .onChange(value => data.componentLink = value));
     
     new Setting(contentEl)
-      .setName('项目需求')
-      .addTextArea(text => text
-        .setPlaceholder('可选')
-        .onChange(value => data.requirements = value));
-    
-    new Setting(contentEl)
       .setName('项目进度')
       .addDropdown(dropdown => {
         PROGRESS_ORDER.forEach(progress => {
@@ -724,16 +727,12 @@ class CreateProjectModal extends Modal {
       });
     
     new Setting(contentEl)
-      .setName('计划发布时间')
-      .addText(text => {
-        text.inputEl.type = 'date';
-        text.onChange(value => data.plannedReleaseTime = value);
-      });
+      .setName('项目需求')
+      .addTextArea(text => text
+        .setPlaceholder('可选')
+        .onChange(value => data.requirements = value));
     
     new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()))
       .addButton(btn => btn
         .setButtonText('创建')
         .setCta()
@@ -742,49 +741,10 @@ class CreateProjectModal extends Modal {
             this.onSubmit(data);
             this.close();
           }
-        }));
-  }
-  
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-
-class SaveFilterModal extends Modal {
-  onSubmit: (name: string) => void;
-  
-  constructor(app: ObsidianApp, onSubmit: (name: string) => void) {
-    super(app);
-    this.onSubmit = onSubmit;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '保存筛选条件' });
-    
-    let filterName = '';
-    
-    new Setting(contentEl)
-      .setName('筛选条件名称')
-      .addText(text => text
-        .setPlaceholder('输入名称')
-        .onChange(value => filterName = value));
-    
-    new Setting(contentEl)
+        }))
       .addButton(btn => btn
         .setButtonText('取消')
-        .onClick(() => this.close()))
-      .addButton(btn => btn
-        .setButtonText('保存')
-        .setCta()
-        .onClick(() => {
-          if (filterName.trim()) {
-            this.onSubmit(filterName.trim());
-            this.close();
-          }
-        }));
+        .onClick(() => this.close()));
   }
   
   onClose() {
@@ -794,12 +754,14 @@ class SaveFilterModal extends Modal {
 
 class DeleteFilterModal extends Modal {
   filters: SavedFilter[];
-  onSubmit: (filterId: string) => void;
+  onSubmit: (filterId: string) => Promise<void>;
+  onCloseCallback: () => void;
   
-  constructor(app: ObsidianApp, filters: SavedFilter[], onSubmit: (filterId: string) => void) {
+  constructor(app: ObsidianApp, filters: SavedFilter[], onSubmit: (filterId: string) => Promise<void>, onCloseCallback: () => void) {
     super(app);
     this.filters = filters;
     this.onSubmit = onSubmit;
+    this.onCloseCallback = onCloseCallback;
   }
   
   onOpen() {
@@ -815,21 +777,36 @@ class DeleteFilterModal extends Modal {
           .setButtonText('删除')
           .setWarning()
           .onClick(() => {
-            if (confirm(`确定要删除筛选条件 "${filter.name}" 吗？`)) {
-              this.onSubmit(filter.id);
-              this.close();
-            }
+            this.doDelete(filter.id);
           }));
     });
     
     new Setting(contentEl)
       .addButton(btn => btn
-        .setButtonText('取消')
+        .setButtonText('关闭')
         .onClick(() => this.close()));
+  }
+  
+  private async doDelete(filterId: string) {
+    const filter = this.filters.find(f => f.id === filterId);
+    if (!filter) return;
+    
+    this.filters = this.filters.filter(f => f.id !== filterId);
+    await this.onSubmit(filterId);
+    
+    if (this.filters.length === 0) {
+      this.close();
+    } else {
+      this.contentEl.empty();
+      this.onOpen();
+    }
   }
   
   onClose() {
     this.contentEl.empty();
+    setTimeout(() => {
+      this.onCloseCallback();
+    }, 100);
   }
 }
 
@@ -837,6 +814,7 @@ class ExportModal extends Modal {
   importExportService: ImportExportService;
   projects: Project[];
   versions: Version[];
+  format: 'csv' | 'xlsx' = 'csv';
   
   constructor(app: ObsidianApp, service: ImportExportService, projects: Project[], versions: Version[]) {
     super(app);
@@ -856,28 +834,29 @@ class ExportModal extends Modal {
       .addDropdown(dropdown => {
         dropdown.addOption('csv', 'CSV');
         dropdown.addOption('xlsx', 'Excel (XLSX)');
+        dropdown.setValue(this.format);
+        dropdown.onChange(value => {
+          this.format = value === 'xlsx' ? 'xlsx' : 'csv';
+        });
       });
     
     new Setting(contentEl)
       .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()))
-      .addButton(btn => btn
-        .setButtonText('导出CSV')
+        .setButtonText('导出')
         .setCta()
         .onClick(async () => {
-          const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
-          this.downloadFile(csv, 'projects.csv', 'text/csv');
+          if (this.format === 'xlsx') {
+            const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
+            this.downloadFile(buffer, 'projects.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          } else {
+            const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
+            this.downloadFile(csv, 'projects.csv', 'text/csv');
+          }
           this.close();
         }))
       .addButton(btn => btn
-        .setButtonText('导出Excel')
-        .setCta()
-        .onClick(async () => {
-          const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
-          this.downloadFile(buffer, 'projects.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-          this.close();
-        }));
+        .setButtonText('取消')
+        .onClick(() => this.close()));
   }
   
   private downloadFile(content: string | ArrayBuffer, filename: string, mimeType: string) {
@@ -919,9 +898,6 @@ class ImportModal extends Modal {
     
     new Setting(contentEl)
       .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()))
-      .addButton(btn => btn
         .setButtonText('导入')
         .setCta()
         .onClick(async () => {
@@ -947,7 +923,10 @@ class ImportModal extends Modal {
           } catch (error) {
             alert(`导入失败: ${error}`);
           }
-        }));
+        }))
+      .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()));
   }
   
   onClose() {

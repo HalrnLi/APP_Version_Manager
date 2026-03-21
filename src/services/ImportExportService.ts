@@ -23,8 +23,14 @@ export class ImportExportService {
       '组件库链接',
       '项目需求',
       '项目进度',
-      '计划提测时间',
-      '计划发布时间',
+      'B1集成测试时间',
+      'B1系统测试时间',
+      'B2集成测试时间',
+      'B2系统测试时间',
+      'B3集成测试时间',
+      'B3系统测试时间',
+      'B4集成测试时间',
+      'B4系统测试时间',
       '实际发布时间',
       '创建时间',
       '更新时间'
@@ -43,8 +49,14 @@ export class ImportExportService {
         project.componentLink,
         project.requirements.replace(/\n/g, '\\n'),
         project.progress,
-        project.plannedTestTime,
-        project.plannedReleaseTime,
+        project.b1IntegrationTestTime,
+        project.b1SystemTestTime,
+        project.b2IntegrationTestTime,
+        project.b2SystemTestTime,
+        project.b3IntegrationTestTime,
+        project.b3SystemTestTime,
+        project.b4IntegrationTestTime,
+        project.b4SystemTestTime,
         project.actualReleaseTime,
         project.createdAt,
         project.updatedAt
@@ -60,10 +72,13 @@ export class ImportExportService {
   }
 
   private escapeCSV(value: string): string {
-    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-      return `"${value.replace(/"/g, '""')}"`;
+    const normalized = value ?? '';
+    const formulaUnsafe = /^[=+\-@]/.test(normalized);
+    const protectedValue = formulaUnsafe ? `'${normalized}` : normalized;
+    if (protectedValue.includes(',') || protectedValue.includes('"') || protectedValue.includes('\n')) {
+      return `"${protectedValue.replace(/"/g, '""')}"`;
     }
-    return value;
+    return protectedValue;
   }
 
   async importFromCSV(content: string, appId: string): Promise<{ success: number; errors: string[] }> {
@@ -71,6 +86,9 @@ export class ImportExportService {
     const headers = this.parseCSVLine(lines[0]);
     
     const result = { success: 0, errors: [] as string[] };
+    
+    const existingProjects = await this.plugin.dataService.getAllProjects();
+    const projectByName = new Map(existingProjects.map(p => [p.name, p]));
     
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue;
@@ -91,8 +109,7 @@ export class ImportExportService {
           continue;
         }
         
-        const existingProjects = await this.plugin.dataService.getAllProjects();
-        const existingProject = existingProjects.find(p => p.name === projectName);
+        const existingProject = projectByName.get(projectName);
         
         const projectData = {
           name: projectName,
@@ -103,14 +120,14 @@ export class ImportExportService {
           requirements: (rowData['项目需求'] || '').replace(/\\n/g, '\n'),
           progress: this.parseProgress(rowData['项目进度']),
           plannedTestTime: rowData['计划提测时间'] || '',
-          plannedReleaseTime: rowData['计划发布时间'] || '',
           actualReleaseTime: rowData['实际发布时间'] || ''
         };
         
         if (existingProject) {
           await this.plugin.dataService.updateProject(existingProject.id, projectData);
         } else {
-          await this.plugin.dataService.createProject(projectData);
+          const created = await this.plugin.dataService.createProject(projectData);
+          projectByName.set(created.name, created);
         }
         
         result.success++;
@@ -203,8 +220,14 @@ export class ImportExportService {
         '组件库链接': project.componentLink,
         '项目需求': project.requirements,
         '项目进度': project.progress,
-        '计划提测时间': project.plannedTestTime,
-        '计划发布时间': project.plannedReleaseTime,
+        'B1集成测试时间': project.b1IntegrationTestTime,
+        'B1系统测试时间': project.b1SystemTestTime,
+        'B2集成测试时间': project.b2IntegrationTestTime,
+        'B2系统测试时间': project.b2SystemTestTime,
+        'B3集成测试时间': project.b3IntegrationTestTime,
+        'B3系统测试时间': project.b3SystemTestTime,
+        'B4集成测试时间': project.b4IntegrationTestTime,
+        'B4系统测试时间': project.b4SystemTestTime,
         '实际发布时间': project.actualReleaseTime,
         '创建时间': project.createdAt,
         '更新时间': project.updatedAt
@@ -227,6 +250,9 @@ export class ImportExportService {
     
     const result = { success: 0, errors: [] as string[] };
     
+    const existingProjects = await this.plugin.dataService.getAllProjects();
+    const projectByName = new Map(existingProjects.map(p => [p.name, p]));
+    
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       
@@ -244,8 +270,7 @@ export class ImportExportService {
           continue;
         }
         
-        const existingProjects = await this.plugin.dataService.getAllProjects();
-        const existingProject = existingProjects.find(p => p.name === projectName);
+        const existingProject = projectByName.get(projectName);
         
         const projectData = {
           name: projectName,
@@ -256,14 +281,14 @@ export class ImportExportService {
           requirements: row['项目需求'] || '',
           progress: this.parseProgress(row['项目进度']),
           plannedTestTime: row['计划提测时间'] || '',
-          plannedReleaseTime: row['计划发布时间'] || '',
           actualReleaseTime: row['实际发布时间'] || ''
         };
         
         if (existingProject) {
           await this.plugin.dataService.updateProject(existingProject.id, projectData);
         } else {
-          await this.plugin.dataService.createProject(projectData);
+          const created = await this.plugin.dataService.createProject(projectData);
+          projectByName.set(created.name, created);
         }
         
         result.success++;

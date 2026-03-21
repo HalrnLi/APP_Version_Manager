@@ -10,6 +10,7 @@ export default class AppVersionManagerPlugin extends Plugin {
   settings: PluginSettings;
   dataService: DataService;
   backupService: BackupService;
+  private saveSettingsQueue: Promise<void> = Promise.resolve();
 
   async onload() {
     await this.loadSettings();
@@ -300,6 +301,54 @@ export default class AppVersionManagerPlugin extends Plugin {
   display: inline-block;
 }
 
+.avm-clickable {
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.1s;
+}
+
+.avm-clickable:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
+.avm-progress-confirm-modal .avm-confirm-info {
+  padding: 16px 0;
+}
+
+.avm-progress-confirm-modal .avm-confirm-project {
+  font-size: 14px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+}
+
+.avm-progress-confirm-modal .avm-confirm-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.avm-progress-confirm-modal .avm-confirm-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 16px 0;
+}
+
+.avm-progress-confirm-modal .avm-progress-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.avm-progress-confirm-modal .avm-progress-arrow {
+  font-size: 24px;
+  color: var(--text-muted);
+}
+
 .avm-project-meta {
   display: flex;
   flex-wrap: wrap;
@@ -557,6 +606,17 @@ export default class AppVersionManagerPlugin extends Plugin {
   font-size: 18px;
 }
 
+.avm-modal .setting-item-control input[type="text"],
+.avm-modal .setting-item-control textarea,
+.avm-modal .setting-item-control select {
+  width: 280px;
+}
+
+.avm-modal .setting-item-control textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
 .theme-dark .avm-kanban-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -600,9 +660,16 @@ export default class AppVersionManagerPlugin extends Plugin {
   }
 
   async saveSettings() {
-    const data = await this.loadData() || {};
-    Object.assign(data, this.settings);
-    await this.saveData(data);
+    this.saveSettingsQueue = this.saveSettingsQueue
+      .catch(() => {
+        // Keep the queue alive even if a previous save failed.
+      })
+      .then(async () => {
+        const data = await this.loadData() || {};
+        Object.assign(data, this.settings);
+        await this.saveData(data);
+      });
+    await this.saveSettingsQueue;
   }
 
   async activateView() {
@@ -643,15 +710,43 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('数据存储路径')
+      .setDesc('设置插件数据存储的根目录路径。支持相对路径（相对于vault根目录）或绝对路径')
+      .addText(text => text
+        .setPlaceholder('app-version-manager 或 C:\\MyData\\app-versions')
+        .setValue(this.plugin.settings.dataPath)
+        .onChange(async (value) => {
+          const newPath = value.trim() || 'app-version-manager';
+          if (newPath !== this.plugin.settings.dataPath) {
+            this.plugin.settings.dataPath = newPath;
+            await this.plugin.saveSettings();
+            // 重新初始化数据服务以使用新路径
+            this.plugin.dataService = new DataService(this.app, this.plugin);
+          }
+        }));
+
+    new Setting(containerEl)
+      .setName('打开数据目录')
       .setDesc('在文件管理器中打开数据存储目录')
       .addButton(btn => btn
         .setButtonText('打开数据目录')
         .onClick(() => {
-          const dataFolder = this.app.vault.getAbstractFileByPath('app-version-manager');
-          if (dataFolder) {
-            (this.app as any).showInFolder(dataFolder.path);
+          const dataPath = this.plugin.settings.dataPath;
+          if (this.plugin.dataService.isAbsolutePath()) {
+            // 对于绝对路径，使用系统默认方式打开文件夹
+            // 这里我们不能直接打开，但可以显示路径
+            alert(`数据存储路径: ${dataPath}\n\n请手动在文件管理器中打开此路径。`);
           } else {
-            alert('数据目录尚未创建，请先创建一些数据后再试');
+            const dataFolder = this.app.vault.getAbstractFileByPath(dataPath);
+            if (dataFolder) {
+              const appWithShowInFolder = this.app as App & { showInFolder?: (path: string) => void };
+              if (typeof appWithShowInFolder.showInFolder === 'function') {
+                appWithShowInFolder.showInFolder(dataFolder.path);
+              } else {
+                alert('当前环境不支持打开系统文件管理器');
+              }
+            } else {
+              alert('数据目录尚未创建，请先创建一些数据后再试');
+            }
           }
         }));
 
@@ -667,6 +762,31 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
             this.plugin.backupService.scheduleBackup();
           } else {
             this.plugin.backupService.clearBackupSchedule();
+          }
+        }));
+
+    new Setting(containerEl)
+      .setName('备份路径')
+      .setDesc('备份文件存储路径，不填则默认为笔记根目录下的 app-version-manager/backups 文件夹')
+      .addText(text => text
+        .setPlaceholder('app-version-manager/backups 或留空使用默认路径')
+        .setValue(this.plugin.settings.backupPath)
+        .onChange(async (value) => {
+          this.plugin.settings.backupPath = value.trim();
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('手动备份')
+      .setDesc('立即创建一个备份文件')
+      .addButton(btn => btn
+        .setButtonText('立即备份')
+        .onClick(async () => {
+          try {
+            const backupPath = await this.plugin.backupService.performBackup();
+            alert(`备份成功！\n备份文件：${backupPath}`);
+          } catch (error) {
+            alert(`备份失败：${error instanceof Error ? error.message : String(error)}`);
           }
         }));
 

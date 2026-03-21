@@ -5,7 +5,8 @@
       "Bash(gh auth:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(find e:/Code/glm_5 -type f -name *.ts -o -name *.js -o -name *.json -o -name *.md)"
     ]
   }
 }

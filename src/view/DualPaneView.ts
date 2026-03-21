@@ -1,6 +1,6 @@
-import { Menu, Modal, App as ObsidianApp, Setting, ButtonComponent } from 'obsidian';
+import { Menu, Modal, App as ObsidianApp, Setting, ButtonComponent, TFile } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Version, Project, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS, App } from '../types';
+import { Version, Project, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS, App, parseDateInput, getNextStageInfo } from '../types';
 
 export class DualPaneView {
   containerEl: HTMLElement;
@@ -142,8 +142,12 @@ export class DualPaneView {
       .onClick(async () => {
         const confirmed = confirm(`确定要删除版本 ${version.versionNumber} 吗？\n关联的项目将保留但解除关联。`);
         if (confirmed) {
-          await this.plugin.dataService.deleteVersion(version.id);
-          this.onRefresh();
+          try {
+            await this.plugin.dataService.deleteVersion(version.id);
+            this.onRefresh();
+          } catch (error) {
+            alert(error instanceof Error ? error.message : String(error));
+          }
         }
       }));
     
@@ -156,7 +160,7 @@ export class DualPaneView {
         await this.plugin.dataService.updateVersion(version.id, data, version.version);
         this.onRefresh();
       } catch (error) {
-        alert(error);
+        alert(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -190,9 +194,51 @@ export class DualPaneView {
       return;
     }
     
-    versionProjects.forEach(project => {
+    const sortedProjects = this.applySorting(versionProjects);
+    
+    sortedProjects.forEach(project => {
       this.renderProjectItem(projectList, project);
     });
+  }
+  
+  private applySorting(projects: Project[]): Project[] {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    const projectsWithPriority = projects.map(project => {
+      const nextStageInfo = getNextStageInfo(project);
+      
+      let priority = 3;
+      let sortTime = new Date(project.createdAt).getTime();
+      
+      if (project.progress === ProjectProgress.RELEASED) {
+        priority = 4;
+      } else if (nextStageInfo.time) {
+        const nextDate = new Date(nextStageInfo.time);
+        nextDate.setHours(0, 0, 0, 0);
+        
+        const daysDiff = Math.floor((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff === 0) {
+          priority = 1;
+        } else if (daysDiff === 1) {
+          priority = 2;
+        }
+        
+        sortTime = nextDate.getTime();
+      }
+      
+      return { project, priority, sortTime };
+    });
+    
+    return projectsWithPriority
+      .sort((a, b) => {
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
+        }
+        return a.sortTime - b.sortTime;
+      })
+      .map(item => item.project);
   }
   
   private renderProjectItem(container: HTMLElement, project: Project) {
@@ -218,17 +264,6 @@ export class DualPaneView {
       meta.createSpan({ cls: 'avm-meta-item', text: `👤 ${project.manager}` });
     }
     
-    if (project.plannedTestTime) {
-      const testTime = meta.createSpan({ cls: 'avm-meta-item', text: `📅 提测: ${project.plannedTestTime}` });
-      if (isOverdue) {
-        testTime.addClass('avm-overdue-text');
-      }
-    }
-    
-    if (project.plannedReleaseTime) {
-      meta.createSpan({ cls: 'avm-meta-item', text: `🚀 发布: ${project.plannedReleaseTime}` });
-    }
-    
     const links = item.createDiv({ cls: 'avm-project-links' });
     
     if (project.projectLink) {
@@ -236,9 +271,7 @@ export class DualPaneView {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const { shell } = require('electron');
-        const url = this.ensureProtocol(project.projectLink);
-        shell.openExternal(url);
+        this.openExternalLink(project.projectLink);
       });
     }
 
@@ -247,9 +280,7 @@ export class DualPaneView {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const { shell } = require('electron');
-        const url = this.ensureProtocol(project.componentLink);
-        shell.openExternal(url);
+        this.openExternalLink(project.componentLink);
       });
     }
     
@@ -271,34 +302,53 @@ export class DualPaneView {
   }
 
   private async openProjectNote(project: Project) {
-    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name);
+    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name, project.id);
     let file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
     
     if (!file) {
-      file = await this.plugin.app.vault.create(memoPath, '');
+      try {
+        file = await this.plugin.app.vault.create(memoPath, '');
+      } catch {
+        file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
+      }
     }
     
-    const leaf = this.plugin.app.workspace.getLeaf(false);
-    await leaf.openFile(file as any);
+    if (file instanceof TFile) {
+      const leaf = this.plugin.app.workspace.getLeaf(false);
+      await leaf.openFile(file);
+    }
   }
   
-  private ensureProtocol(url: string): string {
-    if (!url) return url;
-    if (!/^https?:\/\//i.test(url)) {
-      return 'https://' + url;
+  private openExternalLink(rawUrl: string) {
+    const { shell } = require('electron');
+    const normalized = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+    try {
+      const url = new URL(normalized);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        alert('仅允许打开 http/https 链接');
+        return;
+      }
+      shell.openExternal(url.toString());
+    } catch {
+      alert('链接格式无效');
     }
-    return url;
   }
 
   private checkOverdue(project: Project): boolean {
-    if (!project.plannedTestTime) return false;
     if (project.progress === ProjectProgress.SUBMITTED || project.progress === ProjectProgress.RELEASED) return false;
     
-    const plannedDate = new Date(project.plannedTestTime);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const nextStageInfo = getNextStageInfo(project);
+    if (!nextStageInfo.time) return false;
     
-    return plannedDate < today;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    const nextDate = new Date(nextStageInfo.time);
+    nextDate.setHours(0, 0, 0, 0);
+    
+    const diffDays = Math.floor((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    return diffDays >= 0 && diffDays <= 1;
   }
   
   private showProjectContextMenu(project: Project, event: MouseEvent) {
@@ -309,6 +359,11 @@ export class DualPaneView {
       .setIcon('pencil')
       .onClick(() => this.showEditProjectModal(project)));
     
+    menu.addItem(item => item
+      .setTitle('提测计划')
+      .setIcon('calendar')
+      .onClick(() => this.showTestPlanModal(project)));
+    
     menu.addSeparator();
     
     menu.addItem(item => item
@@ -317,8 +372,12 @@ export class DualPaneView {
       .onClick(async () => {
         const confirmed = confirm(`确定要删除项目 "${project.name}" 吗？`);
         if (confirmed) {
-          await this.plugin.dataService.deleteProject(project.id);
-          this.onRefresh();
+          try {
+            await this.plugin.dataService.deleteProject(project.id);
+            this.onRefresh();
+          } catch (error) {
+            alert(error instanceof Error ? error.message : String(error));
+          }
         }
       }));
     
@@ -331,7 +390,18 @@ export class DualPaneView {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        alert(error);
+        alert(error instanceof Error ? error.message : String(error));
+      }
+    }).open();
+  }
+  
+  private showTestPlanModal(project: Project) {
+    new DualPaneTestPlanModal(this.plugin.app, project, async (data) => {
+      try {
+        await this.plugin.dataService.updateProject(project.id, data, project.version);
+        this.onRefresh();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -410,7 +480,114 @@ class EditVersionModal extends Modal {
     this.contentEl.empty();
   }
 }
-
+class DualPaneTestPlanModal extends Modal {
+  project: Project;
+  onSubmit: (data: Partial<Project>) => void;
+  
+  constructor(app: ObsidianApp, project: Project, onSubmit: (data: Partial<Project>) => void) {
+    super(app);
+    this.project = project;
+    this.onSubmit = onSubmit;
+  }
+  
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass('avm-modal');
+    
+    contentEl.createEl('h2', { text: '提测计划配置' });
+    
+    const data = {
+      b1IntegrationTestTime: this.project.b1IntegrationTestTime,
+      b1SystemTestTime: this.project.b1SystemTestTime,
+      b2IntegrationTestTime: this.project.b2IntegrationTestTime,
+      b2SystemTestTime: this.project.b2SystemTestTime,
+      b3IntegrationTestTime: this.project.b3IntegrationTestTime,
+      b3SystemTestTime: this.project.b3SystemTestTime,
+      b4IntegrationTestTime: this.project.b4IntegrationTestTime,
+      b4SystemTestTime: this.project.b4SystemTestTime
+    };
+    
+    // B1阶段
+    contentEl.createEl('h3', { text: 'B1阶段' });
+    new Setting(contentEl)
+      .setName('B1集成测试时间')
+      .addText(text => text
+        .setPlaceholder('YYYY-MM-DD 或其他格式')
+        .setValue(data.b1IntegrationTestTime)
+        .onChange(value => data.b1IntegrationTestTime = parseDateInput(value) || ''));
+    
+    new Setting(contentEl)
+      .setName('B1系统测试时间')
+      .addText(text => text
+        .setPlaceholder('YYYY-MM-DD 或其他格式')
+        .setValue(data.b1SystemTestTime)
+        .onChange(value => data.b1SystemTestTime = parseDateInput(value) || ''));
+    
+    // B2阶段
+    contentEl.createEl('h3', { text: 'B2阶段' });
+    new Setting(contentEl)
+      .setName('B2集成测试时间')
+      .addText(text => text
+        .setPlaceholder('YYYY-MM-DD 或其他格式')
+        .setValue(data.b2IntegrationTestTime)
+        .onChange(value => data.b2IntegrationTestTime = parseDateInput(value) || ''));
+    
+    new Setting(contentEl)
+      .setName('B2系统测试时间')
+      .addText(text => text
+        .setPlaceholder('YYYY-MM-DD 或其他格式')
+        .setValue(data.b2SystemTestTime)
+        .onChange(value => data.b2SystemTestTime = parseDateInput(value) || ''));
+    
+    // B3阶段
+    contentEl.createEl('h3', { text: 'B3阶段' });
+    new Setting(contentEl)
+      .setName('B3集成测试时间')
+      .addText(text => text
+        .setPlaceholder('YYYY-MM-DD 或其他格式')
+        .setValue(data.b3IntegrationTestTime)
+        .onChange(value => data.b3IntegrationTestTime = parseDateInput(value) || ''));
+    
+    new Setting(contentEl)
+      .setName('B3系统测试时间')
+      .addText(text => text
+        .setPlaceholder('YYYY-MM-DD 或其他格式')
+        .setValue(data.b3SystemTestTime)
+        .onChange(value => data.b3SystemTestTime = parseDateInput(value) || ''));
+    
+    // B4阶段
+    contentEl.createEl('h3', { text: 'B4阶段' });
+    new Setting(contentEl)
+      .setName('B4集成测试时间')
+      .addText(text => text
+        .setPlaceholder('YYYY-MM-DD 或其他格式')
+        .setValue(data.b4IntegrationTestTime)
+        .onChange(value => data.b4IntegrationTestTime = parseDateInput(value) || ''));
+    
+    new Setting(contentEl)
+      .setName('B4系统测试时间')
+      .addText(text => text
+        .setPlaceholder('YYYY-MM-DD 或其他格式')
+        .setValue(data.b4SystemTestTime)
+        .onChange(value => data.b4SystemTestTime = parseDateInput(value) || ''));
+    
+    new Setting(contentEl)
+      .addButton(btn => btn
+        .setButtonText('保存')
+        .setCta()
+        .onClick(() => {
+          this.onSubmit(data);
+          this.close();
+        }))
+      .addButton(btn => btn
+        .setButtonText('取消')
+        .onClick(() => this.close()));
+  }
+  
+  onClose() {
+    this.contentEl.empty();
+  }
+}
 class EditProjectModal extends Modal {
   project: Project;
   onSubmit: (data: Partial<Project>) => void;
@@ -444,9 +621,7 @@ class EditProjectModal extends Modal {
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
       requirements: this.project.requirements,
-      progress: this.project.progress,
-      plannedTestTime: this.project.plannedTestTime,
-      plannedReleaseTime: this.project.plannedReleaseTime
+      progress: this.project.progress
     };
     
     new Setting(contentEl)
@@ -459,9 +634,7 @@ class EditProjectModal extends Modal {
       .setName('所属版本')
       .addDropdown(dropdown => {
         this.versions.forEach(version => {
-          const app = this.apps.find(a => a.id === version.appId);
-          const label = app ? `${app.name} - ${version.versionNumber}` : version.versionNumber;
-          dropdown.addOption(version.id, label);
+          dropdown.addOption(version.id, version.versionNumber);
         });
         if (data.versionId) {
           dropdown.setValue(data.versionId);
@@ -488,12 +661,6 @@ class EditProjectModal extends Modal {
         .onChange(value => data.componentLink = value));
     
     new Setting(contentEl)
-      .setName('项目需求')
-      .addTextArea(text => text
-        .setValue(data.requirements)
-        .onChange(value => data.requirements = value));
-    
-    new Setting(contentEl)
       .setName('项目进度')
       .addDropdown(dropdown => {
         PROGRESS_ORDER.forEach(progress => {
@@ -504,20 +671,10 @@ class EditProjectModal extends Modal {
       });
     
     new Setting(contentEl)
-      .setName('计划提测时间')
-      .addText(text => {
-        text.inputEl.type = 'date';
-        text.setValue(data.plannedTestTime)
-          .onChange(value => data.plannedTestTime = value);
-      });
-    
-    new Setting(contentEl)
-      .setName('计划发布时间')
-      .addText(text => {
-        text.inputEl.type = 'date';
-        text.setValue(data.plannedReleaseTime)
-          .onChange(value => data.plannedReleaseTime = value);
-      });
+      .setName('项目需求')
+      .addTextArea(text => text
+        .setValue(data.requirements)
+        .onChange(value => data.requirements = value));
     
     new Setting(contentEl)
       .addButton(btn => btn

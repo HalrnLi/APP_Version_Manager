@@ -1,0 +1,9 @@
+{
+  "savedFilters": [],
+  "defaultAppId": null,
+  "autoBackup": true,
+  "backupDay": 5,
+  "backupHour": 23,
+  "lastBackupTime": null,
+  "dataPath": "app-version-manager"
+}
