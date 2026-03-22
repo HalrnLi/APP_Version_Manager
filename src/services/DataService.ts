@@ -2,7 +2,7 @@ import { App as ObsidianApp, TFile, TFolder, normalizePath } from 'obsidian';
 import { existsSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync, renameSync } from 'fs';
 import { join, isAbsolute, basename, extname } from 'path';
 import AppVersionManagerPlugin from '../main';
-import { App, Version, Project, ProjectProgress, ProgressHistoryItem, ConcurrencyConflictError } from '../types';
+import { App, Version, Project, ProjectProgress, ProgressHistoryItem, ConcurrencyConflictError, getProgressOrder, getFirstProgress } from '../types';
 
 // 自定义文件接口，用于支持绝对路径
 interface CustomFile {
@@ -669,14 +669,7 @@ export class DataService {
     }
     
     return projects.sort((a, b) => {
-      const progressOrder = [
-        ProjectProgress.REQUIREMENT_DECOMPOSITION,
-        ProjectProgress.CONFIG_COMPONENT_FILL,
-        ProjectProgress.COMPONENT_UPLOAD,
-        ProjectProgress.SELF_TEST,
-        ProjectProgress.SUBMITTED,
-        ProjectProgress.RELEASED
-      ];
+      const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
       return progressOrder.indexOf(a.progress) - progressOrder.indexOf(b.progress);
     });
   }
@@ -710,7 +703,7 @@ export class DataService {
         projectLink: frontmatter.projectLink ?? '',
         componentLink: frontmatter.componentLink ?? '',
         requirements: frontmatter.requirements ?? '',
-        progress: frontmatter.progress ?? ProjectProgress.REQUIREMENT_DECOMPOSITION,
+        progress: frontmatter.progress ?? getFirstProgress(this.plugin.settings.progressStages),
         progressHistory: this.parseProgressHistory(frontmatter.progressHistory),
         b1IntegrationTestTime: frontmatter.b1IntegrationTestTime ?? '',
         b1SystemTestTime: frontmatter.b1SystemTestTime ?? '',
@@ -767,9 +760,9 @@ export class DataService {
       projectLink: data.projectLink || '',
       componentLink: data.componentLink || '',
       requirements: data.requirements || '',
-      progress: data.progress || ProjectProgress.REQUIREMENT_DECOMPOSITION,
+      progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
       progressHistory: [{
-        progress: data.progress || ProjectProgress.REQUIREMENT_DECOMPOSITION,
+        progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
         changedAt: now
       }],
       b1IntegrationTestTime: data.b1IntegrationTestTime || '',
@@ -815,8 +808,8 @@ export class DataService {
       ? join(this.getProjectsFolder(), `${fileName}__${id}.md`)
       : normalizePath(`${this.getProjectsFolder()}/${fileName}__${id}.md`);
     const memoFilePath = this.isAbsolutePath()
-      ? join(this.getMemosFolder(), `${fileName}__${id}.md`)
-      : normalizePath(`${this.getMemosFolder()}/${fileName}__${id}.md`);
+      ? join(this.getMemosFolder(), `${fileName}.md`)
+      : normalizePath(`${this.getMemosFolder()}/${fileName}.md`);
     
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, '');
@@ -908,26 +901,17 @@ export class DataService {
           : normalizePath(`${this.getProjectsFolder()}/${newFileName}__${project.id}.md`);
         await this.renameFile(file, newPath);
         
-        // 处理备忘录文件的重命名
         if (this.isAbsolutePath()) {
-          // 对于绝对路径，手动查找并重命名备忘录文件
-          const oldMemoPath = join(this.getMemosFolder(), `${oldFileName}__${project.id}.md`);
-          const newMemoPath = join(this.getMemosFolder(), `${newFileName}__${project.id}.md`);
-          const legacyMemoPath = join(this.getMemosFolder(), `${oldFileName}.md`);
+          const oldMemoPath = join(this.getMemosFolder(), `${oldFileName}.md`);
+          const newMemoPath = join(this.getMemosFolder(), `${newFileName}.md`);
           
           if (existsSync(oldMemoPath)) {
             renameSync(oldMemoPath, newMemoPath);
-          } else if (existsSync(legacyMemoPath)) {
-            renameSync(legacyMemoPath, newMemoPath);
           }
         } else {
-          // 对于相对路径，使用原来的逻辑
-          const oldMemoPath = normalizePath(`${this.getMemosFolder()}/${oldFileName}__${project.id}.md`);
-          const newMemoPath = normalizePath(`${this.getMemosFolder()}/${newFileName}__${project.id}.md`);
-          const legacyMemoPath = normalizePath(`${this.getMemosFolder()}/${oldFileName}.md`);
-          const memoFile =
-            this.app.vault.getAbstractFileByPath(oldMemoPath)
-            ?? this.app.vault.getAbstractFileByPath(legacyMemoPath);
+          const oldMemoPath = normalizePath(`${this.getMemosFolder()}/${oldFileName}.md`);
+          const newMemoPath = normalizePath(`${this.getMemosFolder()}/${newFileName}.md`);
+          const memoFile = this.app.vault.getAbstractFileByPath(oldMemoPath);
           if (memoFile instanceof TFile) {
             await this.app.vault.rename(memoFile, newMemoPath);
           }
@@ -961,9 +945,7 @@ export class DataService {
         }
       }
       
-      // 查找备忘录文件
-      const memoPath = join(this.getMemosFolder(), `${fileName}__${project.id}.md`);
-      const legacyMemoPath = join(this.getMemosFolder(), `${fileName}.md`);
+      const memoPath = this.getProjectMemoPath(project.name);
       if (existsSync(memoPath)) {
         memoFile = {
           path: memoPath,
@@ -976,31 +958,15 @@ export class DataService {
           readContent: () => readFileSync(memoPath, 'utf-8'),
           writeContent: (content: string) => writeFileSync(memoPath, content, 'utf-8')
         } as CustomFile;
-      } else if (existsSync(legacyMemoPath)) {
-        memoFile = {
-          path: legacyMemoPath,
-          basename: basename(legacyMemoPath, '.md'),
-          extension: 'md',
-          stat: {
-            ctime: statSync(legacyMemoPath).ctime.getTime(),
-            mtime: statSync(legacyMemoPath).mtime.getTime()
-          },
-          readContent: () => readFileSync(legacyMemoPath, 'utf-8'),
-          writeContent: (content: string) => writeFileSync(legacyMemoPath, content, 'utf-8')
-        } as CustomFile;
       }
     } else {
-      // 对于相对路径，使用原来的逻辑
       const filePath = normalizePath(`${this.getProjectsFolder()}/${fileName}.md`);
       const fallbackFile = this.app.vault.getAbstractFileByPath(filePath);
       file = (await this.findEntityFileById<Project>(this.getProjectsFolder(), this.parseProjectFile, id))
         ?? (fallbackFile instanceof TFile ? fallbackFile : null);
       
-      const memoPath = normalizePath(`${this.getMemosFolder()}/${fileName}__${project.id}.md`);
-      const legacyMemoPath = normalizePath(`${this.getMemosFolder()}/${fileName}.md`);
-      const memoFallbackFile =
-        this.app.vault.getAbstractFileByPath(memoPath)
-        ?? this.app.vault.getAbstractFileByPath(legacyMemoPath);
+      const memoPath = this.getProjectMemoPath(project.name);
+      const memoFallbackFile = this.app.vault.getAbstractFileByPath(memoPath);
       memoFile = memoFallbackFile instanceof TFile ? memoFallbackFile : null;
     }
     
@@ -1069,8 +1035,7 @@ export class DataService {
 
   getProjectMemoPath(projectName: string, projectId?: string): string {
     const fileName = this.sanitizeFileName(projectName);
-    const suffix = projectId ? `__${projectId}` : '';
-    return normalizePath(`${this.getMemosFolder()}/${fileName}${suffix}.md`);
+    return normalizePath(`${this.getMemosFolder()}/${fileName}.md`);
   }
 
   async upsertAppRecord(record: App): Promise<void> {
@@ -1130,7 +1095,7 @@ export class DataService {
     } else {
       await this.writeFile(targetPath, frontmatter);
     }
-    const memoPath = this.getProjectMemoPath(record.name, record.id);
+    const memoPath = this.getProjectMemoPath(record.name);
     if (this.isAbsolutePath()) {
       if (!existsSync(memoPath)) {
         writeFileSync(memoPath, '', 'utf-8');

@@ -1,6 +1,6 @@
 import { App as ObsidianApp } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Project, Version, ProjectProgress, PROGRESS_ORDER } from '../types';
+import { Project, Version, ProjectProgress, getProgressOrder, getFirstProgress } from '../types';
 
 export class ImportExportService {
   app: ObsidianApp;
@@ -198,10 +198,11 @@ export class ImportExportService {
   }
 
   private parseProgress(value: string): ProjectProgress {
-    if (PROGRESS_ORDER.includes(value as ProjectProgress)) {
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    if (progressOrder.includes(value as ProjectProgress)) {
       return value as ProjectProgress;
     }
-    return ProjectProgress.REQUIREMENT_DECOMPOSITION;
+    return getFirstProgress(this.plugin.settings.progressStages);
   }
 
   async exportToExcel(projects: Project[], versions: Version[]): Promise<ArrayBuffer> {

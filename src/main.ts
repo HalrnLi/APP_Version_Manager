@@ -1,6 +1,6 @@
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, Modal } from 'obsidian';
 import { AppVersionManagerView, VIEW_TYPE_APP_VERSION_MANAGER } from './view/AppVersionManagerView';
-import { PluginSettings, DEFAULT_SETTINGS } from './types';
+import { PluginSettings, DEFAULT_SETTINGS, ProgressStage, DEFAULT_PROGRESS_STAGES } from './types';
 import { DataService } from './services/DataService';
 import { BackupService } from './services/BackupService';
 
@@ -815,5 +815,112 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
           this.plugin.backupService.scheduleBackup();
         }));
+
+    containerEl.createEl('h3', { text: '项目进度阶段配置' });
+    
+    const progressDesc = containerEl.createDiv({ cls: 'avm-progress-desc' });
+    progressDesc.style.marginBottom = '12px';
+    progressDesc.style.color = 'var(--text-muted)';
+    progressDesc.style.fontSize = '13px';
+    progressDesc.setText('自定义项目进度的各个阶段名称和颜色。阶段的顺序即为项目流程的顺序。');
+
+    this.renderProgressStagesSettings(containerEl);
+
+    new Setting(containerEl)
+      .setName('添加新阶段')
+      .addButton(btn => btn
+        .setButtonText('添加阶段')
+        .onClick(() => {
+          const stages = this.plugin.settings.progressStages;
+          const newColor = this.generateRandomColor();
+          stages.push({ name: `新阶段${stages.length + 1}`, color: newColor });
+          this.plugin.settings.progressStages = stages;
+          this.plugin.saveSettings();
+          this.display();
+        }));
+
+    new Setting(containerEl)
+      .setName('重置为默认阶段')
+      .setDesc('恢复默认的项目进度阶段配置')
+      .addButton(btn => btn
+        .setButtonText('重置')
+        .setWarning()
+        .onClick(() => {
+          this.plugin.settings.progressStages = JSON.parse(JSON.stringify(DEFAULT_PROGRESS_STAGES));
+          this.plugin.saveSettings();
+          this.display();
+        }));
+  }
+
+  private renderProgressStagesSettings(containerEl: HTMLElement) {
+    const stages = this.plugin.settings.progressStages;
+    
+    stages.forEach((stage, index) => {
+      const setting = new Setting(containerEl)
+        .setName(`阶段 ${index + 1}`)
+        .setClass('avm-progress-stage-setting');
+
+      setting.addText(text => text
+        .setValue(stage.name)
+        .setPlaceholder('阶段名称')
+        .onChange(async (value) => {
+          stages[index].name = value;
+          this.plugin.settings.progressStages = stages;
+          await this.plugin.saveSettings();
+        }));
+
+      setting.addColorPicker(picker => picker
+        .setValue(stage.color)
+        .onChange(async (value) => {
+          stages[index].color = value;
+          this.plugin.settings.progressStages = stages;
+          await this.plugin.saveSettings();
+        }));
+
+      if (stages.length > 1) {
+        setting.addExtraButton(btn => btn
+          .setIcon('arrow-up')
+          .setTooltip('上移')
+          .onClick(async () => {
+            if (index > 0) {
+              [stages[index - 1], stages[index]] = [stages[index], stages[index - 1]];
+              this.plugin.settings.progressStages = stages;
+              await this.plugin.saveSettings();
+              this.display();
+            }
+          }));
+
+        setting.addExtraButton(btn => btn
+          .setIcon('arrow-down')
+          .setTooltip('下移')
+          .onClick(async () => {
+            if (index < stages.length - 1) {
+              [stages[index], stages[index + 1]] = [stages[index + 1], stages[index]];
+              this.plugin.settings.progressStages = stages;
+              await this.plugin.saveSettings();
+              this.display();
+            }
+          }));
+      }
+
+      setting.addExtraButton(btn => btn
+        .setIcon('trash')
+        .setTooltip('删除')
+        .onClick(async () => {
+          if (stages.length > 1) {
+            stages.splice(index, 1);
+            this.plugin.settings.progressStages = stages;
+            await this.plugin.saveSettings();
+            this.display();
+          } else {
+            alert('至少需要保留一个阶段');
+          }
+        }));
+    });
+  }
+
+  private generateRandomColor(): string {
+    const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#f97316', '#14b8a6', '#64748b'];
+    return colors[Math.floor(Math.random() * colors.length)];
   }
 }

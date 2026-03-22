@@ -1,6 +1,6 @@
 import { Menu, Modal, App as ObsidianApp, Setting, ButtonComponent, TFile } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Version, Project, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS, App, parseDateInput, getNextStageInfo } from '../types';
+import { Version, Project, ProjectProgress, getProgressOrder, getProgressColors, App, parseDateInput, getNextStageInfo, getLastProgress } from '../types';
 
 export class DualPaneView {
   containerEl: HTMLElement;
@@ -204,6 +204,7 @@ export class DualPaneView {
   private applySorting(projects: Project[]): Project[] {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
     
     const projectsWithPriority = projects.map(project => {
       const nextStageInfo = getNextStageInfo(project);
@@ -211,7 +212,7 @@ export class DualPaneView {
       let priority = 3;
       let sortTime = new Date(project.createdAt).getTime();
       
-      if (project.progress === ProjectProgress.RELEASED) {
+      if (project.progress === lastProgress) {
         priority = 4;
       } else if (nextStageInfo.time) {
         const nextDate = new Date(nextStageInfo.time);
@@ -247,11 +248,12 @@ export class DualPaneView {
     const header = item.createDiv({ cls: 'avm-project-header' });
     header.createDiv({ cls: 'avm-project-name', text: project.name });
     
+    const progressColors = getProgressColors(this.plugin.settings.progressStages);
     const progressBadge = header.createDiv({
       cls: 'avm-progress-badge',
       text: project.progress
     });
-    progressBadge.style.backgroundColor = PROGRESS_COLORS[project.progress];
+    progressBadge.style.backgroundColor = progressColors[project.progress] || '#64748b';
     
     const isOverdue = this.checkOverdue(project);
     if (isOverdue) {
@@ -302,7 +304,7 @@ export class DualPaneView {
   }
 
   private async openProjectNote(project: Project) {
-    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name, project.id);
+    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name);
     let file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
     
     if (!file) {
@@ -335,7 +337,10 @@ export class DualPaneView {
   }
 
   private checkOverdue(project: Project): boolean {
-    if (project.progress === ProjectProgress.SUBMITTED || project.progress === ProjectProgress.RELEASED) return false;
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const lastTwoProgresses = progressOrder.slice(-2);
+    
+    if (lastTwoProgresses.includes(project.progress)) return false;
     
     const nextStageInfo = getNextStageInfo(project);
     if (!nextStageInfo.time) return false;
@@ -385,7 +390,7 @@ export class DualPaneView {
   }
   
   private showEditProjectModal(project: Project) {
-    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, async (data) => {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
@@ -593,18 +598,21 @@ class EditProjectModal extends Modal {
   onSubmit: (data: Partial<Project>) => void;
   apps: App[];
   versions: Version[];
+  progressStages: { name: string; color: string }[];
   
   constructor(
     app: ObsidianApp, 
     project: Project, 
     apps: App[], 
     versions: Version[], 
+    progressStages: { name: string; color: string }[],
     onSubmit: (data: Partial<Project>) => void
   ) {
     super(app);
     this.project = project;
     this.apps = apps;
     this.versions = versions;
+    this.progressStages = progressStages;
     this.onSubmit = onSubmit;
   }
   
@@ -663,7 +671,8 @@ class EditProjectModal extends Modal {
     new Setting(contentEl)
       .setName('项目进度')
       .addDropdown(dropdown => {
-        PROGRESS_ORDER.forEach(progress => {
+        const progressOrder = getProgressOrder(this.progressStages);
+        progressOrder.forEach(progress => {
           dropdown.addOption(progress, progress);
         });
         dropdown.setValue(data.progress);

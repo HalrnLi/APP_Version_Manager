@@ -33863,6 +33863,14 @@ var ConcurrencyConflictError = class extends Error {
     this.name = "ConcurrencyConflictError";
   }
 };
+var DEFAULT_PROGRESS_STAGES = [
+  { name: "\u9700\u6C42\u5206\u89E3", color: "#6366f1" },
+  { name: "\u914D\u7F6E\u7EC4\u4EF6\u586B\u5199", color: "#8b5cf6" },
+  { name: "\u7EC4\u4EF6\u4E0A\u4F20", color: "#ec4899" },
+  { name: "\u81EA\u6D4B\u9A8C\u8BC1", color: "#f59e0b" },
+  { name: "\u5DF2\u63D0\u6D4B", color: "#3b82f6" },
+  { name: "\u5DF2\u53D1\u5E03", color: "#10b981" }
+];
 var DEFAULT_SETTINGS = {
   defaultAppId: null,
   autoBackup: true,
@@ -33870,16 +33878,25 @@ var DEFAULT_SETTINGS = {
   backupHour: 23,
   lastBackupTime: null,
   dataPath: "app-version-manager",
-  backupPath: ""
+  backupPath: "",
+  progressStages: DEFAULT_PROGRESS_STAGES
 };
-var PROGRESS_ORDER = [
-  "\u9700\u6C42\u5206\u89E3" /* REQUIREMENT_DECOMPOSITION */,
-  "\u914D\u7F6E\u7EC4\u4EF6\u586B\u5199" /* CONFIG_COMPONENT_FILL */,
-  "\u7EC4\u4EF6\u4E0A\u4F20" /* COMPONENT_UPLOAD */,
-  "\u81EA\u6D4B\u9A8C\u8BC1" /* SELF_TEST */,
-  "\u5DF2\u63D0\u6D4B" /* SUBMITTED */,
-  "\u5DF2\u53D1\u5E03" /* RELEASED */
-];
+function getProgressOrder(stages) {
+  return stages.map((s) => s.name);
+}
+function getProgressColors(stages) {
+  const colors = {};
+  stages.forEach((s) => {
+    colors[s.name] = s.color;
+  });
+  return colors;
+}
+function getFirstProgress(stages) {
+  return stages.length > 0 ? stages[0].name : "";
+}
+function getLastProgress(stages) {
+  return stages.length > 0 ? stages[stages.length - 1].name : "";
+}
 var TEST_STAGES = [
   { key: "b1IntegrationTestTime", label: "B1\u96C6\u6210\u6D4B\u8BD5" },
   { key: "b1SystemTestTime", label: "B1\u7CFB\u7EDF\u6D4B\u8BD5" },
@@ -33996,14 +34013,6 @@ function getNextStageInfo(project) {
     time: nextTime || ""
   };
 }
-var PROGRESS_COLORS = {
-  ["\u9700\u6C42\u5206\u89E3" /* REQUIREMENT_DECOMPOSITION */]: "#6366f1",
-  ["\u914D\u7F6E\u7EC4\u4EF6\u586B\u5199" /* CONFIG_COMPONENT_FILL */]: "#8b5cf6",
-  ["\u7EC4\u4EF6\u4E0A\u4F20" /* COMPONENT_UPLOAD */]: "#ec4899",
-  ["\u81EA\u6D4B\u9A8C\u8BC1" /* SELF_TEST */]: "#f59e0b",
-  ["\u5DF2\u63D0\u6D4B" /* SUBMITTED */]: "#3b82f6",
-  ["\u5DF2\u53D1\u5E03" /* RELEASED */]: "#10b981"
-};
 
 // src/view/DualPaneView.ts
 var import_obsidian = require("obsidian");
@@ -34135,11 +34144,12 @@ var DualPaneView = class {
   applySorting(projects) {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
     const projectsWithPriority = projects.map((project) => {
       const nextStageInfo = getNextStageInfo(project);
       let priority = 3;
       let sortTime = new Date(project.createdAt).getTime();
-      if (project.progress === "\u5DF2\u53D1\u5E03" /* RELEASED */) {
+      if (project.progress === lastProgress) {
         priority = 4;
       } else if (nextStageInfo.time) {
         const nextDate = new Date(nextStageInfo.time);
@@ -34165,11 +34175,12 @@ var DualPaneView = class {
     const item = container.createDiv({ cls: "avm-project-item" });
     const header = item.createDiv({ cls: "avm-project-header" });
     header.createDiv({ cls: "avm-project-name", text: project.name });
+    const progressColors = getProgressColors(this.plugin.settings.progressStages);
     const progressBadge = header.createDiv({
       cls: "avm-progress-badge",
       text: project.progress
     });
-    progressBadge.style.backgroundColor = PROGRESS_COLORS[project.progress];
+    progressBadge.style.backgroundColor = progressColors[project.progress] || "#64748b";
     const isOverdue = this.checkOverdue(project);
     if (isOverdue) {
       item.addClass("avm-overdue");
@@ -34210,7 +34221,7 @@ var DualPaneView = class {
     });
   }
   async openProjectNote(project) {
-    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name, project.id);
+    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name);
     let file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
     if (!file) {
       try {
@@ -34239,7 +34250,9 @@ var DualPaneView = class {
     }
   }
   checkOverdue(project) {
-    if (project.progress === "\u5DF2\u63D0\u6D4B" /* SUBMITTED */ || project.progress === "\u5DF2\u53D1\u5E03" /* RELEASED */)
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const lastTwoProgresses = progressOrder.slice(-2);
+    if (lastTwoProgresses.includes(project.progress))
       return false;
     const nextStageInfo = getNextStageInfo(project);
     if (!nextStageInfo.time)
@@ -34270,7 +34283,7 @@ var DualPaneView = class {
     menu.showAtMouseEvent(event);
   }
   showEditProjectModal(project) {
-    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, async (data) => {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
@@ -34365,11 +34378,12 @@ var DualPaneTestPlanModal = class extends import_obsidian.Modal {
   }
 };
 var EditProjectModal = class extends import_obsidian.Modal {
-  constructor(app, project, apps, versions, onSubmit) {
+  constructor(app, project, apps, versions, progressStages, onSubmit) {
     super(app);
     this.project = project;
     this.apps = apps;
     this.versions = versions;
+    this.progressStages = progressStages;
     this.onSubmit = onSubmit;
   }
   onOpen() {
@@ -34399,7 +34413,8 @@ var EditProjectModal = class extends import_obsidian.Modal {
     new import_obsidian.Setting(contentEl).setName("\u9879\u76EE\u94FE\u63A5").addText((text) => text.setValue(data.projectLink).onChange((value) => data.projectLink = value));
     new import_obsidian.Setting(contentEl).setName("\u7EC4\u4EF6\u5E93\u94FE\u63A5").addText((text) => text.setValue(data.componentLink).onChange((value) => data.componentLink = value));
     new import_obsidian.Setting(contentEl).setName("\u9879\u76EE\u8FDB\u5EA6").addDropdown((dropdown) => {
-      PROGRESS_ORDER.forEach((progress) => {
+      const progressOrder = getProgressOrder(this.progressStages);
+      progressOrder.forEach((progress) => {
         dropdown.addOption(progress, progress);
       });
       dropdown.setValue(data.progress);
@@ -34434,28 +34449,30 @@ var KanbanView = class {
   render() {
     this.containerEl.empty();
     this.containerEl.addClass("avm-kanban");
-    PROGRESS_ORDER.forEach((progress) => {
-      this.renderColumn(progress);
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const progressColors = getProgressColors(this.plugin.settings.progressStages);
+    progressOrder.forEach((progress) => {
+      this.renderColumn(progress, progressColors);
     });
   }
-  renderColumn(progress) {
+  renderColumn(progress, progressColors) {
     const column = this.containerEl.createDiv({ cls: "avm-kanban-column" });
     const header = column.createDiv({ cls: "avm-kanban-column-header" });
     header.createDiv({ cls: "avm-kanban-column-title", text: progress });
     const count = this.projects.filter((p) => p.progress === progress).length;
     header.createDiv({ cls: "avm-kanban-column-count", text: count.toString() });
     const columnStyle = header.createDiv({ cls: "avm-kanban-column-indicator" });
-    columnStyle.style.backgroundColor = PROGRESS_COLORS[progress];
+    columnStyle.style.backgroundColor = progressColors[progress] || "#64748b";
     const cards = column.createDiv({ cls: "avm-kanban-cards" });
     const progressProjects = this.projects.filter((p) => p.progress === progress);
     progressProjects.forEach((project) => {
-      this.renderCard(cards, project);
+      this.renderCard(cards, project, progressColors);
     });
     if (progressProjects.length === 0) {
       cards.createDiv({ cls: "avm-kanban-empty", text: "\u6682\u65E0\u9879\u76EE" });
     }
   }
-  renderCard(container, project) {
+  renderCard(container, project, progressColors) {
     const card = container.createDiv({ cls: "avm-kanban-card" });
     const isOverdue = this.checkOverdue(project);
     if (isOverdue) {
@@ -34463,10 +34480,6 @@ var KanbanView = class {
     }
     const header = card.createDiv({ cls: "avm-card-header" });
     header.createDiv({ cls: "avm-card-title", text: project.name });
-    const version2 = this.versions.find((v) => v.id === project.versionId);
-    if (version2) {
-      header.createDiv({ cls: "avm-card-version", text: version2.versionNumber });
-    }
     if (project.manager) {
       card.createDiv({ cls: "avm-card-meta", text: `\u{1F464} ${project.manager}` });
     }
@@ -34505,7 +34518,10 @@ var KanbanView = class {
     return url;
   }
   checkOverdue(project) {
-    if (project.progress === "\u5DF2\u63D0\u6D4B" /* SUBMITTED */ || project.progress === "\u5DF2\u53D1\u5E03" /* RELEASED */)
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const lastTwoProgresses = progressOrder.slice(-2);
+    if (lastTwoProgresses.includes(project.progress))
       return false;
     const nextStageInfo = getNextStageInfo(project);
     if (!nextStageInfo.time)
@@ -34532,7 +34548,7 @@ var KanbanView = class {
     menu.showAtMouseEvent(event);
   }
   showEditProjectModal(project) {
-    new KanbanEditProjectModal(this.plugin.app, project, this.apps, this.versions, async (data) => {
+    new KanbanEditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
@@ -34542,7 +34558,7 @@ var KanbanView = class {
     }).open();
   }
   showProgressChangeModal(project) {
-    new ProgressChangeModal(this.plugin.app, project, async (newProgress) => {
+    new ProgressChangeModal(this.plugin.app, project, this.plugin.settings.progressStages, async (newProgress) => {
       try {
         await this.plugin.dataService.updateProject(project.id, { progress: newProgress }, project.version);
         this.onRefresh();
@@ -34553,11 +34569,12 @@ var KanbanView = class {
   }
 };
 var KanbanEditProjectModal = class extends import_obsidian2.Modal {
-  constructor(app, project, apps, versions, onSubmit) {
+  constructor(app, project, apps, versions, progressStages, onSubmit) {
     super(app);
     this.project = project;
     this.apps = apps;
     this.versions = versions;
+    this.progressStages = progressStages;
     this.onSubmit = onSubmit;
   }
   onOpen() {
@@ -34590,7 +34607,8 @@ var KanbanEditProjectModal = class extends import_obsidian2.Modal {
     new import_obsidian2.Setting(contentEl).setName("\u7EC4\u4EF6\u5E93\u94FE\u63A5").addText((text) => text.setValue(data.componentLink).onChange((value) => data.componentLink = value));
     new import_obsidian2.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setValue(data.requirements).onChange((value) => data.requirements = value));
     new import_obsidian2.Setting(contentEl).setName("\u9879\u76EE\u8FDB\u5EA6").addDropdown((dropdown) => {
-      PROGRESS_ORDER.forEach((progress) => {
+      const progressOrder = getProgressOrder(this.progressStages);
+      progressOrder.forEach((progress) => {
         dropdown.addOption(progress, progress);
       });
       dropdown.setValue(data.progress);
@@ -34608,9 +34626,10 @@ var KanbanEditProjectModal = class extends import_obsidian2.Modal {
   }
 };
 var ProgressChangeModal = class extends import_obsidian2.Modal {
-  constructor(app, project, onSubmit) {
+  constructor(app, project, progressStages, onSubmit) {
     super(app);
     this.project = project;
+    this.progressStages = progressStages;
     this.onSubmit = onSubmit;
   }
   onOpen() {
@@ -34619,7 +34638,8 @@ var ProgressChangeModal = class extends import_obsidian2.Modal {
     contentEl.createEl("h2", { text: "\u66F4\u6539\u8FDB\u5EA6" });
     let newProgress = this.project.progress;
     new import_obsidian2.Setting(contentEl).setName("\u9009\u62E9\u65B0\u8FDB\u5EA6").addDropdown((dropdown) => {
-      PROGRESS_ORDER.forEach((progress) => {
+      const progressOrder = getProgressOrder(this.progressStages);
+      progressOrder.forEach((progress) => {
         dropdown.addOption(progress, progress);
       });
       dropdown.setValue(this.project.progress);
@@ -34651,11 +34671,12 @@ var TableView = class {
   applySorting(projects) {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
     const projectsWithPriority = projects.map((project) => {
       const nextStageInfo = getNextStageInfo(project);
       let priority = 3;
       let sortTime = new Date(project.createdAt).getTime();
-      if (project.progress === "\u5DF2\u53D1\u5E03" /* RELEASED */) {
+      if (project.progress === lastProgress) {
         priority = 4;
       } else if (nextStageInfo.time) {
         const nextDate = new Date(nextStageInfo.time);
@@ -34729,8 +34750,9 @@ var TableView = class {
           td.createDiv({ text: project.manager || "-" });
           break;
         case "progress":
+          const progressColors = getProgressColors(this.plugin.settings.progressStages);
           const badge = td.createDiv({ cls: "avm-progress-badge-small avm-clickable", text: project.progress });
-          badge.style.backgroundColor = PROGRESS_COLORS[project.progress];
+          badge.style.backgroundColor = progressColors[project.progress] || "#64748b";
           badge.addEventListener("click", (e) => {
             e.stopPropagation();
             this.handleProgressClick(project);
@@ -34778,7 +34800,7 @@ var TableView = class {
     });
   }
   async openProjectNote(project) {
-    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name, project.id);
+    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name);
     let file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
     if (!file) {
       try {
@@ -34807,7 +34829,9 @@ var TableView = class {
     }
   }
   checkOverdue(project) {
-    if (project.progress === "\u5DF2\u63D0\u6D4B" /* SUBMITTED */ || project.progress === "\u5DF2\u53D1\u5E03" /* RELEASED */)
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const lastTwoProgresses = progressOrder.slice(-2);
+    if (lastTwoProgresses.includes(project.progress))
       return false;
     const nextStageInfo = getNextStageInfo(project);
     if (!nextStageInfo.time)
@@ -34838,15 +34862,17 @@ var TableView = class {
     menu.showAtMouseEvent(event);
   }
   handleProgressClick(project) {
-    const currentIndex = PROGRESS_ORDER.indexOf(project.progress);
-    if (currentIndex === -1 || currentIndex >= PROGRESS_ORDER.length - 1) {
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const currentIndex = progressOrder.indexOf(project.progress);
+    if (currentIndex === -1 || currentIndex >= progressOrder.length - 1) {
       return;
     }
-    const nextProgress = PROGRESS_ORDER[currentIndex + 1];
+    const nextProgress = progressOrder[currentIndex + 1];
     new ProgressConfirmModal(
       this.plugin.app,
       project,
       nextProgress,
+      this.plugin.settings.progressStages,
       async () => {
         try {
           await this.plugin.dataService.updateProject(project.id, { progress: nextProgress }, project.version);
@@ -34858,7 +34884,7 @@ var TableView = class {
     ).open();
   }
   showEditProjectModal(project) {
-    new TableEditProjectModal(this.plugin.app, project, this.apps, this.versions, async (data) => {
+    new TableEditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
@@ -34879,11 +34905,12 @@ var TableView = class {
   }
 };
 var TableEditProjectModal = class extends import_obsidian3.Modal {
-  constructor(app, project, apps, versions, onSubmit) {
+  constructor(app, project, apps, versions, progressStages, onSubmit) {
     super(app);
     this.project = project;
     this.apps = apps;
     this.versions = versions;
+    this.progressStages = progressStages;
     this.onSubmit = onSubmit;
   }
   onOpen() {
@@ -34913,7 +34940,8 @@ var TableEditProjectModal = class extends import_obsidian3.Modal {
     new import_obsidian3.Setting(contentEl).setName("\u9879\u76EE\u94FE\u63A5").addText((text) => text.setValue(data.projectLink).onChange((value) => data.projectLink = value));
     new import_obsidian3.Setting(contentEl).setName("\u7EC4\u4EF6\u5E93\u94FE\u63A5").addText((text) => text.setValue(data.componentLink).onChange((value) => data.componentLink = value));
     new import_obsidian3.Setting(contentEl).setName("\u9879\u76EE\u8FDB\u5EA6").addDropdown((dropdown) => {
-      PROGRESS_ORDER.forEach((progress) => {
+      const progressOrder = getProgressOrder(this.progressStages);
+      progressOrder.forEach((progress) => {
         dropdown.addOption(progress, progress);
       });
       dropdown.setValue(data.progress);
@@ -34932,16 +34960,19 @@ var TableEditProjectModal = class extends import_obsidian3.Modal {
   }
 };
 var ProgressConfirmModal = class extends import_obsidian3.Modal {
-  constructor(app, project, nextProgress, onConfirm) {
+  constructor(app, project, nextProgress, progressStages, onConfirm) {
     super(app);
     this.project = project;
     this.nextProgress = nextProgress;
+    this.progressStages = progressStages;
     this.onConfirm = onConfirm;
   }
   onOpen() {
     const { contentEl } = this;
-    contentEl.addClass("avm-modal avm-progress-confirm-modal");
+    contentEl.addClass("avm-modal");
+    contentEl.addClass("avm-progress-confirm-modal");
     contentEl.createEl("h2", { text: "\u786E\u8BA4\u66F4\u6539\u8FDB\u5EA6" });
+    const progressColors = getProgressColors(this.progressStages);
     const infoContainer = contentEl.createDiv({ cls: "avm-confirm-info" });
     const projectInfo = infoContainer.createDiv({ cls: "avm-confirm-project" });
     projectInfo.createEl("span", { cls: "avm-confirm-label", text: "\u9879\u76EE\uFF1A" });
@@ -34950,13 +34981,13 @@ var ProgressConfirmModal = class extends import_obsidian3.Modal {
     const currentDiv = progressContainer.createDiv({ cls: "avm-progress-item" });
     currentDiv.createEl("div", { cls: "avm-confirm-label", text: "\u5F53\u524D\u8FDB\u5EA6" });
     const currentBadge = currentDiv.createDiv({ cls: "avm-progress-badge-small", text: this.project.progress });
-    currentBadge.style.backgroundColor = PROGRESS_COLORS[this.project.progress];
+    currentBadge.style.backgroundColor = progressColors[this.project.progress] || "#64748b";
     const arrow = progressContainer.createDiv({ cls: "avm-progress-arrow" });
     arrow.createEl("span", { text: "\u2192" });
     const nextDiv = progressContainer.createDiv({ cls: "avm-progress-item" });
     nextDiv.createEl("div", { cls: "avm-confirm-label", text: "\u4E0B\u4E00\u8FDB\u5EA6" });
     const nextBadge = nextDiv.createDiv({ cls: "avm-progress-badge-small", text: this.nextProgress });
-    nextBadge.style.backgroundColor = PROGRESS_COLORS[this.nextProgress];
+    nextBadge.style.backgroundColor = progressColors[this.nextProgress] || "#64748b";
     new import_obsidian3.Setting(contentEl).addButton((btn) => btn.setButtonText("\u786E\u8BA4\u66F4\u6539").setCta().onClick(() => {
       this.onConfirm();
       this.close();
@@ -35176,10 +35207,11 @@ var ImportExportService = class {
     return version2;
   }
   parseProgress(value) {
-    if (PROGRESS_ORDER.includes(value)) {
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    if (progressOrder.includes(value)) {
       return value;
     }
-    return "\u9700\u6C42\u5206\u89E3" /* REQUIREMENT_DECOMPOSITION */;
+    return getFirstProgress(this.plugin.settings.progressStages);
   }
   async exportToExcel(projects, versions) {
     const XLSX2 = await Promise.resolve().then(() => (init_xlsx(), xlsx_exports));
@@ -35399,7 +35431,8 @@ var AppVersionManagerView = class extends import_obsidian4.ItemView {
     });
     const progressFilter = filterBar.createEl("select", { cls: "avm-select" });
     progressFilter.createEl("option", { value: "", text: "\u5168\u90E8\u8FDB\u5EA6" });
-    PROGRESS_ORDER.forEach((progress) => {
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    progressOrder.forEach((progress) => {
       const option = progressFilter.createEl("option", { value: progress, text: progress });
       if (progress === this.currentFilter.progress) {
         option.selected = true;
@@ -35581,7 +35614,7 @@ var AppVersionManagerView = class extends import_obsidian4.ItemView {
   showCreateProjectModal() {
     if (!this.selectedVersionId)
       return;
-    new CreateProjectModal(this.app, this.selectedVersionId, async (data) => {
+    new CreateProjectModal(this.app, this.selectedVersionId, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.createProject(data);
         await this.refresh();
@@ -35726,15 +35759,17 @@ var CreateVersionModal = class extends import_obsidian4.Modal {
   }
 };
 var CreateProjectModal = class extends import_obsidian4.Modal {
-  constructor(app, versionId, onSubmit) {
+  constructor(app, versionId, progressStages, onSubmit) {
     super(app);
     this.versionId = versionId;
+    this.progressStages = progressStages;
     this.onSubmit = onSubmit;
   }
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass("avm-modal");
     contentEl.createEl("h2", { text: "\u65B0\u5EFA\u9879\u76EE" });
+    const firstProgress = getFirstProgress(this.progressStages);
     const data = {
       name: "",
       versionId: this.versionId,
@@ -35742,7 +35777,7 @@ var CreateProjectModal = class extends import_obsidian4.Modal {
       projectLink: "",
       componentLink: "",
       requirements: "",
-      progress: "\u9700\u6C42\u5206\u89E3" /* REQUIREMENT_DECOMPOSITION */,
+      progress: firstProgress,
       plannedTestTime: ""
     };
     new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u540D\u79F0 *").addText((text) => text.setPlaceholder("\u8F93\u5165\u9879\u76EE\u540D\u79F0").onChange((value) => data.name = value));
@@ -35750,7 +35785,8 @@ var CreateProjectModal = class extends import_obsidian4.Modal {
     new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u94FE\u63A5").addText((text) => text.setPlaceholder("https://...").onChange((value) => data.projectLink = value));
     new import_obsidian4.Setting(contentEl).setName("\u7EC4\u4EF6\u5E93\u94FE\u63A5").addText((text) => text.setPlaceholder("https://...").onChange((value) => data.componentLink = value));
     new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u8FDB\u5EA6").addDropdown((dropdown) => {
-      PROGRESS_ORDER.forEach((progress) => {
+      const progressOrder = getProgressOrder(this.progressStages);
+      progressOrder.forEach((progress) => {
         dropdown.addOption(progress, progress);
       });
       dropdown.setValue(data.progress);
@@ -36443,14 +36479,7 @@ var DataService = class {
       }
     }
     return projects.sort((a, b) => {
-      const progressOrder = [
-        "\u9700\u6C42\u5206\u89E3" /* REQUIREMENT_DECOMPOSITION */,
-        "\u914D\u7F6E\u7EC4\u4EF6\u586B\u5199" /* CONFIG_COMPONENT_FILL */,
-        "\u7EC4\u4EF6\u4E0A\u4F20" /* COMPONENT_UPLOAD */,
-        "\u81EA\u6D4B\u9A8C\u8BC1" /* SELF_TEST */,
-        "\u5DF2\u63D0\u6D4B" /* SUBMITTED */,
-        "\u5DF2\u53D1\u5E03" /* RELEASED */
-      ];
+      const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
       return progressOrder.indexOf(a.progress) - progressOrder.indexOf(b.progress);
     });
   }
@@ -36480,7 +36509,7 @@ var DataService = class {
         projectLink: (_e = frontmatter.projectLink) != null ? _e : "",
         componentLink: (_f = frontmatter.componentLink) != null ? _f : "",
         requirements: (_g = frontmatter.requirements) != null ? _g : "",
-        progress: (_h = frontmatter.progress) != null ? _h : "\u9700\u6C42\u5206\u89E3" /* REQUIREMENT_DECOMPOSITION */,
+        progress: (_h = frontmatter.progress) != null ? _h : getFirstProgress(this.plugin.settings.progressStages),
         progressHistory: this.parseProgressHistory(frontmatter.progressHistory),
         b1IntegrationTestTime: (_i = frontmatter.b1IntegrationTestTime) != null ? _i : "",
         b1SystemTestTime: (_j = frontmatter.b1SystemTestTime) != null ? _j : "",
@@ -36516,9 +36545,9 @@ var DataService = class {
       projectLink: data.projectLink || "",
       componentLink: data.componentLink || "",
       requirements: data.requirements || "",
-      progress: data.progress || "\u9700\u6C42\u5206\u89E3" /* REQUIREMENT_DECOMPOSITION */,
+      progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
       progressHistory: [{
-        progress: data.progress || "\u9700\u6C42\u5206\u89E3" /* REQUIREMENT_DECOMPOSITION */,
+        progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
         changedAt: now
       }],
       b1IntegrationTestTime: data.b1IntegrationTestTime || "",
@@ -36559,13 +36588,13 @@ var DataService = class {
     });
     const fileName = this.sanitizeFileName(data.name);
     const projectFilePath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${fileName}__${id}.md`) : (0, import_obsidian5.normalizePath)(`${this.getProjectsFolder()}/${fileName}__${id}.md`);
-    const memoFilePath = this.isAbsolutePath() ? (0, import_path.join)(this.getMemosFolder(), `${fileName}__${id}.md`) : (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${fileName}__${id}.md`);
+    const memoFilePath = this.isAbsolutePath() ? (0, import_path.join)(this.getMemosFolder(), `${fileName}.md`) : (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${fileName}.md`);
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, "");
     return project;
   }
   async updateProject(id, data, expectedVersion) {
-    var _a, _b, _c;
+    var _a, _b;
     const allProjects = await this.getAllProjects();
     const project = allProjects.find((p) => p.id === id);
     if (!project)
@@ -36634,19 +36663,15 @@ var DataService = class {
         const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${newFileName}__${project.id}.md`) : (0, import_obsidian5.normalizePath)(`${this.getProjectsFolder()}/${newFileName}__${project.id}.md`);
         await this.renameFile(file, newPath);
         if (this.isAbsolutePath()) {
-          const oldMemoPath = (0, import_path.join)(this.getMemosFolder(), `${oldFileName}__${project.id}.md`);
-          const newMemoPath = (0, import_path.join)(this.getMemosFolder(), `${newFileName}__${project.id}.md`);
-          const legacyMemoPath = (0, import_path.join)(this.getMemosFolder(), `${oldFileName}.md`);
+          const oldMemoPath = (0, import_path.join)(this.getMemosFolder(), `${oldFileName}.md`);
+          const newMemoPath = (0, import_path.join)(this.getMemosFolder(), `${newFileName}.md`);
           if ((0, import_fs.existsSync)(oldMemoPath)) {
             (0, import_fs.renameSync)(oldMemoPath, newMemoPath);
-          } else if ((0, import_fs.existsSync)(legacyMemoPath)) {
-            (0, import_fs.renameSync)(legacyMemoPath, newMemoPath);
           }
         } else {
-          const oldMemoPath = (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${oldFileName}__${project.id}.md`);
-          const newMemoPath = (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${newFileName}__${project.id}.md`);
-          const legacyMemoPath = (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${oldFileName}.md`);
-          const memoFile = (_c = this.app.vault.getAbstractFileByPath(oldMemoPath)) != null ? _c : this.app.vault.getAbstractFileByPath(legacyMemoPath);
+          const oldMemoPath = (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${oldFileName}.md`);
+          const newMemoPath = (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${newFileName}.md`);
+          const memoFile = this.app.vault.getAbstractFileByPath(oldMemoPath);
           if (memoFile instanceof import_obsidian5.TFile) {
             await this.app.vault.rename(memoFile, newMemoPath);
           }
@@ -36656,7 +36681,7 @@ var DataService = class {
     return project;
   }
   async deleteProject(id, expectedVersion) {
-    var _a, _b;
+    var _a;
     const allProjects = await this.getAllProjects();
     const project = allProjects.find((p) => p.id === id);
     if (!project)
@@ -36676,8 +36701,7 @@ var DataService = class {
           break;
         }
       }
-      const memoPath = (0, import_path.join)(this.getMemosFolder(), `${fileName}__${project.id}.md`);
-      const legacyMemoPath = (0, import_path.join)(this.getMemosFolder(), `${fileName}.md`);
+      const memoPath = this.getProjectMemoPath(project.name);
       if ((0, import_fs.existsSync)(memoPath)) {
         memoFile = {
           path: memoPath,
@@ -36690,26 +36714,13 @@ var DataService = class {
           readContent: () => (0, import_fs.readFileSync)(memoPath, "utf-8"),
           writeContent: (content) => (0, import_fs.writeFileSync)(memoPath, content, "utf-8")
         };
-      } else if ((0, import_fs.existsSync)(legacyMemoPath)) {
-        memoFile = {
-          path: legacyMemoPath,
-          basename: (0, import_path.basename)(legacyMemoPath, ".md"),
-          extension: "md",
-          stat: {
-            ctime: (0, import_fs.statSync)(legacyMemoPath).ctime.getTime(),
-            mtime: (0, import_fs.statSync)(legacyMemoPath).mtime.getTime()
-          },
-          readContent: () => (0, import_fs.readFileSync)(legacyMemoPath, "utf-8"),
-          writeContent: (content) => (0, import_fs.writeFileSync)(legacyMemoPath, content, "utf-8")
-        };
       }
     } else {
       const filePath = (0, import_obsidian5.normalizePath)(`${this.getProjectsFolder()}/${fileName}.md`);
       const fallbackFile = this.app.vault.getAbstractFileByPath(filePath);
       file = (_a = await this.findEntityFileById(this.getProjectsFolder(), this.parseProjectFile, id)) != null ? _a : fallbackFile instanceof import_obsidian5.TFile ? fallbackFile : null;
-      const memoPath = (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${fileName}__${project.id}.md`);
-      const legacyMemoPath = (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${fileName}.md`);
-      const memoFallbackFile = (_b = this.app.vault.getAbstractFileByPath(memoPath)) != null ? _b : this.app.vault.getAbstractFileByPath(legacyMemoPath);
+      const memoPath = this.getProjectMemoPath(project.name);
+      const memoFallbackFile = this.app.vault.getAbstractFileByPath(memoPath);
       memoFile = memoFallbackFile instanceof import_obsidian5.TFile ? memoFallbackFile : null;
     }
     if (file) {
@@ -36759,8 +36770,7 @@ var DataService = class {
   }
   getProjectMemoPath(projectName, projectId) {
     const fileName = this.sanitizeFileName(projectName);
-    const suffix = projectId ? `__${projectId}` : "";
-    return (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${fileName}${suffix}.md`);
+    return (0, import_obsidian5.normalizePath)(`${this.getMemosFolder()}/${fileName}.md`);
   }
   async upsertAppRecord(record) {
     await this.initializeDataFolders();
@@ -36811,7 +36821,7 @@ var DataService = class {
     } else {
       await this.writeFile(targetPath, frontmatter);
     }
-    const memoPath = this.getProjectMemoPath(record.name, record.id);
+    const memoPath = this.getProjectMemoPath(record.name);
     if (this.isAbsolutePath()) {
       if (!(0, import_fs.existsSync)(memoPath)) {
         (0, import_fs.writeFileSync)(memoPath, "", "utf-8");
@@ -37729,6 +37739,74 @@ var AppVersionManagerSettingTab = class extends import_obsidian7.PluginSettingTa
       await this.plugin.saveSettings();
       this.plugin.backupService.scheduleBackup();
     }));
+    containerEl.createEl("h3", { text: "\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E" });
+    const progressDesc = containerEl.createDiv({ cls: "avm-progress-desc" });
+    progressDesc.style.marginBottom = "12px";
+    progressDesc.style.color = "var(--text-muted)";
+    progressDesc.style.fontSize = "13px";
+    progressDesc.setText("\u81EA\u5B9A\u4E49\u9879\u76EE\u8FDB\u5EA6\u7684\u5404\u4E2A\u9636\u6BB5\u540D\u79F0\u548C\u989C\u8272\u3002\u9636\u6BB5\u7684\u987A\u5E8F\u5373\u4E3A\u9879\u76EE\u6D41\u7A0B\u7684\u987A\u5E8F\u3002");
+    this.renderProgressStagesSettings(containerEl);
+    new import_obsidian7.Setting(containerEl).setName("\u6DFB\u52A0\u65B0\u9636\u6BB5").addButton((btn) => btn.setButtonText("\u6DFB\u52A0\u9636\u6BB5").onClick(() => {
+      const stages = this.plugin.settings.progressStages;
+      const newColor = this.generateRandomColor();
+      stages.push({ name: `\u65B0\u9636\u6BB5${stages.length + 1}`, color: newColor });
+      this.plugin.settings.progressStages = stages;
+      this.plugin.saveSettings();
+      this.display();
+    }));
+    new import_obsidian7.Setting(containerEl).setName("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u9636\u6BB5").setDesc("\u6062\u590D\u9ED8\u8BA4\u7684\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E").addButton((btn) => btn.setButtonText("\u91CD\u7F6E").setWarning().onClick(() => {
+      this.plugin.settings.progressStages = JSON.parse(JSON.stringify(DEFAULT_PROGRESS_STAGES));
+      this.plugin.saveSettings();
+      this.display();
+    }));
+  }
+  renderProgressStagesSettings(containerEl) {
+    const stages = this.plugin.settings.progressStages;
+    stages.forEach((stage, index) => {
+      const setting = new import_obsidian7.Setting(containerEl).setName(`\u9636\u6BB5 ${index + 1}`).setClass("avm-progress-stage-setting");
+      setting.addText((text) => text.setValue(stage.name).setPlaceholder("\u9636\u6BB5\u540D\u79F0").onChange(async (value) => {
+        stages[index].name = value;
+        this.plugin.settings.progressStages = stages;
+        await this.plugin.saveSettings();
+      }));
+      setting.addColorPicker((picker) => picker.setValue(stage.color).onChange(async (value) => {
+        stages[index].color = value;
+        this.plugin.settings.progressStages = stages;
+        await this.plugin.saveSettings();
+      }));
+      if (stages.length > 1) {
+        setting.addExtraButton((btn) => btn.setIcon("arrow-up").setTooltip("\u4E0A\u79FB").onClick(async () => {
+          if (index > 0) {
+            [stages[index - 1], stages[index]] = [stages[index], stages[index - 1]];
+            this.plugin.settings.progressStages = stages;
+            await this.plugin.saveSettings();
+            this.display();
+          }
+        }));
+        setting.addExtraButton((btn) => btn.setIcon("arrow-down").setTooltip("\u4E0B\u79FB").onClick(async () => {
+          if (index < stages.length - 1) {
+            [stages[index], stages[index + 1]] = [stages[index + 1], stages[index]];
+            this.plugin.settings.progressStages = stages;
+            await this.plugin.saveSettings();
+            this.display();
+          }
+        }));
+      }
+      setting.addExtraButton((btn) => btn.setIcon("trash").setTooltip("\u5220\u9664").onClick(async () => {
+        if (stages.length > 1) {
+          stages.splice(index, 1);
+          this.plugin.settings.progressStages = stages;
+          await this.plugin.saveSettings();
+          this.display();
+        } else {
+          alert("\u81F3\u5C11\u9700\u8981\u4FDD\u7559\u4E00\u4E2A\u9636\u6BB5");
+        }
+      }));
+    });
+  }
+  generateRandomColor() {
+    const colors = ["#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#3b82f6", "#10b981", "#ef4444", "#f97316", "#14b8a6", "#64748b"];
+    return colors[Math.floor(Math.random() * colors.length)];
   }
 };
 /*! Bundled license information:

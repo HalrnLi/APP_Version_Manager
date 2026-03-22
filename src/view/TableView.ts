@@ -1,6 +1,6 @@
 import { Menu, Modal, App as ObsidianApp, Setting, TFile } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Project, Version, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS, App, TEST_STAGES, getNextStageInfo, parseDateInput } from '../types';
+import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, TEST_STAGES, getNextStageInfo, parseDateInput, getLastProgress } from '../types';
 
 export class TableView {
   containerEl: HTMLElement;
@@ -31,6 +31,7 @@ export class TableView {
   private applySorting(projects: Project[]): Project[] {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
     
     const projectsWithPriority = projects.map(project => {
       const nextStageInfo = getNextStageInfo(project);
@@ -38,7 +39,7 @@ export class TableView {
       let priority = 3;
       let sortTime = new Date(project.createdAt).getTime();
       
-      if (project.progress === ProjectProgress.RELEASED) {
+      if (project.progress === lastProgress) {
         priority = 4;
       } else if (nextStageInfo.time) {
         const nextDate = new Date(nextStageInfo.time);
@@ -135,8 +136,9 @@ export class TableView {
           break;
           
         case 'progress':
+          const progressColors = getProgressColors(this.plugin.settings.progressStages);
           const badge = td.createDiv({ cls: 'avm-progress-badge-small avm-clickable', text: project.progress });
-          badge.style.backgroundColor = PROGRESS_COLORS[project.progress];
+          badge.style.backgroundColor = progressColors[project.progress] || '#64748b';
           badge.addEventListener('click', (e) => {
             e.stopPropagation();
             this.handleProgressClick(project);
@@ -193,7 +195,7 @@ export class TableView {
   }
 
   private async openProjectNote(project: Project) {
-    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name, project.id);
+    const memoPath = this.plugin.dataService.getProjectMemoPath(project.name);
     let file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
     
     if (!file) {
@@ -226,7 +228,10 @@ export class TableView {
   }
 
   private checkOverdue(project: Project): boolean {
-    if (project.progress === ProjectProgress.SUBMITTED || project.progress === ProjectProgress.RELEASED) return false;
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const lastTwoProgresses = progressOrder.slice(-2);
+    
+    if (lastTwoProgresses.includes(project.progress)) return false;
     
     const nextStageInfo = getNextStageInfo(project);
     if (!nextStageInfo.time) return false;
@@ -276,16 +281,18 @@ export class TableView {
   }
   
   private handleProgressClick(project: Project) {
-    const currentIndex = PROGRESS_ORDER.indexOf(project.progress);
-    if (currentIndex === -1 || currentIndex >= PROGRESS_ORDER.length - 1) {
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const currentIndex = progressOrder.indexOf(project.progress);
+    if (currentIndex === -1 || currentIndex >= progressOrder.length - 1) {
       return;
     }
     
-    const nextProgress = PROGRESS_ORDER[currentIndex + 1];
+    const nextProgress = progressOrder[currentIndex + 1];
     new ProgressConfirmModal(
       this.plugin.app,
       project,
       nextProgress,
+      this.plugin.settings.progressStages,
       async () => {
         try {
           await this.plugin.dataService.updateProject(project.id, { progress: nextProgress }, project.version);
@@ -298,7 +305,7 @@ export class TableView {
   }
   
   private showEditProjectModal(project: Project) {
-    new TableEditProjectModal(this.plugin.app, project, this.apps, this.versions, async (data) => {
+    new TableEditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
@@ -324,6 +331,7 @@ class TableEditProjectModal extends Modal {
   project: Project;
   apps: App[];
   versions: Version[];
+  progressStages: { name: string; color: string }[];
   onSubmit: (data: Partial<Project>) => void;
   
   constructor(
@@ -331,12 +339,14 @@ class TableEditProjectModal extends Modal {
     project: Project, 
     apps: App[], 
     versions: Version[], 
+    progressStages: { name: string; color: string }[],
     onSubmit: (data: Partial<Project>) => void
   ) {
     super(app);
     this.project = project;
     this.apps = apps;
     this.versions = versions;
+    this.progressStages = progressStages;
     this.onSubmit = onSubmit;
   }
   
@@ -395,7 +405,8 @@ class TableEditProjectModal extends Modal {
     new Setting(contentEl)
       .setName('项目进度')
       .addDropdown(dropdown => {
-        PROGRESS_ORDER.forEach(progress => {
+        const progressOrder = getProgressOrder(this.progressStages);
+        progressOrder.forEach(progress => {
           dropdown.addOption(progress, progress);
         });
         dropdown.setValue(data.progress);
@@ -431,25 +442,31 @@ class TableEditProjectModal extends Modal {
 class ProgressConfirmModal extends Modal {
   project: Project;
   nextProgress: ProjectProgress;
+  progressStages: { name: string; color: string }[];
   onConfirm: () => void;
   
   constructor(
     app: ObsidianApp,
     project: Project,
     nextProgress: ProjectProgress,
+    progressStages: { name: string; color: string }[],
     onConfirm: () => void
   ) {
     super(app);
     this.project = project;
     this.nextProgress = nextProgress;
+    this.progressStages = progressStages;
     this.onConfirm = onConfirm;
   }
   
   onOpen() {
     const { contentEl } = this;
-    contentEl.addClass('avm-modal avm-progress-confirm-modal');
+    contentEl.addClass('avm-modal');
+    contentEl.addClass('avm-progress-confirm-modal');
     
     contentEl.createEl('h2', { text: '确认更改进度' });
+    
+    const progressColors = getProgressColors(this.progressStages);
     
     const infoContainer = contentEl.createDiv({ cls: 'avm-confirm-info' });
     
@@ -462,7 +479,7 @@ class ProgressConfirmModal extends Modal {
     const currentDiv = progressContainer.createDiv({ cls: 'avm-progress-item' });
     currentDiv.createEl('div', { cls: 'avm-confirm-label', text: '当前进度' });
     const currentBadge = currentDiv.createDiv({ cls: 'avm-progress-badge-small', text: this.project.progress });
-    currentBadge.style.backgroundColor = PROGRESS_COLORS[this.project.progress];
+    currentBadge.style.backgroundColor = progressColors[this.project.progress] || '#64748b';
     
     const arrow = progressContainer.createDiv({ cls: 'avm-progress-arrow' });
     arrow.createEl('span', { text: '→' });
@@ -470,7 +487,7 @@ class ProgressConfirmModal extends Modal {
     const nextDiv = progressContainer.createDiv({ cls: 'avm-progress-item' });
     nextDiv.createEl('div', { cls: 'avm-confirm-label', text: '下一进度' });
     const nextBadge = nextDiv.createDiv({ cls: 'avm-progress-badge-small', text: this.nextProgress });
-    nextBadge.style.backgroundColor = PROGRESS_COLORS[this.nextProgress];
+    nextBadge.style.backgroundColor = progressColors[this.nextProgress] || '#64748b';
     
     new Setting(contentEl)
       .addButton(btn => btn

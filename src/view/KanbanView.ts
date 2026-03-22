@@ -1,6 +1,6 @@
 import { Menu, Modal, App as ObsidianApp, Setting } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Project, Version, ProjectProgress, PROGRESS_ORDER, PROGRESS_COLORS, App, getNextStageInfo } from '../types';
+import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, getNextStageInfo, getLastProgress } from '../types';
 
 export class KanbanView {
   containerEl: HTMLElement;
@@ -32,12 +32,15 @@ export class KanbanView {
     this.containerEl.empty();
     this.containerEl.addClass('avm-kanban');
     
-    PROGRESS_ORDER.forEach(progress => {
-      this.renderColumn(progress);
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const progressColors = getProgressColors(this.plugin.settings.progressStages);
+    
+    progressOrder.forEach(progress => {
+      this.renderColumn(progress, progressColors);
     });
   }
   
-  private renderColumn(progress: ProjectProgress) {
+  private renderColumn(progress: ProjectProgress, progressColors: Record<string, string>) {
     const column = this.containerEl.createDiv({ cls: 'avm-kanban-column' });
     
     const header = column.createDiv({ cls: 'avm-kanban-column-header' });
@@ -47,14 +50,14 @@ export class KanbanView {
     header.createDiv({ cls: 'avm-kanban-column-count', text: count.toString() });
     
     const columnStyle = header.createDiv({ cls: 'avm-kanban-column-indicator' });
-    columnStyle.style.backgroundColor = PROGRESS_COLORS[progress];
+    columnStyle.style.backgroundColor = progressColors[progress] || '#64748b';
     
     const cards = column.createDiv({ cls: 'avm-kanban-cards' });
     
     const progressProjects = this.projects.filter(p => p.progress === progress);
     
     progressProjects.forEach(project => {
-      this.renderCard(cards, project);
+      this.renderCard(cards, project, progressColors);
     });
     
     if (progressProjects.length === 0) {
@@ -62,7 +65,7 @@ export class KanbanView {
     }
   }
   
-  private renderCard(container: HTMLElement, project: Project) {
+  private renderCard(container: HTMLElement, project: Project, progressColors: Record<string, string>) {
     const card = container.createDiv({ cls: 'avm-kanban-card' });
     
     const isOverdue = this.checkOverdue(project);
@@ -72,11 +75,6 @@ export class KanbanView {
     
     const header = card.createDiv({ cls: 'avm-card-header' });
     header.createDiv({ cls: 'avm-card-title', text: project.name });
-    
-    const version = this.versions.find(v => v.id === project.versionId);
-    if (version) {
-      header.createDiv({ cls: 'avm-card-version', text: version.versionNumber });
-    }
     
     if (project.manager) {
       card.createDiv({ cls: 'avm-card-meta', text: `👤 ${project.manager}` });
@@ -121,7 +119,11 @@ export class KanbanView {
   }
 
   private checkOverdue(project: Project): boolean {
-    if (project.progress === ProjectProgress.SUBMITTED || project.progress === ProjectProgress.RELEASED) return false;
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const lastTwoProgresses = progressOrder.slice(-2);
+    
+    if (lastTwoProgresses.includes(project.progress)) return false;
     
     const nextStageInfo = getNextStageInfo(project);
     if (!nextStageInfo.time) return false;
@@ -167,7 +169,7 @@ export class KanbanView {
   }
   
   private showEditProjectModal(project: Project) {
-    new KanbanEditProjectModal(this.plugin.app, project, this.apps, this.versions, async (data) => {
+    new KanbanEditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
@@ -178,7 +180,7 @@ export class KanbanView {
   }
   
   private showProgressChangeModal(project: Project) {
-    new ProgressChangeModal(this.plugin.app, project, async (newProgress) => {
+    new ProgressChangeModal(this.plugin.app, project, this.plugin.settings.progressStages, async (newProgress) => {
       try {
         await this.plugin.dataService.updateProject(project.id, { progress: newProgress }, project.version);
         this.onRefresh();
@@ -193,6 +195,7 @@ class KanbanEditProjectModal extends Modal {
   project: Project;
   apps: App[];
   versions: Version[];
+  progressStages: { name: string; color: string }[];
   onSubmit: (data: Partial<Project>) => void;
   
   constructor(
@@ -200,12 +203,14 @@ class KanbanEditProjectModal extends Modal {
     project: Project, 
     apps: App[], 
     versions: Version[], 
+    progressStages: { name: string; color: string }[],
     onSubmit: (data: Partial<Project>) => void
   ) {
     super(app);
     this.project = project;
     this.apps = apps;
     this.versions = versions;
+    this.progressStages = progressStages;
     this.onSubmit = onSubmit;
   }
   
@@ -272,7 +277,8 @@ class KanbanEditProjectModal extends Modal {
     new Setting(contentEl)
       .setName('项目进度')
       .addDropdown(dropdown => {
-        PROGRESS_ORDER.forEach(progress => {
+        const progressOrder = getProgressOrder(this.progressStages);
+        progressOrder.forEach(progress => {
           dropdown.addOption(progress, progress);
         });
         dropdown.setValue(data.progress);
@@ -301,11 +307,13 @@ class KanbanEditProjectModal extends Modal {
 
 class ProgressChangeModal extends Modal {
   project: Project;
+  progressStages: { name: string; color: string }[];
   onSubmit: (progress: ProjectProgress) => void;
   
-  constructor(app: ObsidianApp, project: Project, onSubmit: (progress: ProjectProgress) => void) {
+  constructor(app: ObsidianApp, project: Project, progressStages: { name: string; color: string }[], onSubmit: (progress: ProjectProgress) => void) {
     super(app);
     this.project = project;
+    this.progressStages = progressStages;
     this.onSubmit = onSubmit;
   }
   
@@ -320,7 +328,8 @@ class ProgressChangeModal extends Modal {
     new Setting(contentEl)
       .setName('选择新进度')
       .addDropdown(dropdown => {
-        PROGRESS_ORDER.forEach(progress => {
+        const progressOrder = getProgressOrder(this.progressStages);
+        progressOrder.forEach(progress => {
           dropdown.addOption(progress, progress);
         });
         dropdown.setValue(this.project.progress);

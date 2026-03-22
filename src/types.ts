@@ -9,14 +9,21 @@ export class ConcurrencyConflictError extends Error {
   }
 }
 
-export enum ProjectProgress {
-  REQUIREMENT_DECOMPOSITION = '需求分解',
-  CONFIG_COMPONENT_FILL = '配置组件填写',
-  COMPONENT_UPLOAD = '组件上传',
-  SELF_TEST = '自测验证',
-  SUBMITTED = '已提测',
-  RELEASED = '已发布'
+export type ProjectProgress = string;
+
+export interface ProgressStage {
+  name: string;
+  color: string;
 }
+
+export const DEFAULT_PROGRESS_STAGES: ProgressStage[] = [
+  { name: '需求分解', color: '#6366f1' },
+  { name: '配置组件填写', color: '#8b5cf6' },
+  { name: '组件上传', color: '#ec4899' },
+  { name: '自测验证', color: '#f59e0b' },
+  { name: '已提测', color: '#3b82f6' },
+  { name: '已发布', color: '#10b981' }
+];
 
 export interface Project {
   id: string;
@@ -87,6 +94,7 @@ export interface PluginSettings {
   lastBackupTime: string | null;
   dataPath: string;
   backupPath: string;
+  progressStages: ProgressStage[];
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -96,19 +104,30 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   backupHour: 23,
   lastBackupTime: null,
   dataPath: 'app-version-manager',
-  backupPath: ''
+  backupPath: '',
+  progressStages: DEFAULT_PROGRESS_STAGES
 };
 
-export const PROGRESS_ORDER = [
-  ProjectProgress.REQUIREMENT_DECOMPOSITION,
-  ProjectProgress.CONFIG_COMPONENT_FILL,
-  ProjectProgress.COMPONENT_UPLOAD,
-  ProjectProgress.SELF_TEST,
-  ProjectProgress.SUBMITTED,
-  ProjectProgress.RELEASED
-];
+export function getProgressOrder(stages: ProgressStage[]): ProjectProgress[] {
+  return stages.map(s => s.name);
+}
 
-// 提测计划阶段定义
+export function getProgressColors(stages: ProgressStage[]): Record<string, string> {
+  const colors: Record<string, string> = {};
+  stages.forEach(s => {
+    colors[s.name] = s.color;
+  });
+  return colors;
+}
+
+export function getFirstProgress(stages: ProgressStage[]): ProjectProgress {
+  return stages.length > 0 ? stages[0].name : '';
+}
+
+export function getLastProgress(stages: ProgressStage[]): ProjectProgress {
+  return stages.length > 0 ? stages[stages.length - 1].name : '';
+}
+
 export const TEST_STAGES = [
   { key: 'b1IntegrationTestTime', label: 'B1集成测试' },
   { key: 'b1SystemTestTime', label: 'B1系统测试' },
@@ -244,12 +263,3 @@ export function getNextStageInfo(project: Project): { stage: string; time: strin
     time: nextTime || ''
   };
 }
-
-export const PROGRESS_COLORS: Record<ProjectProgress, string> = {
-  [ProjectProgress.REQUIREMENT_DECOMPOSITION]: '#6366f1',
-  [ProjectProgress.CONFIG_COMPONENT_FILL]: '#8b5cf6',
-  [ProjectProgress.COMPONENT_UPLOAD]: '#ec4899',
-  [ProjectProgress.SELF_TEST]: '#f59e0b',
-  [ProjectProgress.SUBMITTED]: '#3b82f6',
-  [ProjectProgress.RELEASED]: '#10b981'
-};

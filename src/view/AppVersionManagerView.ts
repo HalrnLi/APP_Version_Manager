@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, Modal, App as ObsidianApp, Setting, ButtonComponent, EventRef } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { App, Version, Project, ProjectProgress, SavedFilter, PROGRESS_ORDER, PROGRESS_COLORS } from '../types';
+import { App, Version, Project, ProjectProgress, SavedFilter, getProgressOrder, getProgressColors, getFirstProgress } from '../types';
 import { DualPaneView } from './DualPaneView';
 import { KanbanView } from './KanbanView';
 import { TableView } from './TableView';
@@ -197,7 +197,8 @@ export class AppVersionManagerView extends ItemView {
     
     const progressFilter = filterBar.createEl('select', { cls: 'avm-select' });
     progressFilter.createEl('option', { value: '', text: '全部进度' });
-    PROGRESS_ORDER.forEach(progress => {
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    progressOrder.forEach(progress => {
       const option = progressFilter.createEl('option', { value: progress, text: progress });
       if (progress === this.currentFilter.progress) {
         option.selected = true;
@@ -429,7 +430,7 @@ export class AppVersionManagerView extends ItemView {
   private showCreateProjectModal() {
     if (!this.selectedVersionId) return;
     
-    new CreateProjectModal(this.app, this.selectedVersionId, async (data) => {
+    new CreateProjectModal(this.app, this.selectedVersionId, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.createProject(data);
         await this.refresh();
@@ -661,11 +662,13 @@ class CreateVersionModal extends Modal {
 
 class CreateProjectModal extends Modal {
   versionId: string;
+  progressStages: { name: string; color: string }[];
   onSubmit: (data: any) => void;
   
-  constructor(app: ObsidianApp, versionId: string, onSubmit: (data: any) => void) {
+  constructor(app: ObsidianApp, versionId: string, progressStages: { name: string; color: string }[], onSubmit: (data: any) => void) {
     super(app);
     this.versionId = versionId;
+    this.progressStages = progressStages;
     this.onSubmit = onSubmit;
   }
   
@@ -675,6 +678,7 @@ class CreateProjectModal extends Modal {
     
     contentEl.createEl('h2', { text: '新建项目' });
     
+    const firstProgress = getFirstProgress(this.progressStages);
     const data = {
       name: '',
       versionId: this.versionId,
@@ -682,7 +686,7 @@ class CreateProjectModal extends Modal {
       projectLink: '',
       componentLink: '',
       requirements: '',
-      progress: ProjectProgress.REQUIREMENT_DECOMPOSITION,
+      progress: firstProgress,
       plannedTestTime: ''
     };
     
@@ -712,7 +716,8 @@ class CreateProjectModal extends Modal {
     new Setting(contentEl)
       .setName('项目进度')
       .addDropdown(dropdown => {
-        PROGRESS_ORDER.forEach(progress => {
+        const progressOrder = getProgressOrder(this.progressStages);
+        progressOrder.forEach(progress => {
           dropdown.addOption(progress, progress);
         });
         dropdown.setValue(data.progress);
