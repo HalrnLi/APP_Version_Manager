@@ -82,7 +82,7 @@ export class ImportExportService {
   }
 
   async importFromCSV(content: string, appId: string): Promise<{ success: number; errors: string[] }> {
-    const lines = content.split('\n');
+    const lines = content.split(/\r?\n/);
     const headers = this.parseCSVLine(lines[0]);
     
     const result = { success: 0, errors: [] as string[] };
@@ -132,7 +132,8 @@ export class ImportExportService {
         
         result.success++;
       } catch (error) {
-        result.errors.push(`第 ${i + 1} 行: ${error}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        result.errors.push(`第 ${i + 1} 行: ${errorMessage}`);
       }
     }
     

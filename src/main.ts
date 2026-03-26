@@ -62,6 +62,7 @@ export default class AppVersionManagerPlugin extends Plugin {
   }
 
   onunload() {
+    (this.app.workspace as any).unregisterViewType?.(VIEW_TYPE_APP_VERSION_MANAGER);
     this.backupService.clearBackupSchedule();
     this.removeStyles();
   }
@@ -270,6 +271,12 @@ export default class AppVersionManagerPlugin extends Plugin {
 .avm-project-item.avm-overdue {
   border-color: #ef4444;
   background: rgba(239, 68, 68, 0.05);
+}
+
+.avm-project-item.avm-highlighted-row {
+  border-color: #ef4444;
+  border-width: 2px;
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .avm-project-header {
@@ -488,6 +495,12 @@ export default class AppVersionManagerPlugin extends Plugin {
   border-color: #ef4444;
 }
 
+.avm-kanban-card.avm-highlighted-row {
+  border-color: #ef4444;
+  border-width: 2px;
+  background: rgba(239, 68, 68, 0.05);
+}
+
 .avm-card-header {
   display: flex;
   justify-content: space-between;
@@ -563,6 +576,15 @@ export default class AppVersionManagerPlugin extends Plugin {
 
 .avm-table tr.avm-overdue-row:hover {
   background: rgba(239, 68, 68, 0.1);
+}
+
+.avm-table tr.avm-highlighted-row {
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid #ef4444;
+}
+
+.avm-table tr.avm-highlighted-row:hover {
+  background: rgba(239, 68, 68, 0.15);
 }
 
 .avm-cell-name {

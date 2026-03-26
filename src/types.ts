@@ -9,6 +9,13 @@ export class ConcurrencyConflictError extends Error {
   }
 }
 
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+}
+
 export type ProjectProgress = string;
 
 export interface ProgressStage {
@@ -21,6 +28,7 @@ export const DEFAULT_PROGRESS_STAGES: ProgressStage[] = [
   { name: '配置组件填写', color: '#8b5cf6' },
   { name: '组件上传', color: '#ec4899' },
   { name: '自测验证', color: '#f59e0b' },
+  { name: '待提测', color: '#f97316' },
   { name: '已提测', color: '#3b82f6' },
   { name: '已发布', color: '#10b981' }
 ];
@@ -145,19 +153,41 @@ export function parseDateInput(input: string): string | null {
   
   const trimmed = input.trim();
   
+  // 先检测明确的 MM.DD 格式（必须在 new Date() 之前处理，避免 V8 将 "2.10" 解析为 2026-02-10 导致时区偏移问题）
+  const mmddMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})$/);
+  if (mmddMatch) {
+    const month = parseInt(mmddMatch[1]);
+    const day = parseInt(mmddMatch[2]);
+    const year = new Date().getFullYear();
+    const testDate = new Date(year, month - 1, day);
+    if (testDate.getFullYear() === year && 
+        testDate.getMonth() === month - 1 && 
+        testDate.getDate() === day) {
+      return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    }
+  }
+  
   // 尝试直接解析为Date对象
   const date = new Date(trimmed);
   if (!isNaN(date.getTime())) {
-    return date.toISOString().split('T')[0]; // 返回YYYY-MM-DD格式
+    // 如果解析出来的年份是2001，说明输入可能只是月日格式（如"03-25"），
+    // JavaScript默认给了2001年，此时应该用当前年份代替
+    const parsedYear = date.getFullYear();
+    if (parsedYear === 2001 && !/\d{4}/.test(trimmed)) {
+      const currentYear = new Date().getFullYear();
+      const month = date.getMonth();
+      const day = date.getDate();
+      const correctedDate = new Date(currentYear, month, day);
+      return formatLocalDate(correctedDate);
+    }
+    return formatLocalDate(date);
   }
   
   // 支持常见格式的正则表达式
   const patterns = [
     // YYYY-MM-DD or YYYY/MM/DD
     /^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/,
-    // MM/DD/YYYY
-    /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
-    // DD/MM/YYYY
+    // MM/DD/YYYY or DD/MM/YYYY
     /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
     // YYYY年MM月DD日
     /^(\d{4})年(\d{1,2})月(\d{1,2})日?$/,

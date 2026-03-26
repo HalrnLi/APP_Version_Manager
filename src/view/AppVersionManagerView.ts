@@ -1,14 +1,26 @@
-import { ItemView, WorkspaceLeaf, Modal, App as ObsidianApp, Setting, ButtonComponent, EventRef } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Modal, App as ObsidianApp, Setting, ButtonComponent } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { App, Version, Project, ProjectProgress, SavedFilter, getProgressOrder, getProgressColors, getFirstProgress } from '../types';
 import { DualPaneView } from './DualPaneView';
 import { KanbanView } from './KanbanView';
 import { TableView } from './TableView';
+import { ConfirmModal } from './ConfirmModal';
+import { createSaveButtons, createActionButtons } from './ModalUtils';
 import { ImportExportService } from '../services/ImportExportService';
 
 export const VIEW_TYPE_APP_VERSION_MANAGER = 'app-version-manager-view';
 
 type ViewType = 'dual' | 'kanban' | 'table';
+
+interface CreateProjectData {
+  name: string;
+  versionId: string;
+  manager: string;
+  projectLink: string;
+  componentLink: string;
+  requirements: string;
+  progress: ProjectProgress;
+}
 
 export class AppVersionManagerView extends ItemView {
   plugin: AppVersionManagerPlugin;
@@ -25,7 +37,6 @@ export class AppVersionManagerView extends ItemView {
   private viewContainerEl: HTMLElement;
   private headerEl: HTMLElement;
   private mainEl: HTMLElement;
-  private eventRefs: EventRef[] = [];
   private searchDebounceTimer: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: AppVersionManagerPlugin) {
@@ -78,7 +89,6 @@ export class AppVersionManagerView extends ItemView {
   }
 
   private registerEvents() {
-    // Reserved for future event wiring.
   }
 
   handleCreateVersion() {
@@ -398,17 +408,21 @@ export class AppVersionManagerView extends ItemView {
   private async confirmDeleteApp() {
     const app = this.apps.find(a => a.id === this.selectedAppId);
     if (!app) return;
-    
-    const confirmed = confirm(`确定要删除APP "${app.name}" 吗？\n这将同时删除该APP下的所有版本和项目数据！`);
-    if (confirmed) {
-      try {
-        await this.plugin.dataService.deleteApp(this.selectedAppId!);
-        this.selectedAppId = this.apps.length > 1 ? this.apps.find(a => a.id !== this.selectedAppId)?.id || null : null;
-        await this.refresh();
-      } catch (error) {
-        alert(error instanceof Error ? error.message : String(error));
+
+    new ConfirmModal(
+      this.app,
+      '删除APP',
+      `确定要删除APP "${app.name}" 吗？\n这将同时删除该APP下的所有版本和项目数据！`,
+      async () => {
+        try {
+          await this.plugin.dataService.deleteApp(this.selectedAppId!);
+          this.selectedAppId = this.apps.length > 1 ? this.apps.find(a => a.id !== this.selectedAppId)?.id || null : null;
+          await this.refresh();
+        } catch (error) {
+          alert(error instanceof Error ? error.message : String(error));
+        }
       }
-    }
+    ).open();
   }
 
   private showCreateVersionModal() {
@@ -472,12 +486,17 @@ export class AppVersionManagerView extends ItemView {
   private async deleteSavedFilter(filterId: string) {
     const filter = this.savedFilters.find(f => f.id === filterId);
     if (!filter) return;
-    
-    if (confirm(`确定要删除筛选条件 "${filter.name}" 吗？`)) {
-      this.savedFilters = this.savedFilters.filter(f => f.id !== filterId);
-      await this.saveSavedFilters();
-      this.render();
-    }
+
+    new ConfirmModal(
+      this.app,
+      '删除筛选条件',
+      `确定要删除筛选条件 "${filter.name}" 吗？`,
+      async () => {
+        this.savedFilters = this.savedFilters.filter(f => f.id !== filterId);
+        await this.saveSavedFilters();
+        this.render();
+      }
+    ).open();
   }
 
   private showExportModal() {
@@ -499,8 +518,6 @@ export class AppVersionManagerView extends ItemView {
       clearTimeout(this.searchDebounceTimer);
       this.searchDebounceTimer = null;
     }
-    this.eventRefs.forEach(ref => this.app.workspace.offref(ref));
-    this.eventRefs = [];
     this.containerEl.empty();
   }
 }
@@ -527,19 +544,20 @@ class CreateAppModal extends Modal {
         .setPlaceholder('输入APP名称')
         .onChange(value => appName = value));
     
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('创建')
-        .setCta()
-        .onClick(() => {
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: '创建',
+        cancelText: '取消',
+        onConfirm: () => {
           if (appName.trim()) {
             this.onSubmit(appName.trim());
             this.close();
           }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        },
+        onCancel: () => this.close()
+      }
+    );
   }
   
   onClose() {
@@ -571,19 +589,16 @@ class RenameAppModal extends Modal {
         .setValue(this.currentName)
         .onChange(value => newName = value));
     
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('保存')
-        .setCta()
-        .onClick(() => {
-          if (newName.trim() && newName !== this.currentName) {
-            this.onSubmit(newName.trim());
-            this.close();
-          }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+    createSaveButtons(
+      contentEl,
+      () => {
+        if (newName.trim() && newName !== this.currentName) {
+          this.onSubmit(newName.trim());
+          this.close();
+        }
+      },
+      () => this.close()
+    );
   }
   
   onClose() {
@@ -594,7 +609,7 @@ class RenameAppModal extends Modal {
 class CreateVersionModal extends Modal {
   onSubmit: (data: { versionNumber: string; bllVersion: string; ippVersion: string; webVersion: string; updateContent: string }) => void;
   
-  constructor(app: ObsidianApp, onSubmit: (data: any) => void) {
+  constructor(app: ObsidianApp, onSubmit: (data: { versionNumber: string; bllVersion: string; ippVersion: string; webVersion: string; updateContent: string }) => void) {
     super(app);
     this.onSubmit = onSubmit;
   }
@@ -640,19 +655,20 @@ class CreateVersionModal extends Modal {
         .setPlaceholder('可选')
         .onChange(value => data.updateContent = value));
     
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('创建')
-        .setCta()
-        .onClick(() => {
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: '创建',
+        cancelText: '取消',
+        onConfirm: () => {
           if (data.versionNumber && data.bllVersion && data.ippVersion && data.webVersion) {
             this.onSubmit(data);
             this.close();
           }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        },
+        onCancel: () => this.close()
+      }
+    );
   }
   
   onClose() {
@@ -663,9 +679,9 @@ class CreateVersionModal extends Modal {
 class CreateProjectModal extends Modal {
   versionId: string;
   progressStages: { name: string; color: string }[];
-  onSubmit: (data: any) => void;
+  onSubmit: (data: CreateProjectData) => void;
   
-  constructor(app: ObsidianApp, versionId: string, progressStages: { name: string; color: string }[], onSubmit: (data: any) => void) {
+  constructor(app: ObsidianApp, versionId: string, progressStages: { name: string; color: string }[], onSubmit: (data: CreateProjectData) => void) {
     super(app);
     this.versionId = versionId;
     this.progressStages = progressStages;
@@ -686,8 +702,7 @@ class CreateProjectModal extends Modal {
       projectLink: '',
       componentLink: '',
       requirements: '',
-      progress: firstProgress,
-      plannedTestTime: ''
+      progress: firstProgress
     };
     
     new Setting(contentEl)
@@ -725,31 +740,25 @@ class CreateProjectModal extends Modal {
       });
     
     new Setting(contentEl)
-      .setName('计划提测时间')
-      .addText(text => {
-        text.inputEl.type = 'date';
-        text.onChange(value => data.plannedTestTime = value);
-      });
-    
-    new Setting(contentEl)
       .setName('项目需求')
       .addTextArea(text => text
         .setPlaceholder('可选')
         .onChange(value => data.requirements = value));
     
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('创建')
-        .setCta()
-        .onClick(() => {
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: '创建',
+        cancelText: '取消',
+        onConfirm: () => {
           if (data.name) {
             this.onSubmit(data);
             this.close();
           }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        },
+        onCancel: () => this.close()
+      }
+    );
   }
   
   onClose() {
@@ -845,11 +854,12 @@ class ExportModal extends Modal {
         });
       });
     
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('导出')
-        .setCta()
-        .onClick(async () => {
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: '导出',
+        cancelText: '取消',
+        onConfirm: async () => {
           if (this.format === 'xlsx') {
             const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
             this.downloadFile(buffer, 'projects.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -858,10 +868,10 @@ class ExportModal extends Modal {
             this.downloadFile(csv, 'projects.csv', 'text/csv');
           }
           this.close();
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        },
+        onCancel: () => this.close()
+      }
+    );
   }
   
   private downloadFile(content: string | ArrayBuffer, filename: string, mimeType: string) {
@@ -901,11 +911,12 @@ class ImportModal extends Modal {
       attr: { type: 'file', accept: '.csv,.xlsx,.xls' }
     });
     
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('导入')
-        .setCta()
-        .onClick(async () => {
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: '导入',
+        cancelText: '取消',
+        onConfirm: async () => {
           const file = fileInput.files?.[0];
           if (!file) {
             alert('请选择文件');
@@ -928,10 +939,10 @@ class ImportModal extends Modal {
           } catch (error) {
             alert(`导入失败: ${error}`);
           }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        },
+        onCancel: () => this.close()
+      }
+    );
   }
   
   onClose() {

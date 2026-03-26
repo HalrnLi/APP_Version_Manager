@@ -1,5 +1,6 @@
 import { App as ObsidianApp, TFile, TFolder, normalizePath } from 'obsidian';
 import { existsSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync, renameSync } from 'fs';
+import { promises as fsPromises } from 'fs';
 import { join, isAbsolute, basename, extname } from 'path';
 import AppVersionManagerPlugin from '../main';
 import { App, Version, Project, ProjectProgress, ProgressHistoryItem, ConcurrencyConflictError, getProgressOrder, getFirstProgress } from '../types';
@@ -13,17 +14,57 @@ interface CustomFile {
     ctime: number;
     mtime: number;
   };
-  readContent(): string;
-  writeContent(content: string): void;
+  readContent(): Promise<string>;
+}
+
+// 简单内存缓存
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+class DataCache {
+  private cache = new Map<string, CacheEntry<unknown>>();
+  private ttl: number;
+
+  constructor(ttlMs: number = 5000) {
+    this.ttl = ttlMs;
+  }
+
+  get<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    
+    if (Date.now() - entry.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return entry.data as T;
+  }
+
+  set<T>(key: string, data: T): void {
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  invalidate(key?: string): void {
+    if (key) {
+      this.cache.delete(key);
+    } else {
+      this.cache.clear();
+    }
+  }
 }
 
 export class DataService {
   app: ObsidianApp;
   plugin: AppVersionManagerPlugin;
+  private cache: DataCache;
 
   constructor(app: ObsidianApp, plugin: AppVersionManagerPlugin) {
     this.app = app;
     this.plugin = plugin;
+    this.cache = new DataCache(5000);
   }
 
   private getDataPath(): string {
@@ -68,39 +109,33 @@ export class DataService {
 
   private async writeFile(filePath: string, content: string) {
     if (this.isAbsolutePath()) {
-      writeFileSync(filePath, content, 'utf-8');
+      await fsPromises.writeFile(filePath, content, 'utf-8');
     } else {
       await this.app.vault.create(filePath, content);
     }
   }
 
   private async modifyFile(file: TFile | CustomFile, content: string) {
-    if ('writeContent' in file) {
-      // CustomFile
-      file.writeContent(content);
-    } else {
-      // TFile
+    if ('path' in file && this.isAbsolutePath()) {
+      await fsPromises.writeFile(file.path, content, 'utf-8');
+    } else if (file instanceof TFile) {
       await this.app.vault.modify(file, content);
     }
   }
 
   private async renameFile(file: TFile | CustomFile, newPath: string) {
     if ('path' in file && this.isAbsolutePath()) {
-      // CustomFile with absolute path
       const newFullPath = this.isAbsolutePath() ? newPath : normalizePath(newPath);
-      renameSync(file.path, newFullPath);
+      await fsPromises.rename(file.path, newFullPath);
     } else if (file instanceof TFile) {
-      // TFile
       await this.app.vault.rename(file, normalizePath(newPath));
     }
   }
 
   private async deleteFile(file: TFile | CustomFile) {
     if ('path' in file && this.isAbsolutePath()) {
-      // CustomFile with absolute path
-      unlinkSync(file.path);
+      await fsPromises.unlink(file.path);
     } else if (file instanceof TFile) {
-      // TFile
       await this.app.vault.delete(file);
     }
   }
@@ -120,6 +155,10 @@ export class DataService {
   }
 
   async getAllApps(): Promise<App[]> {
+    const cacheKey = 'apps:all';
+    const cached = this.cache.get<App[]>(cacheKey);
+    if (cached) return cached;
+
     await this.initializeDataFolders();
     const apps: App[] = [];
     const files = await this.getMarkdownFiles(this.getAppsFolder());
@@ -129,25 +168,21 @@ export class DataService {
       if (app) apps.push(app);
     }
     
-    return apps.sort((a, b) => a.name.localeCompare(b.name));
+    const result = apps.sort((a, b) => a.name.localeCompare(b.name));
+    this.cache.set(cacheKey, result);
+    return result;
   }
 
   private async parseAppFile(file: TFile | CustomFile): Promise<App | null> {
     try {
       let content: string;
-      let ctime: number;
-      let mtime: number;
+      const ctime = file.stat.ctime;
+      const mtime = file.stat.mtime;
       
       if ('readContent' in file) {
-        // CustomFile
-        content = file.readContent();
-        ctime = file.stat.ctime;
-        mtime = file.stat.mtime;
+        content = await file.readContent();
       } else {
-        // TFile
         content = await this.app.vault.read(file);
-        ctime = file.stat.ctime;
-        mtime = file.stat.mtime;
       }
       
       const frontmatter = this.parseFrontmatter(content);
@@ -166,30 +201,45 @@ export class DataService {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private parseFrontmatter(content: string): Record<string, any> | null {
     const match = content.match(/^---\n([\s\S]*?)\n---/);
     if (!match) return {};
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const frontmatter: Record<string, any> = {};
     const lines = match[1].split('\n');
     
     for (const line of lines) {
+      if (line.startsWith('#') || line.trim() === '') {
+        continue;
+      }
+      
       const colonIndex = line.indexOf(':');
       if (colonIndex > 0) {
         const key = line.substring(0, colonIndex).trim();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let value: any = line.substring(colonIndex + 1).trim();
         
-        if (value.startsWith('[') && value.endsWith(']')) {
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+          continue;
+        }
+        
+        if (value.startsWith('"') && value.endsWith('"')) {
+          value = value.slice(1, -1);
+        } else if (value.startsWith("'") && value.endsWith("'")) {
+          value = value.slice(1, -1);
+        } else if (value.startsWith('[') && value.endsWith(']')) {
           value = value.slice(1, -1).split(',').map((v: string) => v.trim()).filter((v: string) => v);
         } else if (value === 'true') {
           value = true;
         } else if (value === 'false') {
           value = false;
+        } else if (value === 'null' || value === '~') {
+          value = null;
         }
         
-        if (/^[a-zA-Z0-9_]+$/.test(key)) {
-          frontmatter[key] = value;
-        }
+        frontmatter[key] = value;
       }
     }
     
@@ -247,8 +297,7 @@ export class DataService {
                 ctime: stat.ctime.getTime(),
                 mtime: stat.mtime.getTime()
               },
-              readContent: () => readFileSync(fullPath, 'utf-8'),
-              writeContent: (content: string) => writeFileSync(fullPath, content, 'utf-8')
+              readContent: () => fsPromises.readFile(fullPath, 'utf-8')
             });
           }
         }
@@ -321,6 +370,7 @@ export class DataService {
       : normalizePath(`${this.getAppsFolder()}/${fileName}__${id}.md`);
     
     await this.writeFile(filePath, frontmatter);
+    this.cache.invalidate('apps:all');
     
     return app;
   }
@@ -388,6 +438,7 @@ export class DataService {
       }
     }
     
+    this.cache.invalidate('apps:all');
     return app;
   }
 
@@ -429,10 +480,15 @@ export class DataService {
       await this.deleteFile(file);
     }
     
+    this.cache.invalidate('apps:all');
     return true;
   }
 
   async getVersionsByAppId(appId: string): Promise<Version[]> {
+    const cacheKey = `versions:${appId}`;
+    const cached = this.cache.get<Version[]>(cacheKey);
+    if (cached) return cached;
+
     await this.initializeDataFolders();
     const versions: Version[] = [];
     const files = await this.getMarkdownFiles(this.getVersionsFolder());
@@ -444,7 +500,9 @@ export class DataService {
       }
     }
     
-    return versions.sort((a, b) => this.compareVersions(b.versionNumber, a.versionNumber));
+    const result = versions.sort((a, b) => this.compareVersions(b.versionNumber, a.versionNumber));
+    this.cache.set(cacheKey, result);
+    return result;
   }
 
   private compareVersions(a: string, b: string): number {
@@ -472,19 +530,13 @@ export class DataService {
   private async parseVersionFile(file: TFile | CustomFile): Promise<Version | null> {
     try {
       let content: string;
-      let ctime: number;
-      let mtime: number;
+      const ctime = file.stat.ctime;
+      const mtime = file.stat.mtime;
       
       if ('readContent' in file) {
-        // CustomFile
-        content = file.readContent();
-        ctime = file.stat.ctime;
-        mtime = file.stat.mtime;
+        content = await file.readContent();
       } else {
-        // TFile
         content = await this.app.vault.read(file);
-        ctime = file.stat.ctime;
-        mtime = file.stat.mtime;
       }
       
       const frontmatter = this.parseFrontmatter(content);
@@ -559,6 +611,7 @@ export class DataService {
       : normalizePath(`${this.getVersionsFolder()}/${fileName}.md`);
     
     await this.writeFile(filePath, frontmatter);
+    this.cache.invalidate(`versions:${data.appId}`);
     
     return version;
   }
@@ -613,6 +666,7 @@ export class DataService {
       }
     }
     
+    this.cache.invalidate(`versions:${version.appId}`);
     return version;
   }
 
@@ -621,6 +675,7 @@ export class DataService {
     const version = allVersions.find(v => v.id === id);
     if (!version) return false;
     
+    const appId = version.appId;
     const projects = await this.getProjectsByVersionId(id);
     for (const project of projects) {
       await this.updateProject(project.id, { versionId: '' });
@@ -629,10 +684,10 @@ export class DataService {
     const file = await this.findEntityFileById<Version>(this.getVersionsFolder(), this.parseVersionFile, id);
     if (file) {
       await this.deleteFile(file);
-      return true;
     }
     
-    return false;
+    this.cache.invalidate(`versions:${appId}`);
+    return true;
   }
 
   async getAllVersions(): Promise<Version[]> {
@@ -677,19 +732,13 @@ export class DataService {
   private async parseProjectFile(file: TFile | CustomFile): Promise<Project | null> {
     try {
       let content: string;
-      let ctime: number;
-      let mtime: number;
+      const ctime = file.stat.ctime;
+      const mtime = file.stat.mtime;
       
       if ('readContent' in file) {
-        // CustomFile
-        content = file.readContent();
-        ctime = file.stat.ctime;
-        mtime = file.stat.mtime;
+        content = await file.readContent();
       } else {
-        // TFile
         content = await this.app.vault.read(file);
-        ctime = file.stat.ctime;
-        mtime = file.stat.mtime;
       }
       
       const frontmatter = this.parseFrontmatter(content);
@@ -813,6 +862,7 @@ export class DataService {
     
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, '');
+    this.cache.invalidate('projects:all');
     
     return project;
   }
@@ -919,6 +969,7 @@ export class DataService {
       }
     }
     
+    this.cache.invalidate('projects:all');
     return project;
   }
 
@@ -955,8 +1006,7 @@ export class DataService {
             ctime: statSync(memoPath).ctime.getTime(),
             mtime: statSync(memoPath).mtime.getTime()
           },
-          readContent: () => readFileSync(memoPath, 'utf-8'),
-          writeContent: (content: string) => writeFileSync(memoPath, content, 'utf-8')
+          readContent: () => fsPromises.readFile(memoPath, 'utf-8')
         } as CustomFile;
       }
     } else {
@@ -978,10 +1028,15 @@ export class DataService {
       await this.deleteFile(memoFile);
     }
     
+    this.cache.invalidate('projects:all');
     return true;
   }
 
   async getAllProjects(): Promise<Project[]> {
+    const cacheKey = 'projects:all';
+    const cached = this.cache.get<Project[]>(cacheKey);
+    if (cached) return cached;
+
     await this.initializeDataFolders();
     const projects: Project[] = [];
     const files = await this.getMarkdownFiles(this.getProjectsFolder());
@@ -991,6 +1046,7 @@ export class DataService {
       if (project) projects.push(project);
     }
     
+    this.cache.set(cacheKey, projects);
     return projects;
   }
 
@@ -1035,7 +1091,30 @@ export class DataService {
 
   getProjectMemoPath(projectName: string, projectId?: string): string {
     const fileName = this.sanitizeFileName(projectName);
-    return normalizePath(`${this.getMemosFolder()}/${fileName}.md`);
+    const targetPath = `${this.getMemosFolder()}/${fileName}.md`;
+    return this.isAbsolutePath() ? targetPath : normalizePath(targetPath);
+  }
+
+  async ensureMemoFile(projectName: string): Promise<string> {
+    await this.ensureFolder(this.getMemosFolder());
+    const memoPath = this.getProjectMemoPath(projectName);
+    
+    if (this.isAbsolutePath()) {
+      if (!existsSync(memoPath)) {
+        writeFileSync(memoPath, '', 'utf-8');
+      }
+    } else {
+      const file = this.app.vault.getAbstractFileByPath(memoPath);
+      if (!file) {
+        try {
+          await this.app.vault.create(memoPath, '');
+        } catch {
+          // 文件可能已存在
+        }
+      }
+    }
+    
+    return memoPath;
   }
 
   async upsertAppRecord(record: App): Promise<void> {

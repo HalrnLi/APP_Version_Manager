@@ -1,6 +1,9 @@
 import { Menu, Modal, App as ObsidianApp, Setting } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, getNextStageInfo, getLastProgress } from '../types';
+import { ConfirmModal } from './ConfirmModal';
+import { createSaveButtons, createActionButtons } from './ModalUtils';
+import { sortProjectsByPriority, isProjectHighlighted, checkOverdue } from '../utils/projectSorting';
 
 export class KanbanView {
   containerEl: HTMLElement;
@@ -56,17 +59,56 @@ export class KanbanView {
     
     const progressProjects = this.projects.filter(p => p.progress === progress);
     
-    progressProjects.forEach(project => {
+    // 按下一阶段时间排序
+    const sortedProjects = this.sortProjectsByNextStage(progressProjects);
+    
+    sortedProjects.forEach(project => {
       this.renderCard(cards, project, progressColors);
     });
     
-    if (progressProjects.length === 0) {
+    if (sortedProjects.length === 0) {
       cards.createDiv({ cls: 'avm-kanban-empty', text: '暂无项目' });
     }
   }
   
+  private sortProjectsByNextStage(projects: Project[]): Project[] {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    
+    return projects.sort((a, b) => {
+      const nextA = getNextStageInfo(a);
+      const nextB = getNextStageInfo(b);
+      
+      // 有下一阶段时间的排在前面
+      if (!!nextA.time !== !!nextB.time) {
+        return nextA.time ? -1 : 1;
+      }
+      
+      if (nextA.time && nextB.time) {
+        const dateA = new Date(nextA.time);
+        dateA.setHours(0, 0, 0, 0);
+        const dateB = new Date(nextB.time);
+        dateB.setHours(0, 0, 0, 0);
+        
+        // 接近的日期排在前面
+        return dateA.getTime() - dateB.getTime();
+      }
+      
+      // 都没有下一阶段时间，按进度排序
+      const progressIndexA = progressOrder.indexOf(a.progress);
+      const progressIndexB = progressOrder.indexOf(b.progress);
+      return progressIndexA - progressIndexB;
+    });
+  }
+  
   private renderCard(container: HTMLElement, project: Project, progressColors: Record<string, string>) {
     const card = container.createDiv({ cls: 'avm-kanban-card' });
+    
+    // 添加高亮样式
+    if (this.isProjectHighlighted(project)) {
+      card.addClass('avm-highlighted-row');
+    }
     
     const isOverdue = this.checkOverdue(project);
     if (isOverdue) {
@@ -83,31 +125,21 @@ export class KanbanView {
     const links = card.createDiv({ cls: 'avm-card-links' });
     
     if (project.projectLink) {
-      const link = links.createEl('a', { cls: 'avm-link', text: '项目链接', attr: { href: project.projectLink, target: '_blank', rel: 'noopener noreferrer' } });
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const { shell } = require('electron');
-        const url = this.ensureProtocol(project.projectLink);
-        shell.openExternal(url);
-      });
+      links.createEl('a', { cls: 'avm-link', text: '项目链接', attr: { href: this.ensureProtocol(project.projectLink), target: '_blank', rel: 'noopener noreferrer' } });
     }
 
     if (project.componentLink) {
-      const link = links.createEl('a', { cls: 'avm-link', text: '组件库', attr: { href: project.componentLink, target: '_blank', rel: 'noopener noreferrer' } });
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const { shell } = require('electron');
-        const url = this.ensureProtocol(project.componentLink);
-        shell.openExternal(url);
-      });
+      links.createEl('a', { cls: 'avm-link', text: '组件库', attr: { href: this.ensureProtocol(project.componentLink), target: '_blank', rel: 'noopener noreferrer' } });
     }
     
     card.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       this.showCardContextMenu(project, e);
     });
+  }
+  
+  private isProjectHighlighted(project: Project): boolean {
+    return isProjectHighlighted(project);
   }
   
   private ensureProtocol(url: string): string {
@@ -119,24 +151,7 @@ export class KanbanView {
   }
 
   private checkOverdue(project: Project): boolean {
-    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
-    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
-    const lastTwoProgresses = progressOrder.slice(-2);
-    
-    if (lastTwoProgresses.includes(project.progress)) return false;
-    
-    const nextStageInfo = getNextStageInfo(project);
-    if (!nextStageInfo.time) return false;
-    
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    
-    const nextDate = new Date(nextStageInfo.time);
-    nextDate.setHours(0, 0, 0, 0);
-    
-    const diffDays = Math.floor((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
-    return diffDays >= 0 && diffDays <= 1;
+    return checkOverdue(project, this.plugin.settings.progressStages);
   }
   
   private showCardContextMenu(project: Project, event: MouseEvent) {
@@ -157,12 +172,16 @@ export class KanbanView {
     menu.addItem(item => item
       .setTitle('删除')
       .setIcon('trash')
-      .onClick(async () => {
-        const confirmed = confirm(`确定要删除项目 "${project.name}" 吗？`);
-        if (confirmed) {
-          await this.plugin.dataService.deleteProject(project.id);
-          this.onRefresh();
-        }
+      .onClick(() => {
+        new ConfirmModal(
+          this.plugin.app,
+          '删除项目',
+          `确定要删除项目 "${project.name}" 吗？`,
+          async () => {
+            await this.plugin.dataService.deleteProject(project.id);
+            setTimeout(() => this.onRefresh(), 100);
+          }
+        ).open();
       }));
     
     menu.showAtMouseEvent(event);
@@ -174,7 +193,7 @@ export class KanbanView {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        alert(error);
+        alert(error?.message || String(error));
       }
     }).open();
   }
@@ -185,7 +204,7 @@ export class KanbanView {
         await this.plugin.dataService.updateProject(project.id, { progress: newProgress }, project.version);
         this.onRefresh();
       } catch (error) {
-        alert(error);
+        alert(error?.message || String(error));
       }
     }).open();
   }
@@ -285,19 +304,16 @@ class KanbanEditProjectModal extends Modal {
         dropdown.onChange(value => data.progress = value as ProjectProgress);
       });
     
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('保存')
-        .setCta()
-        .onClick(() => {
-          if (data.name && data.versionId) {
-            this.onSubmit(data);
-            this.close();
-          }
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+    createSaveButtons(
+      contentEl,
+      () => {
+        if (data.name && data.versionId) {
+          this.onSubmit(data);
+          this.close();
+        }
+      },
+      () => this.close()
+    );
   }
   
   onClose() {
@@ -336,17 +352,18 @@ class ProgressChangeModal extends Modal {
         dropdown.onChange(value => newProgress = value as ProjectProgress);
       });
     
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('确认')
-        .setCta()
-        .onClick(() => {
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: '确认',
+        cancelText: '取消',
+        onConfirm: () => {
           this.onSubmit(newProgress);
           this.close();
-        }))
-      .addButton(btn => btn
-        .setButtonText('取消')
-        .onClick(() => this.close()));
+        },
+        onCancel: () => this.close()
+      }
+    );
   }
   
   onClose() {
