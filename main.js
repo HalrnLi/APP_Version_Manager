@@ -34041,10 +34041,51 @@ function getNextStageInfo(project) {
 var import_obsidian4 = require("obsidian");
 
 // src/view/ConfirmModal.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian = require("obsidian");
+var ConfirmModal = class extends import_obsidian.Modal {
+  constructor(app, titleText, messageText, onConfirmCallback, onCancelCallback, danger = false) {
+    super(app);
+    this.titleText = titleText;
+    this.messageText = messageText;
+    this.onConfirmCallback = onConfirmCallback;
+    this.onCancelCallback = onCancelCallback;
+    this.danger = danger;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("avm-modal");
+    contentEl.createEl("h2", { text: this.titleText });
+    contentEl.createEl("p", { text: this.messageText });
+    new import_obsidian.Setting(contentEl).addButton((btn) => {
+      const button = btn.setButtonText("\u786E\u5B9A");
+      if (this.danger) {
+        button.setWarning();
+      } else {
+        button.setCta();
+      }
+      button.onClick(async () => {
+        try {
+          await this.onConfirmCallback();
+        } finally {
+          this.close();
+        }
+      });
+      return btn;
+    }).addButton(
+      (btn) => btn.setButtonText("\u53D6\u6D88").onClick(() => {
+        var _a;
+        this.close();
+        (_a = this.onCancelCallback) == null ? void 0 : _a.call(this);
+      })
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
 
 // src/view/ModalUtils.ts
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 function createActionButtons(container, options) {
   const {
     confirmText = "\u786E\u5B9A",
@@ -34053,7 +34094,7 @@ function createActionButtons(container, options) {
     onCancel,
     isCta = true
   } = options;
-  new import_obsidian.Setting(container).addButton((button) => {
+  new import_obsidian2.Setting(container).addButton((button) => {
     const btn = button.setButtonText(confirmText);
     if (isCta) {
       btn.setCta();
@@ -34072,42 +34113,6 @@ function createSaveButtons(container, onSave, onCancel) {
     onCancel
   });
 }
-
-// src/view/ConfirmModal.ts
-var ConfirmModal = class extends import_obsidian2.Modal {
-  constructor(app, titleText, messageText, onConfirmCallback, onCancelCallback) {
-    super(app);
-    this.titleText = titleText;
-    this.messageText = messageText;
-    this.onConfirmCallback = onConfirmCallback;
-    this.onCancelCallback = onCancelCallback;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: this.titleText });
-    contentEl.createEl("p", { text: this.messageText });
-    createActionButtons(contentEl, {
-      confirmText: "\u786E\u5B9A",
-      cancelText: "\u53D6\u6D88",
-      onConfirm: async () => {
-        try {
-          await this.onConfirmCallback();
-        } finally {
-          this.close();
-        }
-      },
-      onCancel: () => {
-        var _a;
-        this.close();
-        (_a = this.onCancelCallback) == null ? void 0 : _a.call(this);
-      }
-    });
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
 
 // src/view/TestPlanModal.ts
 var import_obsidian3 = require("obsidian");
@@ -34316,7 +34321,9 @@ var DualPaneView = class {
           } catch (error) {
             new import_obsidian4.Notice(error instanceof Error ? error.message : String(error));
           }
-        }
+        },
+        void 0,
+        true
       ).open();
     }));
     menu.showAtMouseEvent(event);
@@ -34456,7 +34463,9 @@ var DualPaneView = class {
           } catch (error) {
             new import_obsidian4.Notice(error instanceof Error ? error.message : String(error));
           }
-        }
+        },
+        void 0,
+        true
       ).open();
     }));
     menu.showAtMouseEvent(event);
@@ -34694,7 +34703,9 @@ var KanbanView = class {
         async () => {
           await this.plugin.dataService.deleteProject(project.id);
           setTimeout(() => this.onRefresh(), 100);
-        }
+        },
+        void 0,
+        true
       ).open();
     }));
     menu.showAtMouseEvent(event);
@@ -34997,7 +35008,9 @@ var TableView = class {
           } catch (error) {
             new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
           }
-        }
+        },
+        void 0,
+        true
       ).open();
     }));
     menu.showAtMouseEvent(event);
@@ -35436,9 +35449,16 @@ var AppVersionManagerView = class extends import_obsidian7.ItemView {
     return "layers";
   }
   async onOpen() {
+    this.renderLoading();
     await this.loadData();
     this.render();
     this.registerEvents();
+  }
+  renderLoading() {
+    this.containerEl.empty();
+    this.containerEl.addClass("app-version-manager");
+    const loadingEl = this.containerEl.createDiv({ cls: "avm-loading" });
+    loadingEl.createEl("span", { text: "\u52A0\u8F7D\u4E2D..." });
   }
   async loadData() {
     this.apps = await this.plugin.dataService.getAllApps();
@@ -35539,7 +35559,7 @@ var AppVersionManagerView = class extends import_obsidian7.ItemView {
       }
       this.searchDebounceTimer = window.setTimeout(() => {
         this.renderMainView();
-      }, 300);
+      }, 180);
     });
     const progressFilter = filterBar.createEl("select", { cls: "avm-select" });
     progressFilter.createEl("option", { value: "", text: "\u5168\u90E8\u8FDB\u5EA6" });
@@ -35709,7 +35729,9 @@ var AppVersionManagerView = class extends import_obsidian7.ItemView {
         } catch (error) {
           new import_obsidian7.Notice(error instanceof Error ? error.message : String(error));
         }
-      }
+      },
+      void 0,
+      true
     ).open();
   }
   showCreateVersionModal() {
@@ -36008,20 +36030,27 @@ var ExportModal = class extends import_obsidian7.Modal {
         this.format = value === "xlsx" ? "xlsx" : "csv";
       });
     });
+    const statusEl = contentEl.createDiv({ cls: "avm-export-status" });
     createActionButtons(
       contentEl,
       {
         confirmText: "\u5BFC\u51FA",
         cancelText: "\u53D6\u6D88",
         onConfirm: async () => {
-          if (this.format === "xlsx") {
-            const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
-            this.downloadFile(buffer, "projects.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-          } else {
-            const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
-            this.downloadFile(csv, "projects.csv", "text/csv");
+          statusEl.setText("\u5904\u7406\u4E2D...");
+          try {
+            if (this.format === "xlsx") {
+              const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
+              this.downloadFile(buffer, "projects.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            } else {
+              const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
+              this.downloadFile(csv, "projects.csv", "text/csv");
+            }
+            statusEl.setText("\u5BFC\u51FA\u6210\u529F");
+            setTimeout(() => this.close(), 800);
+          } catch (error) {
+            statusEl.setText(`\u5BFC\u51FA\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
           }
-          this.close();
         },
         onCancel: () => this.close()
       }
@@ -36054,6 +36083,7 @@ var ImportModal = class extends import_obsidian7.Modal {
     const fileInput = contentEl.createEl("input", {
       attr: { type: "file", accept: ".csv,.xlsx,.xls" }
     });
+    const statusEl = contentEl.createDiv({ cls: "avm-import-status" });
     createActionButtons(
       contentEl,
       {
@@ -36066,6 +36096,7 @@ var ImportModal = class extends import_obsidian7.Modal {
             new import_obsidian7.Notice("\u8BF7\u9009\u62E9\u6587\u4EF6");
             return;
           }
+          statusEl.setText("\u5904\u7406\u4E2D...");
           try {
             let result;
             if (file.name.endsWith(".csv")) {
@@ -36077,10 +36108,13 @@ var ImportModal = class extends import_obsidian7.Modal {
             }
             new import_obsidian7.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF01\u6210\u529F: ${result.success} \u6761${result.errors.length > 0 ? `
 \u9519\u8BEF: ${result.errors.join("\n")}` : ""}`);
-            this.onComplete();
-            this.close();
+            statusEl.setText("\u5BFC\u5165\u6210\u529F");
+            setTimeout(() => {
+              this.onComplete();
+              this.close();
+            }, 800);
           } catch (error) {
-            new import_obsidian7.Notice(`\u5BFC\u5165\u5931\u8D25: ${error}`);
+            statusEl.setText(`\u5BFC\u5165\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
           }
         },
         onCancel: () => this.close()
