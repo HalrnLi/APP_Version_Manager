@@ -36099,7 +36099,6 @@ var import_fs2 = require("fs");
 var import_path = require("path");
 var DataCache = class {
   constructor(ttlMs = 5e3) {
-    // 使用 private cache 存储不同类型的数据，通过 key 区分
     this.cache = /* @__PURE__ */ new Map();
     this.timestamps = /* @__PURE__ */ new Map();
     this.ttl = ttlMs;

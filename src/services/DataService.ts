@@ -17,11 +17,10 @@ interface CustomFile {
   readContent(): Promise<string>;
 }
 
-// 简单内存缓存 - 使用 Map<string, T> 的方式实现类型安全
-// 注意：由于 TypeScript 的类型系统限制，我们使用 string-keyed Map 来保证类型安全
-// 每个 key 只存储一种类型的数据，调用方需要确保 get/set 使用相同的类型
+// 简单内存缓存 - 使用两个 Map 分别存储数据和时间戳
+// 由于 TypeScript 类型系统的限制，使用 string-keyed Map 存储
+// 调用方需要确保 get<T>/set<T> 使用相同的类型参数
 class DataCache {
-  // 使用 private cache 存储不同类型的数据，通过 key 区分
   private cache = new Map<string, unknown>();
   private ttl: number;
   private timestamps = new Map<string, number>();
