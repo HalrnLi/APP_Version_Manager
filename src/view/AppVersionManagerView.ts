@@ -881,7 +881,8 @@ class ExportModal extends Modal {
               const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
               this.downloadFile(csv, 'projects.csv', 'text/csv');
             }
-            this.close();
+            statusEl.setText('导出成功');
+            setTimeout(() => this.close(), 800);
           } catch (error) {
             statusEl.setText(`导出失败: ${error instanceof Error ? error.message : String(error)}`);
           }
@@ -955,8 +956,11 @@ class ImportModal extends Modal {
             }
             
             new Notice(`导入完成！成功: ${result.success} 条${result.errors.length > 0 ? `\n错误: ${result.errors.join('\n')}` : ''}`);
-            this.onComplete();
-            this.close();
+            statusEl.setText('导入成功');
+            setTimeout(() => {
+              this.onComplete();
+              this.close();
+            }, 800);
           } catch (error) {
             statusEl.setText(`导入失败: ${error instanceof Error ? error.message : String(error)}`);
           }
