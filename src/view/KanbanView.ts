@@ -180,7 +180,9 @@ export class KanbanView {
           async () => {
             await this.plugin.dataService.deleteProject(project.id);
             setTimeout(() => this.onRefresh(), 100);
-          }
+          },
+          undefined,
+          true
         ).open();
       }));
     

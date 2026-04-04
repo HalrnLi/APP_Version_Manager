@@ -59,9 +59,17 @@ export class AppVersionManagerView extends ItemView {
   }
 
   async onOpen() {
+    this.renderLoading();
     await this.loadData();
     this.render();
     this.registerEvents();
+  }
+
+  private renderLoading() {
+    this.containerEl.empty();
+    this.containerEl.addClass('app-version-manager');
+    const loadingEl = this.containerEl.createDiv({ cls: 'avm-loading' });
+    loadingEl.createEl('span', { text: '加载中...' });
   }
 
   private async loadData() {
@@ -202,7 +210,7 @@ export class AppVersionManagerView extends ItemView {
       }
       this.searchDebounceTimer = window.setTimeout(() => {
         this.renderMainView();
-      }, 300);
+      }, 180);
     });
     
     const progressFilter = filterBar.createEl('select', { cls: 'avm-select' });
@@ -421,7 +429,9 @@ export class AppVersionManagerView extends ItemView {
         } catch (error) {
           new Notice(error instanceof Error ? error.message : String(error));
         }
-      }
+      },
+      undefined,
+      true
     ).open();
   }
 
@@ -854,20 +864,27 @@ class ExportModal extends Modal {
         });
       });
     
+    const statusEl = contentEl.createDiv({ cls: 'avm-export-status' });
+    
     createActionButtons(
       contentEl,
       {
         confirmText: '导出',
         cancelText: '取消',
         onConfirm: async () => {
-          if (this.format === 'xlsx') {
-            const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
-            this.downloadFile(buffer, 'projects.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-          } else {
-            const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
-            this.downloadFile(csv, 'projects.csv', 'text/csv');
+          statusEl.setText('处理中...');
+          try {
+            if (this.format === 'xlsx') {
+              const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
+              this.downloadFile(buffer, 'projects.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            } else {
+              const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
+              this.downloadFile(csv, 'projects.csv', 'text/csv');
+            }
+            this.close();
+          } catch (error) {
+            statusEl.setText(`导出失败: ${error instanceof Error ? error.message : String(error)}`);
           }
-          this.close();
         },
         onCancel: () => this.close()
       }
@@ -911,6 +928,8 @@ class ImportModal extends Modal {
       attr: { type: 'file', accept: '.csv,.xlsx,.xls' }
     });
     
+    const statusEl = contentEl.createDiv({ cls: 'avm-import-status' });
+    
     createActionButtons(
       contentEl,
       {
@@ -922,6 +941,8 @@ class ImportModal extends Modal {
             new Notice('请选择文件');
             return;
           }
+          
+          statusEl.setText('处理中...');
           
           try {
             let result;
@@ -937,7 +958,7 @@ class ImportModal extends Modal {
             this.onComplete();
             this.close();
           } catch (error) {
-            new Notice(`导入失败: ${error}`);
+            statusEl.setText(`导入失败: ${error instanceof Error ? error.message : String(error)}`);
           }
         },
         onCancel: () => this.close()

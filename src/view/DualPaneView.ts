@@ -155,7 +155,9 @@ export class DualPaneView {
             } catch (error) {
               new Notice(error instanceof Error ? error.message : String(error));
             }
-          }
+          },
+          undefined,
+          true
         ).open();
       }));
     
@@ -345,7 +347,9 @@ export class DualPaneView {
             } catch (error) {
               new Notice(error instanceof Error ? error.message : String(error));
             }
-          }
+          },
+          undefined,
+          true
         ).open();
       }));
     

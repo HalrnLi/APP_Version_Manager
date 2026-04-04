@@ -1,4 +1,4 @@
-import { Modal, Setting, App as ObsidianApp } from 'obsidian';
+import { Modal, Setting, ButtonComponent, App as ObsidianApp } from 'obsidian';
 import { createActionButtons } from './ModalUtils';
 
 export class ConfirmModal extends Modal {
@@ -6,19 +6,22 @@ export class ConfirmModal extends Modal {
   private messageText: string;
   private onConfirmCallback: () => Promise<void> | void;
   private onCancelCallback?: () => void;
+  private danger: boolean;
 
   constructor(
     app: ObsidianApp,
     titleText: string,
     messageText: string,
     onConfirmCallback: () => Promise<void> | void,
-    onCancelCallback?: () => void
+    onCancelCallback?: () => void,
+    danger: boolean = false
   ) {
     super(app);
     this.titleText = titleText;
     this.messageText = messageText;
     this.onConfirmCallback = onConfirmCallback;
     this.onCancelCallback = onCancelCallback;
+    this.danger = danger;
   }
 
   onOpen(): void {
@@ -28,21 +31,31 @@ export class ConfirmModal extends Modal {
     contentEl.createEl('h2', { text: this.titleText });
     contentEl.createEl('p', { text: this.messageText });
 
-    createActionButtons(contentEl, {
-      confirmText: '确定',
-      cancelText: '取消',
-      onConfirm: async () => {
-        try {
-          await this.onConfirmCallback();
-        } finally {
-          this.close();
+    new Setting(contentEl)
+      .addButton((btn: ButtonComponent) => {
+        const button = btn.setButtonText('确定');
+        if (this.danger) {
+          button.setWarning();
+        } else {
+          button.setCta();
         }
-      },
-      onCancel: () => {
-        this.close();
-        this.onCancelCallback?.();
-      }
-    });
+        button.onClick(async () => {
+          try {
+            await this.onConfirmCallback();
+          } finally {
+            this.close();
+          }
+        });
+        return btn;
+      })
+      .addButton((btn: ButtonComponent) =>
+        btn
+          .setButtonText('取消')
+          .onClick(() => {
+            this.close();
+            this.onCancelCallback?.();
+          })
+      );
   }
 
   onClose(): void {

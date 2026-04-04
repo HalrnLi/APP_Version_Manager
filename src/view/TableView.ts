@@ -250,7 +250,9 @@ export class TableView {
             } catch (error) {
               new Notice(error instanceof Error ? error.message : String(error));
             }
-          }
+          },
+          undefined,
+          true
         ).open();
       }));
     

@@ -548,3 +548,23 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* Loading state */
+.avm-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+/* Import/Export status */
+.avm-export-status,
+.avm-import-status {
+  margin-top: 12px;
+  padding: 8px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
