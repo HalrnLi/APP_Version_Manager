@@ -1,4 +1,4 @@
-import { Menu, Modal, App as ObsidianApp, Setting } from 'obsidian';
+import { Menu, Modal, App as ObsidianApp, Setting, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, getNextStageInfo, getLastProgress } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -193,7 +193,7 @@ export class KanbanView {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        alert(error?.message || String(error));
+        new Notice(error?.message || String(error));
       }
     }).open();
   }
@@ -204,7 +204,7 @@ export class KanbanView {
         await this.plugin.dataService.updateProject(project.id, { progress: newProgress }, project.version);
         this.onRefresh();
       } catch (error) {
-        alert(error?.message || String(error));
+        new Notice(error?.message || String(error));
       }
     }).open();
   }

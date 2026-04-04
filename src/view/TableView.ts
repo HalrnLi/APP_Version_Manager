@@ -1,4 +1,4 @@
-import { Menu, Modal, App as ObsidianApp, Setting, TFile, normalizePath } from 'obsidian';
+import { Menu, Modal, App as ObsidianApp, Setting, TFile, normalizePath, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, TEST_STAGES, parseDateInput, getLastProgress, getNextStageInfo } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -207,12 +207,12 @@ export class TableView {
     try {
       const url = new URL(normalized);
       if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-        alert('仅允许打开 http/https 链接');
+        new Notice('仅允许打开 http/https 链接');
         return;
       }
       window.open(url.toString(), '_blank', 'noopener,noreferrer');
     } catch {
-      alert('链接格式无效');
+      new Notice('链接格式无效');
     }
   }
 
@@ -248,7 +248,7 @@ export class TableView {
               await this.plugin.dataService.deleteProject(project.id);
               setTimeout(() => this.onRefresh(), 100);
             } catch (error) {
-              alert(error instanceof Error ? error.message : String(error));
+              new Notice(error instanceof Error ? error.message : String(error));
             }
           }
         ).open();
@@ -275,7 +275,7 @@ export class TableView {
           await this.plugin.dataService.updateProject(project.id, { progress: nextProgress }, project.version);
           this.onRefresh();
         } catch (error) {
-          alert(error instanceof Error ? error.message : String(error));
+          new Notice(error instanceof Error ? error.message : String(error));
         }
       }
     ).open();
@@ -287,7 +287,7 @@ export class TableView {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -298,7 +298,7 @@ export class TableView {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }

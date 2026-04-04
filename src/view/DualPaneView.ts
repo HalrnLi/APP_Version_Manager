@@ -1,4 +1,4 @@
-import { Menu, Modal, App as ObsidianApp, Setting, ButtonComponent, TFile } from 'obsidian';
+import { Menu, Modal, App as ObsidianApp, Setting, ButtonComponent, TFile, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { Version, Project, ProjectProgress, getProgressOrder, getProgressColors, App, parseDateInput, getNextStageInfo, getLastProgress } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -153,7 +153,7 @@ export class DualPaneView {
               await this.plugin.dataService.deleteVersion(version.id);
               this.onRefresh();
             } catch (error) {
-              alert(error instanceof Error ? error.message : String(error));
+              new Notice(error instanceof Error ? error.message : String(error));
             }
           }
         ).open();
@@ -168,7 +168,7 @@ export class DualPaneView {
         await this.plugin.dataService.updateVersion(version.id, data, version.version);
         this.onRefresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -302,12 +302,12 @@ export class DualPaneView {
     try {
       const url = new URL(normalized);
       if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-        alert('仅允许打开 http/https 链接');
+        new Notice('仅允许打开 http/https 链接');
         return;
       }
       window.open(url.toString(), '_blank', 'noopener,noreferrer');
     } catch {
-      alert('链接格式无效');
+      new Notice('链接格式无效');
     }
   }
 
@@ -343,7 +343,7 @@ export class DualPaneView {
               await this.plugin.dataService.deleteProject(project.id);
               setTimeout(() => this.onRefresh(), 100);
             } catch (error) {
-              alert(error instanceof Error ? error.message : String(error));
+              new Notice(error instanceof Error ? error.message : String(error));
             }
           }
         ).open();
@@ -358,7 +358,7 @@ export class DualPaneView {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -369,7 +369,7 @@ export class DualPaneView {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }

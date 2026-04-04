@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, Modal } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, Modal, Notice } from 'obsidian';
 import { AppVersionManagerView, VIEW_TYPE_APP_VERSION_MANAGER } from './view/AppVersionManagerView';
 import { PluginSettings, DEFAULT_SETTINGS, ProgressStage, DEFAULT_PROGRESS_STAGES } from './types';
 import { DataService } from './services/DataService';
@@ -756,7 +756,7 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
           if (this.plugin.dataService.isAbsolutePath()) {
             // 对于绝对路径，使用系统默认方式打开文件夹
             // 这里我们不能直接打开，但可以显示路径
-            alert(`数据存储路径: ${dataPath}\n\n请手动在文件管理器中打开此路径。`);
+            new Notice(`数据存储路径: ${dataPath}\n\n请手动在文件管理器中打开此路径。`);
           } else {
             const dataFolder = this.app.vault.getAbstractFileByPath(dataPath);
             if (dataFolder) {
@@ -764,10 +764,10 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
               if (typeof appWithShowInFolder.showInFolder === 'function') {
                 appWithShowInFolder.showInFolder(dataFolder.path);
               } else {
-                alert('当前环境不支持打开系统文件管理器');
+                new Notice('当前环境不支持打开系统文件管理器');
               }
             } else {
-              alert('数据目录尚未创建，请先创建一些数据后再试');
+              new Notice('数据目录尚未创建，请先创建一些数据后再试');
             }
           }
         }));
@@ -806,9 +806,9 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
         .onClick(async () => {
           try {
             const backupPath = await this.plugin.backupService.performBackup();
-            alert(`备份成功！\n备份文件：${backupPath}`);
+            new Notice(`备份成功！\n备份文件：${backupPath}`);
           } catch (error) {
-            alert(`备份失败：${error instanceof Error ? error.message : String(error)}`);
+            new Notice(`备份失败：${error instanceof Error ? error.message : String(error)}`);
           }
         }));
 
@@ -935,7 +935,7 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
             this.display();
           } else {
-            alert('至少需要保留一个阶段');
+            new Notice('至少需要保留一个阶段');
           }
         }));
     });

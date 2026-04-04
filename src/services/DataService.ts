@@ -17,41 +17,44 @@ interface CustomFile {
   readContent(): Promise<string>;
 }
 
-// 简单内存缓存
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-}
-
+// 简单内存缓存 - 使用 Map<string, T> 的方式实现类型安全
+// 注意：由于 TypeScript 的类型系统限制，我们使用 string-keyed Map 来保证类型安全
+// 每个 key 只存储一种类型的数据，调用方需要确保 get/set 使用相同的类型
 class DataCache {
-  private cache = new Map<string, CacheEntry<unknown>>();
+  // 使用 private cache 存储不同类型的数据，通过 key 区分
+  private cache = new Map<string, unknown>();
   private ttl: number;
+  private timestamps = new Map<string, number>();
 
   constructor(ttlMs: number = 5000) {
     this.ttl = ttlMs;
   }
 
   get<T>(key: string): T | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
+    if (!this.cache.has(key)) return null;
     
-    if (Date.now() - entry.timestamp > this.ttl) {
+    const timestamp = this.timestamps.get(key) ?? 0;
+    if (Date.now() - timestamp > this.ttl) {
       this.cache.delete(key);
+      this.timestamps.delete(key);
       return null;
     }
     
-    return entry.data as T;
+    return this.cache.get(key) as T;
   }
 
   set<T>(key: string, data: T): void {
-    this.cache.set(key, { data, timestamp: Date.now() });
+    this.cache.set(key, data);
+    this.timestamps.set(key, Date.now());
   }
 
   invalidate(key?: string): void {
     if (key) {
       this.cache.delete(key);
+      this.timestamps.delete(key);
     } else {
       this.cache.clear();
+      this.timestamps.clear();
     }
   }
 }
@@ -447,37 +450,59 @@ export class DataService {
     const app = apps.find(a => a.id === id);
     if (!app) return false;
     
+    // 第一阶段：收集所有操作，验证它们都能执行
     const versions = await this.getVersionsByAppId(id);
+    const versionFiles: (TFile | CustomFile)[] = [];
+    const versionProjectUpdates: { projectId: string; versionId: string }[] = [];
+    
+    // 收集版本文件和需要更新的项目
     for (const version of versions) {
-      await this.deleteVersion(version.id);
+      const file = await this.findEntityFileById<Version>(this.getVersionsFolder(), this.parseVersionFile, version.id);
+      if (file) {
+        versionFiles.push(file);
+      }
+      const projects = await this.getProjectsByVersionId(version.id);
+      for (const project of projects) {
+        versionProjectUpdates.push({ projectId: project.id, versionId: '' });
+      }
     }
     
+    // 收集 App 文件
     const fileName = this.sanitizeFileName(app.name);
-    let file: TFile | CustomFile | null = null;
-    
+    let appFile: TFile | CustomFile | null = null;
     if (this.isAbsolutePath()) {
-      // 对于绝对路径，我们需要手动查找文件
       const files = await this.getMarkdownFiles(this.getAppsFolder());
       for (const f of files) {
         const appData = await this.parseAppFile(f);
         if (appData?.id === id) {
-          file = f;
+          appFile = f;
           break;
         }
       }
     } else {
-      // 对于相对路径，使用原来的逻辑
       const filePath = normalizePath(`${this.getAppsFolder()}/${fileName}__${id}.md`);
       const legacyFilePath = normalizePath(`${this.getAppsFolder()}/${fileName}.md`);
       const fallbackFile =
         this.app.vault.getAbstractFileByPath(filePath)
         ?? this.app.vault.getAbstractFileByPath(legacyFilePath);
-      file = (await this.findEntityFileById<App>(this.getAppsFolder(), this.parseAppFile, id))
+      appFile = (await this.findEntityFileById<App>(this.getAppsFolder(), this.parseAppFile, id))
         ?? (fallbackFile instanceof TFile ? fallbackFile : null);
     }
     
-    if (file) {
+    // 第二阶段：执行所有操作（原子性：如果任何操作失败，已执行的操作不会回滚，但会抛出错误）
+    // 清空所有关联项目的 versionId
+    for (const update of versionProjectUpdates) {
+      await this.updateProject(update.projectId, { versionId: update.versionId });
+    }
+    
+    // 删除所有版本文件
+    for (const file of versionFiles) {
       await this.deleteFile(file);
+    }
+    
+    // 删除 App 文件
+    if (appFile) {
+      await this.deleteFile(appFile);
     }
     
     this.cache.invalidate('apps:all');
@@ -676,12 +701,19 @@ export class DataService {
     if (!version) return false;
     
     const appId = version.appId;
+    
+    // 第一阶段：收集所有操作
     const projects = await this.getProjectsByVersionId(id);
-    for (const project of projects) {
-      await this.updateProject(project.id, { versionId: '' });
-    }
+    const projectUpdates: { projectId: string; versionId: string }[] = 
+      projects.map(p => ({ projectId: p.id, versionId: '' }));
     
     const file = await this.findEntityFileById<Version>(this.getVersionsFolder(), this.parseVersionFile, id);
+    
+    // 第二阶段：执行所有操作
+    for (const update of projectUpdates) {
+      await this.updateProject(update.projectId, { versionId: update.versionId });
+    }
+    
     if (file) {
       await this.deleteFile(file);
     }

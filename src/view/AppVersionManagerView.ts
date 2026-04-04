@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, Modal, App as ObsidianApp, Setting, ButtonComponent } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Modal, App as ObsidianApp, Setting, ButtonComponent, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { App, Version, Project, ProjectProgress, SavedFilter, getProgressOrder, getProgressColors, getFirstProgress } from '../types';
 import { DualPaneView } from './DualPaneView';
@@ -245,7 +245,7 @@ export class AppVersionManagerView extends ItemView {
         .setTooltip('删除筛选')
         .onClick(() => {
           if (this.savedFilters.length === 0) {
-            alert('没有可删除的筛选条件');
+            new Notice('没有可删除的筛选条件');
             return;
           }
           new DeleteFilterModal(this.app, this.savedFilters, async (filterId) => {
@@ -386,7 +386,7 @@ export class AppVersionManagerView extends ItemView {
         await this.plugin.dataService.createApp(name);
         await this.refresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -400,7 +400,7 @@ export class AppVersionManagerView extends ItemView {
         await this.plugin.dataService.updateApp(this.selectedAppId!, newName, app.version);
         await this.refresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -419,7 +419,7 @@ export class AppVersionManagerView extends ItemView {
           this.selectedAppId = this.apps.length > 1 ? this.apps.find(a => a.id !== this.selectedAppId)?.id || null : null;
           await this.refresh();
         } catch (error) {
-          alert(error instanceof Error ? error.message : String(error));
+          new Notice(error instanceof Error ? error.message : String(error));
         }
       }
     ).open();
@@ -436,7 +436,7 @@ export class AppVersionManagerView extends ItemView {
         });
         await this.refresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -449,7 +449,7 @@ export class AppVersionManagerView extends ItemView {
         await this.plugin.dataService.createProject(data);
         await this.refresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -505,7 +505,7 @@ export class AppVersionManagerView extends ItemView {
 
   private showImportModal() {
     if (!this.selectedAppId) {
-      alert('请先选择一个APP');
+      new Notice('请先选择一个APP');
       return;
     }
     new ImportModal(this.app, this.importExportService, this.selectedAppId, async () => {
@@ -919,7 +919,7 @@ class ImportModal extends Modal {
         onConfirm: async () => {
           const file = fileInput.files?.[0];
           if (!file) {
-            alert('请选择文件');
+            new Notice('请选择文件');
             return;
           }
           
@@ -933,11 +933,11 @@ class ImportModal extends Modal {
               result = await this.importExportService.importFromExcel(buffer, this.appId);
             }
             
-            alert(`导入完成！成功: ${result.success} 条${result.errors.length > 0 ? `\n错误: ${result.errors.join('\n')}` : ''}`);
+            new Notice(`导入完成！成功: ${result.success} 条${result.errors.length > 0 ? `\n错误: ${result.errors.join('\n')}` : ''}`);
             this.onComplete();
             this.close();
           } catch (error) {
-            alert(`导入失败: ${error}`);
+            new Notice(`导入失败: ${error}`);
           }
         },
         onCancel: () => this.close()
