@@ -35419,6 +35419,40 @@ var ImportExportService = class {
     }
     return result;
   }
+  async exportToJson(projects, versions) {
+    if (!Array.isArray(projects) || !Array.isArray(versions)) {
+      return "[]";
+    }
+    const versionMap = new Map(versions.map((v) => [v.id, v]));
+    const data = projects.map((project) => {
+      var _a, _b, _c, _d;
+      const version2 = versionMap.get(project.versionId);
+      return {
+        projectName: project.name,
+        appVersion: (_a = version2 == null ? void 0 : version2.versionNumber) != null ? _a : "",
+        bllVersion: (_b = version2 == null ? void 0 : version2.bllVersion) != null ? _b : "",
+        ippVersion: (_c = version2 == null ? void 0 : version2.ippVersion) != null ? _c : "",
+        webVersion: (_d = version2 == null ? void 0 : version2.webVersion) != null ? _d : "",
+        manager: project.manager,
+        projectLink: project.projectLink,
+        componentLink: project.componentLink,
+        requirements: project.requirements,
+        progress: project.progress,
+        b1IntegrationTestTime: project.b1IntegrationTestTime,
+        b1SystemTestTime: project.b1SystemTestTime,
+        b2IntegrationTestTime: project.b2IntegrationTestTime,
+        b2SystemTestTime: project.b2SystemTestTime,
+        b3IntegrationTestTime: project.b3IntegrationTestTime,
+        b3SystemTestTime: project.b3SystemTestTime,
+        b4IntegrationTestTime: project.b4IntegrationTestTime,
+        b4SystemTestTime: project.b4SystemTestTime,
+        actualReleaseTime: project.actualReleaseTime,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt
+      };
+    });
+    return JSON.stringify(data, null, 2);
+  }
 };
 
 // src/view/AppVersionManagerView.ts

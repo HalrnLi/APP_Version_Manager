@@ -2,6 +2,30 @@ import { App as ObsidianApp } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { Project, Version, ProjectProgress, getProgressOrder, getFirstProgress } from '../types';
 
+export interface ExportProjectJson {
+  projectName: string;
+  appVersion: string;
+  bllVersion: string;
+  ippVersion: string;
+  webVersion: string;
+  manager: string;
+  projectLink: string;
+  componentLink: string;
+  requirements: string;
+  progress: string;
+  b1IntegrationTestTime: string;
+  b1SystemTestTime: string;
+  b2IntegrationTestTime: string;
+  b2SystemTestTime: string;
+  b3IntegrationTestTime: string;
+  b3SystemTestTime: string;
+  b4IntegrationTestTime: string;
+  b4SystemTestTime: string;
+  actualReleaseTime: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export class ImportExportService {
   app: ObsidianApp;
   plugin: AppVersionManagerPlugin;
@@ -300,5 +324,42 @@ export class ImportExportService {
     }
     
     return result;
+  }
+
+  async exportToJson(projects: Project[], versions: Version[]): Promise<string> {
+    if (!Array.isArray(projects) || !Array.isArray(versions)) {
+      return '[]';
+    }
+
+    const versionMap = new Map(versions.map(v => [v.id, v]));
+
+    const data: ExportProjectJson[] = projects.map(project => {
+      const version = versionMap.get(project.versionId);
+      return {
+        projectName: project.name,
+        appVersion: version?.versionNumber ?? '',
+        bllVersion: version?.bllVersion ?? '',
+        ippVersion: version?.ippVersion ?? '',
+        webVersion: version?.webVersion ?? '',
+        manager: project.manager,
+        projectLink: project.projectLink,
+        componentLink: project.componentLink,
+        requirements: project.requirements,
+        progress: project.progress,
+        b1IntegrationTestTime: project.b1IntegrationTestTime,
+        b1SystemTestTime: project.b1SystemTestTime,
+        b2IntegrationTestTime: project.b2IntegrationTestTime,
+        b2SystemTestTime: project.b2SystemTestTime,
+        b3IntegrationTestTime: project.b3IntegrationTestTime,
+        b3SystemTestTime: project.b3SystemTestTime,
+        b4IntegrationTestTime: project.b4IntegrationTestTime,
+        b4SystemTestTime: project.b4SystemTestTime,
+        actualReleaseTime: project.actualReleaseTime,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt
+      };
+    });
+
+    return JSON.stringify(data, null, 2);
   }
 }
