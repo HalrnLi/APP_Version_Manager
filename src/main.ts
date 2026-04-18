@@ -718,8 +718,7 @@ export default class AppVersionManagerPlugin extends Plugin {
 
 .avm-gantt-timeline {
   display: flex;
-  flex: 1;
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
 .avm-gantt-day-cell {
@@ -776,11 +775,16 @@ export default class AppVersionManagerPlugin extends Plugin {
   color: var(--text-muted);
 }
 
-.avm-gantt-bars {
-  flex: 1;
+.avm-gantt-cells {
+  display: flex;
   position: relative;
-  min-height: 40px;
-  padding: 4px 0;
+}
+
+.avm-gantt-time-cell {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border-right: 1px solid var(--background-modifier-border);
 }
 
 .avm-gantt-bar {

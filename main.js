@@ -35235,10 +35235,29 @@ var import_obsidian7 = require("obsidian");
 var GanttView = class {
   constructor(containerEl, plugin, projects, versions, apps, onRefresh = () => {
   }) {
-    this.dayWidth = 30;
+    this.cellWidth = 40;
     this.timelineStart = new Date();
     this.timelineEnd = new Date();
     this.chartContainer = null;
+    // 阶段颜色数组，相邻阶段颜色不同
+    this.stageColors = [
+      "#6366f1",
+      // 靛蓝 - B1集成
+      "#818cf8",
+      // 浅靛蓝 - B1系统
+      "#ec4899",
+      // 粉色 - B2集成
+      "#f472b6",
+      // 浅粉 - B2系统
+      "#f59e0b",
+      // 琥珀 - B3集成
+      "#fbbf24",
+      // 浅琥珀 - B3系统
+      "#10b981",
+      // 翠绿 - B4集成
+      "#34d399"
+      // 浅翠绿 - B4系统
+    ];
     this.containerEl = containerEl;
     this.plugin = plugin;
     this.projects = projects;
@@ -35252,30 +35271,30 @@ var GanttView = class {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     this.timelineStart = new Date(now);
-    this.timelineStart.setDate(now.getDate() - 7);
+    this.timelineStart.setDate(now.getDate() - 3);
     this.timelineEnd = new Date(now);
     this.timelineEnd.setDate(now.getDate() + 60);
   }
   getProjectVersion(versionId) {
     return this.versions.find((v) => v.id === versionId);
   }
-  getProjectApp(versionId) {
-    const version2 = this.getProjectVersion(versionId);
-    if (!version2)
-      return void 0;
-    return this.apps.find((a) => a.id === version2.appId);
-  }
   getTimelineDays() {
-    return Math.ceil((this.timelineEnd.getTime() - this.timelineStart.getTime()) / (1e3 * 60 * 60 * 24));
+    const diff = this.timelineEnd.getTime() - this.timelineStart.getTime();
+    return Math.floor(diff / (1e3 * 60 * 60 * 24));
   }
   formatDate(date) {
     const month = date.getMonth() + 1;
     const day = date.getDate();
     return `${month}/${day}`;
   }
-  getDatePosition(date) {
-    const days2 = Math.ceil((date.getTime() - this.timelineStart.getTime()) / (1e3 * 60 * 60 * 24));
-    return days2 * this.dayWidth;
+  getDateFromIndex(index) {
+    const date = new Date(this.timelineStart);
+    date.setDate(this.timelineStart.getDate() + index);
+    return date;
+  }
+  getIndexFromDate(date) {
+    const diff = date.getTime() - this.timelineStart.getTime();
+    return Math.floor(diff / (1e3 * 60 * 60 * 24));
   }
   render() {
     this.containerEl.empty();
@@ -35296,11 +35315,11 @@ var GanttView = class {
     const days2 = this.getTimelineDays();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    for (let i = 0; i <= days2; i++) {
-      const date = new Date(this.timelineStart);
-      date.setDate(this.timelineStart.getDate() + i);
+    for (let i = 0; i < days2; i++) {
+      const date = this.getDateFromIndex(i);
       const cell = timelineEl.createDiv({ cls: "avm-gantt-day-cell" });
-      cell.style.width = `${this.dayWidth}px`;
+      cell.style.width = `${this.cellWidth}px`;
+      cell.style.minWidth = `${this.cellWidth}px`;
       const dayOfWeek = date.getDay();
       if (dayOfWeek === 0 || dayOfWeek === 6) {
         cell.addClass("avm-gantt-weekend");
@@ -35308,9 +35327,7 @@ var GanttView = class {
       if (date.getTime() === today.getTime()) {
         cell.addClass("avm-gantt-today");
       }
-      if (i % 7 === 0) {
-        cell.createDiv({ cls: "avm-gantt-date-label", text: this.formatDate(date) });
-      }
+      cell.createDiv({ cls: "avm-gantt-date-label", text: this.formatDate(date) });
     }
   }
   renderProjectRows() {
@@ -35347,34 +35364,34 @@ var GanttView = class {
     if (version2) {
       rowHeader.createDiv({ cls: "avm-gantt-project-version", text: version2.versionNumber });
     }
-    const barsContainer = row.createDiv({ cls: "avm-gantt-bars" });
+    const cellsContainer = row.createDiv({ cls: "avm-gantt-cells" });
+    const days2 = this.getTimelineDays();
+    for (let i = 0; i < days2; i++) {
+      cellsContainer.createDiv({ cls: "avm-gantt-time-cell" });
+    }
     const bars = this.getProjectGanttBars(project);
     bars.forEach((bar) => {
-      this.renderBar(barsContainer, bar);
+      this.renderBar(cellsContainer, bar, days2);
     });
   }
   getProjectGanttBars(project) {
     const bars = [];
-    const progressColors = getProgressColors(this.plugin.settings.progressStages);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     TEST_STAGES.forEach((stage, index) => {
       const timeStr = project[stage.key];
       if (!timeStr)
         return;
-      const startDate = new Date(timeStr);
+      const [year, month, day] = timeStr.split("-").map(Number);
+      const startDate = new Date(year, month - 1, day);
       startDate.setHours(0, 0, 0, 0);
       let endDate = null;
       for (let j = index + 1; j < TEST_STAGES.length; j++) {
         const nextTimeStr = project[TEST_STAGES[j].key];
         if (nextTimeStr) {
-          endDate = new Date(nextTimeStr);
+          const [y, m, d] = nextTimeStr.split("-").map(Number);
+          endDate = new Date(y, m - 1, d);
           endDate.setHours(0, 0, 0, 0);
           break;
         }
-      }
-      if (!endDate && project.progress === stage.label) {
-        endDate = new Date(today);
       }
       if (!endDate) {
         endDate = new Date(startDate);
@@ -35386,23 +35403,22 @@ var GanttView = class {
         stageLabel: stage.label,
         startDate,
         endDate,
-        color: progressColors[project.progress] || "#64748b"
+        color: this.stageColors[index] || "#64748b"
       });
     });
     return bars;
   }
-  renderBar(container, bar) {
-    var _a;
+  renderBar(container, bar, totalDays) {
+    const startIndex = this.getIndexFromDate(bar.startDate);
+    const endIndex = this.getIndexFromDate(bar.endDate);
+    const spanCells = endIndex - startIndex + 1;
     const barEl = container.createDiv({ cls: "avm-gantt-bar" });
-    const left = this.getDatePosition(bar.startDate);
-    const rightPos = this.getDatePosition(bar.endDate);
-    const width = Math.max(rightPos - left, this.dayWidth);
-    barEl.style.left = `${left}px`;
-    barEl.style.width = `${width}px`;
+    barEl.style.left = `${startIndex * this.cellWidth}px`;
+    barEl.style.width = `${spanCells * this.cellWidth - 4}px`;
     barEl.style.backgroundColor = bar.color;
     barEl.createDiv({ cls: "avm-gantt-bar-label", text: bar.stageLabel });
     barEl.setAttribute("title", `${bar.project.name} - ${bar.stageLabel}
-${bar.startDate.toLocaleDateString()} ~ ${((_a = bar.endDate) == null ? void 0 : _a.toLocaleDateString()) || "\u8FDB\u884C\u4E2D"}`);
+${this.formatDate(bar.startDate)} ~ ${this.formatDate(bar.endDate)}`);
     barEl.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       this.showBarContextMenu(bar, e);
@@ -35928,7 +35944,7 @@ var AppVersionManagerView = class extends import_obsidian9.ItemView {
       { type: "dual", label: "\u53CC\u680F\u89C6\u56FE", icon: "layout" },
       { type: "kanban", label: "\u770B\u677F\u89C6\u56FE", icon: "trello" },
       { type: "table", label: "\u8868\u683C\u89C6\u56FE", icon: "table" },
-      { type: "gantt", label: "\u7518\u7279\u56FE", icon: "chart" }
+      { type: "gantt", label: "\u7518\u7279\u56FE", icon: "calendar" }
     ];
     viewTypes.forEach(({ type, label, icon }) => {
       const btn = new import_obsidian9.ButtonComponent(viewSwitcher).setIcon(icon).setTooltip(label).onClick(() => {
@@ -38745,8 +38761,7 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
 
 .avm-gantt-timeline {
   display: flex;
-  flex: 1;
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
 .avm-gantt-day-cell {
@@ -38803,11 +38818,16 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
   color: var(--text-muted);
 }
 
-.avm-gantt-bars {
-  flex: 1;
+.avm-gantt-cells {
+  display: flex;
   position: relative;
-  min-height: 40px;
-  padding: 4px 0;
+}
+
+.avm-gantt-time-cell {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border-right: 1px solid var(--background-modifier-border);
 }
 
 .avm-gantt-bar {

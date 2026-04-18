@@ -214,7 +214,7 @@ export class AppVersionManagerView extends ItemView {
       { type: 'dual', label: '双栏视图', icon: 'layout' },
       { type: 'kanban', label: '看板视图', icon: 'trello' },
       { type: 'table', label: '表格视图', icon: 'table' },
-      { type: 'gantt', label: '甘特图', icon: 'chart' }
+      { type: 'gantt', label: '甘特图', icon: 'calendar' }
     ];
     
     viewTypes.forEach(({ type, label, icon }) => {

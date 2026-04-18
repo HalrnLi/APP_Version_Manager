@@ -1,6 +1,6 @@
 import { Menu, App as ObsidianApp } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, TEST_STAGES, getNextStageInfo } from '../types';
+import { Project, Version, ProjectProgress, getProgressOrder, App, TEST_STAGES, getNextStageInfo } from '../types';
 
 interface GanttBar {
   project: Project;
@@ -19,7 +19,7 @@ export class GanttView {
   apps: App[];
   onRefresh: () => void;
 
-  private dayWidth: number = 30;
+  private cellWidth: number = 40;
   private timelineStart: Date = new Date();
   private timelineEnd: Date = new Date();
   private chartContainer: HTMLElement | null = null;
@@ -48,7 +48,7 @@ export class GanttView {
     now.setHours(0, 0, 0, 0);
 
     this.timelineStart = new Date(now);
-    this.timelineStart.setDate(now.getDate() - 7);
+    this.timelineStart.setDate(now.getDate() - 3);
 
     this.timelineEnd = new Date(now);
     this.timelineEnd.setDate(now.getDate() + 60);
@@ -58,14 +58,9 @@ export class GanttView {
     return this.versions.find(v => v.id === versionId);
   }
 
-  private getProjectApp(versionId: string): App | undefined {
-    const version = this.getProjectVersion(versionId);
-    if (!version) return undefined;
-    return this.apps.find(a => a.id === version.appId);
-  }
-
   private getTimelineDays(): number {
-    return Math.ceil((this.timelineEnd.getTime() - this.timelineStart.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = this.timelineEnd.getTime() - this.timelineStart.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
   }
 
   private formatDate(date: Date): string {
@@ -74,9 +69,15 @@ export class GanttView {
     return `${month}/${day}`;
   }
 
-  private getDatePosition(date: Date): number {
-    const days = Math.ceil((date.getTime() - this.timelineStart.getTime()) / (1000 * 60 * 60 * 24));
-    return days * this.dayWidth;
+  private getDateFromIndex(index: number): Date {
+    const date = new Date(this.timelineStart);
+    date.setDate(this.timelineStart.getDate() + index);
+    return date;
+  }
+
+  private getIndexFromDate(date: Date): number {
+    const diff = date.getTime() - this.timelineStart.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
   }
 
   private render() {
@@ -111,12 +112,12 @@ export class GanttView {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    for (let i = 0; i <= days; i++) {
-      const date = new Date(this.timelineStart);
-      date.setDate(this.timelineStart.getDate() + i);
+    for (let i = 0; i < days; i++) {
+      const date = this.getDateFromIndex(i);
 
       const cell = timelineEl.createDiv({ cls: 'avm-gantt-day-cell' });
-      cell.style.width = `${this.dayWidth}px`;
+      cell.style.width = `${this.cellWidth}px`;
+      cell.style.minWidth = `${this.cellWidth}px`;
 
       // 周末高亮
       const dayOfWeek = date.getDay();
@@ -129,10 +130,8 @@ export class GanttView {
         cell.addClass('avm-gantt-today');
       }
 
-      // 显示日期（只显示1,7,14,21等7的倍数的天）
-      if (i % 7 === 0) {
-        cell.createDiv({ cls: 'avm-gantt-date-label', text: this.formatDate(date) });
-      }
+      // 显示日期
+      cell.createDiv({ cls: 'avm-gantt-date-label', text: this.formatDate(date) });
     }
   }
 
@@ -176,48 +175,59 @@ export class GanttView {
       rowHeader.createDiv({ cls: 'avm-gantt-project-version', text: version.versionNumber });
     }
 
-    // 时间条区域
-    const barsContainer = row.createDiv({ cls: 'avm-gantt-bars' });
+    // 时间轴格子区域
+    const cellsContainer = row.createDiv({ cls: 'avm-gantt-cells' });
+    const days = this.getTimelineDays();
+
+    for (let i = 0; i < days; i++) {
+      cellsContainer.createDiv({ cls: 'avm-gantt-time-cell' });
+    }
 
     // 获取该项目的所有测试阶段时间
     const bars = this.getProjectGanttBars(project);
 
     bars.forEach(bar => {
-      this.renderBar(barsContainer, bar);
+      this.renderBar(cellsContainer, bar, days);
     });
   }
 
+  // 阶段颜色数组，相邻阶段颜色不同
+  private stageColors = [
+    '#6366f1', // 靛蓝 - B1集成
+    '#818cf8', // 浅靛蓝 - B1系统
+    '#ec4899', // 粉色 - B2集成
+    '#f472b6', // 浅粉 - B2系统
+    '#f59e0b', // 琥珀 - B3集成
+    '#fbbf24', // 浅琥珀 - B3系统
+    '#10b981', // 翠绿 - B4集成
+    '#34d399', // 浅翠绿 - B4系统
+  ];
+
   private getProjectGanttBars(project: Project): GanttBar[] {
     const bars: GanttBar[] = [];
-    const progressColors = getProgressColors(this.plugin.settings.progressStages);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
     TEST_STAGES.forEach((stage, index) => {
       const timeStr = (project as any)[stage.key] as string;
       if (!timeStr) return;
 
-      const startDate = new Date(timeStr);
+      // 手动解析日期字符串
+      const [year, month, day] = timeStr.split('-').map(Number);
+      const startDate = new Date(year, month - 1, day);
       startDate.setHours(0, 0, 0, 0);
 
-      // 确定结束日期（下一个有时间的阶段或今天）
+      // 确定结束日期
       let endDate: Date | null = null;
       for (let j = index + 1; j < TEST_STAGES.length; j++) {
         const nextTimeStr = (project as any)[TEST_STAGES[j].key] as string;
         if (nextTimeStr) {
-          endDate = new Date(nextTimeStr);
+          const [y, m, d] = nextTimeStr.split('-').map(Number);
+          endDate = new Date(y, m - 1, d);
           endDate.setHours(0, 0, 0, 0);
           break;
         }
       }
 
-      // 如果没有下一个阶段，且当前阶段有时间为已完成状态，设置结束日期为今天
-      if (!endDate && project.progress === stage.label) {
-        endDate = new Date(today);
-      }
-
       if (!endDate) {
-        // 默认持续7天
         endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + 7);
       }
@@ -228,30 +238,31 @@ export class GanttView {
         stageLabel: stage.label,
         startDate,
         endDate,
-        color: progressColors[project.progress] || '#64748b'
+        color: this.stageColors[index] || '#64748b'
       });
     });
 
     return bars;
   }
 
-  private renderBar(container: HTMLElement, bar: GanttBar) {
+  private renderBar(container: HTMLElement, bar: GanttBar, totalDays: number) {
+    const startIndex = this.getIndexFromDate(bar.startDate);
+    const endIndex = this.getIndexFromDate(bar.endDate!);
+
+    // 计算跨越的格子数
+    const spanCells = endIndex - startIndex + 1;
+
+    // 创建时间条，绝对定位
     const barEl = container.createDiv({ cls: 'avm-gantt-bar' });
-
-    // 计算位置和宽度
-    const left = this.getDatePosition(bar.startDate);
-    const rightPos = this.getDatePosition(bar.endDate!);
-    const width = Math.max(rightPos - left, this.dayWidth);
-
-    barEl.style.left = `${left}px`;
-    barEl.style.width = `${width}px`;
+    barEl.style.left = `${startIndex * this.cellWidth}px`;
+    barEl.style.width = `${spanCells * this.cellWidth - 4}px`;
     barEl.style.backgroundColor = bar.color;
 
     // 标签
     barEl.createDiv({ cls: 'avm-gantt-bar-label', text: bar.stageLabel });
 
     // tooltip
-    barEl.setAttribute('title', `${bar.project.name} - ${bar.stageLabel}\n${bar.startDate.toLocaleDateString()} ~ ${bar.endDate?.toLocaleDateString() || '进行中'}`);
+    barEl.setAttribute('title', `${bar.project.name} - ${bar.stageLabel}\n${this.formatDate(bar.startDate)} ~ ${this.formatDate(bar.endDate!)}`);
 
     // 右键菜单
     barEl.addEventListener('contextmenu', (e) => {
