@@ -1,10 +1,10 @@
 import { Menu, Modal, App as ObsidianApp, Setting, ButtonComponent, TFile, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Version, Project, ProjectProgress, getProgressOrder, getProgressColors, App, parseDateInput, getNextStageInfo, getLastProgress } from '../types';
+import { Version, Project, ProjectProgress, getProgressOrder, getProgressColors, App, parseDateInput, getNextStageInfo, getLastProgress, ProgressStage } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 import { createSaveButtons, createActionButtons } from './ModalUtils';
 import { TestPlanModal } from './TestPlanModal';
-import { sortProjectsByPriority, isProjectHighlighted, checkOverdue } from '../utils/projectSorting';
+import { sortProjectsByPriority, isProjectHighlighted, checkOverdue, calculateOverdueStats } from '../utils/projectSorting';
 
 export class DualPaneView {
   containerEl: HTMLElement;
@@ -95,17 +95,42 @@ export class DualPaneView {
     const item = container.createDiv({
       cls: `avm-version-item ${this.selectedVersionId === version.id ? 'avm-selected' : ''} ${isArchived ? 'avm-archived' : ''}`
     });
-    
+
     item.createDiv({ cls: 'avm-version-number', text: version.versionNumber });
-    
+
     const meta = item.createDiv({ cls: 'avm-version-meta' });
-    const projectCount = this.projects.filter(p => p.versionId === version.id).length;
+    const versionProjects = this.projects.filter(p => p.versionId === version.id);
+    const projectCount = versionProjects.length;
     meta.createSpan({ text: `${projectCount} 个项目` });
-    
+
+    // 计算延期统计
+    const warningDays = this.plugin.settings.overdueWarningDays;
+    const stats = calculateOverdueStats(versionProjects, this.plugin.settings.progressStages, warningDays);
+
+    if (stats.overdue > 0) {
+      const overdueBadge = meta.createSpan({
+        cls: 'avm-version-badge avm-version-badge-overdue',
+        text: `${stats.overdue} 延期`
+      });
+      overdueBadge.style.color = '#ef4444';
+      overdueBadge.style.fontWeight = '500';
+      overdueBadge.style.marginLeft = '6px';
+    }
+
+    if (stats.warning > 0) {
+      const warningBadge = meta.createSpan({
+        cls: 'avm-version-badge avm-version-badge-warning',
+        text: `${stats.warning} 预警`
+      });
+      warningBadge.style.color = '#f59e0b';
+      warningBadge.style.fontWeight = '500';
+      warningBadge.style.marginLeft = '6px';
+    }
+
     item.addEventListener('click', () => {
       this.onVersionSelect(version.id);
     });
-    
+
     item.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       this.showVersionContextMenu(version, e, isArchived);
@@ -212,7 +237,7 @@ export class DualPaneView {
   }
   
   private isProjectHighlighted(project: Project): boolean {
-    return isProjectHighlighted(project);
+    return isProjectHighlighted(project, this.plugin.settings.overdueWarningDays);
   }
   
   private applySorting(projects: Project[]): Project[] {
@@ -321,7 +346,7 @@ export class DualPaneView {
   }
 
   private checkOverdue(project: Project): boolean {
-    return checkOverdue(project, this.plugin.settings.progressStages);
+    return checkOverdue(project, this.plugin.settings.progressStages, this.plugin.settings.overdueWarningDays);
   }
   
   private showProjectContextMenu(project: Project, event: MouseEvent) {

@@ -665,6 +665,158 @@ export default class AppVersionManagerPlugin extends Plugin {
 .app-version-manager ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* Gantt View */
+.avm-gantt {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.avm-gantt-header {
+  padding: 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+}
+
+.avm-gantt-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.avm-gantt-chart {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+}
+
+.avm-gantt-timeline-header {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.avm-gantt-row-header {
+  width: 200px;
+  min-width: 200px;
+  padding: 8px 12px;
+  border-right: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+
+.avm-gantt-col-header {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.avm-gantt-timeline {
+  display: flex;
+  flex: 1;
+  overflow-x: hidden;
+}
+
+.avm-gantt-day-cell {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--background-modifier-border);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.avm-gantt-day-cell.avm-gantt-weekend {
+  background: var(--background-modifier-hover);
+}
+
+.avm-gantt-day-cell.avm-gantt-today {
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--interactive-accent);
+  font-weight: 600;
+}
+
+.avm-gantt-date-label {
+  white-space: nowrap;
+}
+
+.avm-gantt-row {
+  display: flex;
+  border-bottom: 1px solid var(--background-modifier-border);
+  min-height: 50px;
+}
+
+.avm-gantt-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.avm-gantt-row-header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.avm-gantt-project-name {
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avm-gantt-project-version {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.avm-gantt-bars {
+  flex: 1;
+  position: relative;
+  min-height: 40px;
+  padding: 4px 0;
+}
+
+.avm-gantt-bar {
+  position: absolute;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  overflow: hidden;
+}
+
+.avm-gantt-bar:hover {
+  opacity: 0.85;
+}
+
+.avm-gantt-bar-label {
+  font-size: 11px;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avm-gantt-empty {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.theme-dark .avm-gantt-day-cell.avm-gantt-today {
+  background: rgba(99, 102, 241, 0.3);
+}
 `;
     document.head.appendChild(styleEl);
   }
@@ -836,6 +988,20 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
           this.plugin.settings.backupHour = value;
           await this.plugin.saveSettings();
           this.plugin.backupService.scheduleBackup();
+        }));
+
+    containerEl.createEl('h3', { text: '延期预警设置' });
+
+    new Setting(containerEl)
+      .setName('预警天数')
+      .setDesc('项目在截止日期前多少天内显示预警（1-14天）')
+      .addSlider(slider => slider
+        .setLimits(1, 14, 1)
+        .setValue(this.plugin.settings.overdueWarningDays)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings.overdueWarningDays = value;
+          await this.plugin.saveSettings();
         }));
 
     containerEl.createEl('h3', { text: '项目进度阶段配置' });

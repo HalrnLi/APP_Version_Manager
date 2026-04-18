@@ -143,7 +143,7 @@ export class KanbanView {
   }
   
   private isProjectHighlighted(project: Project): boolean {
-    return isProjectHighlighted(project);
+    return isProjectHighlighted(project, this.plugin.settings.overdueWarningDays);
   }
   
   private ensureProtocol(url: string): string {
@@ -155,7 +155,7 @@ export class KanbanView {
   }
 
   private checkOverdue(project: Project): boolean {
-    return checkOverdue(project, this.plugin.settings.progressStages);
+    return checkOverdue(project, this.plugin.settings.progressStages, this.plugin.settings.overdueWarningDays);
   }
   
   private showCardContextMenu(project: Project, event: MouseEvent) {

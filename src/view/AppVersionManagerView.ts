@@ -4,6 +4,7 @@ import { App, Version, Project, ProjectProgress, SavedFilter, Plan, getProgressO
 import { DualPaneView } from './DualPaneView';
 import { KanbanView } from './KanbanView';
 import { TableView } from './TableView';
+import { GanttView } from './GanttView';
 import { ConfirmModal } from './ConfirmModal';
 import { ConvertPlanModal } from './ConvertPlanModal';
 import { createSaveButtons, createActionButtons } from './ModalUtils';
@@ -11,7 +12,7 @@ import { ImportExportService } from '../services/ImportExportService';
 
 export const VIEW_TYPE_APP_VERSION_MANAGER = 'app-version-manager-view';
 
-type ViewType = 'dual' | 'kanban' | 'table';
+type ViewType = 'dual' | 'kanban' | 'table' | 'gantt';
 
 interface CreateProjectData {
   name: string;
@@ -212,7 +213,8 @@ export class AppVersionManagerView extends ItemView {
     const viewTypes: { type: ViewType; label: string; icon: string }[] = [
       { type: 'dual', label: '双栏视图', icon: 'layout' },
       { type: 'kanban', label: '看板视图', icon: 'trello' },
-      { type: 'table', label: '表格视图', icon: 'table' }
+      { type: 'table', label: '表格视图', icon: 'table' },
+      { type: 'gantt', label: '甘特图', icon: 'chart' }
     ];
     
     viewTypes.forEach(({ type, label, icon }) => {
@@ -358,6 +360,16 @@ export class AppVersionManagerView extends ItemView {
         break;
       case 'table':
         new TableView(
+          this.mainEl,
+          this.plugin,
+          appFilteredProjects,
+          filteredVersions,
+          this.apps,
+          () => this.refresh()
+        );
+        break;
+      case 'gantt':
+        new GanttView(
           this.mainEl,
           this.plugin,
           appFilteredProjects,

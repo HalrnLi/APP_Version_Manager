@@ -84,7 +84,7 @@ export class TableView {
   }
   
   private isProjectHighlighted(project: Project): boolean {
-    return isProjectHighlighted(project);
+    return isProjectHighlighted(project, this.plugin.settings.overdueWarningDays);
   }
   
   private renderRow(tbody: HTMLElement, project: Project, columns: TableColumn[]) {
@@ -222,7 +222,7 @@ export class TableView {
   }
 
   private checkOverdue(project: Project): boolean {
-    return checkOverdue(project, this.plugin.settings.progressStages);
+    return checkOverdue(project, this.plugin.settings.progressStages, this.plugin.settings.overdueWarningDays);
   }
   
   private showRowContextMenu(project: Project, event: MouseEvent) {

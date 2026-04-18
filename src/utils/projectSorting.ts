@@ -6,6 +6,45 @@ export interface SortableProject {
   sortTime: number;
 }
 
+export interface OverdueStats {
+  overdue: number;   // 已延期（超过截止日期）
+  warning: number;    // 即将到期（预警天数内）
+  onTrack: number;    // 正常
+}
+
+export function calculateOverdueStats(projects: Project[], stages: ProgressStage[], warningDays: number = 3): OverdueStats {
+  const stats: OverdueStats = { overdue: 0, warning: 0, onTrack: 0 };
+  const lastProgress = getLastProgress(stages);
+
+  for (const project of projects) {
+    // 已完成的项目不计入
+    if (project.progress === lastProgress) continue;
+
+    const nextStageInfo = getNextStageInfo(project);
+    if (!nextStageInfo.time) {
+      stats.onTrack++;
+      continue;
+    }
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const nextDate = new Date(nextStageInfo.time);
+    nextDate.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.floor((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      stats.overdue++;
+    } else if (diffDays <= warningDays) {
+      stats.warning++;
+    } else {
+      stats.onTrack++;
+    }
+  }
+
+  return stats;
+}
+
 export function sortProjectsByPriority(projects: Project[], stages: ProgressStage[]): Project[] {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -57,36 +96,38 @@ export function sortProjectsByPriority(projects: Project[], stages: ProgressStag
     .map(item => item.project);
 }
 
-export function isProjectHighlighted(project: Project): boolean {
+export function isProjectHighlighted(project: Project, warningDays: number = 3): boolean {
   const nextStageInfo = getNextStageInfo(project);
   if (!nextStageInfo.time) return false;
-  
+
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const nextDate = new Date(nextStageInfo.time);
   nextDate.setHours(0, 0, 0, 0);
-  
+
   const daysDiff = Math.floor((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  
-  return daysDiff <= 1;
+
+  return daysDiff <= warningDays && daysDiff >= 0;
 }
 
-export function checkOverdue(project: Project, stages: ProgressStage[]): boolean {
+export function checkOverdue(project: Project, stages: ProgressStage[], warningDays: number = 3): boolean {
   const progressOrder = getProgressOrder(stages);
   const lastTwoProgresses = progressOrder.slice(-2);
-  
+
   if (lastTwoProgresses.includes(project.progress)) return false;
-  
+
   const nextStageInfo = getNextStageInfo(project);
   if (!nextStageInfo.time) return false;
-  
+
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  
+
   const nextDate = new Date(nextStageInfo.time);
   nextDate.setHours(0, 0, 0, 0);
-  
+
   const diffDays = Math.floor((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  
-  return diffDays >= 0 && diffDays <= 1;
+
+  // 延期：已超过截止日期（diffDays < 0）
+  // 或在预警期内（diffDays >= 0 && diffDays <= warningDays）
+  return diffDays >= 0 && diffDays <= warningDays;
 }
