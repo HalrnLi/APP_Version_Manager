@@ -40,6 +40,7 @@ export interface Project {
   manager: string;
   projectLink: string;
   componentLink: string;
+  spec: string;
   requirements: string;
   progress: ProjectProgress;
   progressHistory: ProgressHistoryItem[];
@@ -80,6 +81,18 @@ export interface Version {
 export interface App {
   id: string;
   name: string;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+}
+
+export interface Plan {
+  id: string;
+  topic: string;
+  manager: string;
+  testDate: string;
+  releaseDate: string;
+  requirements: string;
   createdAt: string;
   updatedAt: string;
   version: number;

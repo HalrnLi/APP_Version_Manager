@@ -277,6 +277,12 @@
   text-decoration: underline;
 }
 
+.avm-project-spec {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
 .avm-project-requirements {
   font-size: 12px;
   color: var(--text-muted);
@@ -531,21 +537,29 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
-::-webkit-scrollbar {
+.app-version-manager ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-::-webkit-scrollbar-track {
+.app-version-manager ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
+.app-version-manager ::-webkit-scrollbar-thumb {
   background: var(--background-modifier-border);
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+.app-version-manager ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+.theme-dark .app-version-manager ::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+}
+
+.theme-dark .app-version-manager ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
 
@@ -567,4 +581,87 @@
   text-align: center;
   color: var(--text-muted);
   font-size: 13px;
+}
+
+/* Tab Bar */
+.avm-tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.avm-tab {
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.avm-tab:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.avm-tab.avm-tab-active {
+  color: var(--interactive-accent);
+  background: var(--background-secondary);
+  border-color: var(--background-modifier-border);
+}
+
+/* Plan action bar */
+.avm-plan-action-bar {
+  display: flex;
+  gap: 4px;
+}
+
+/* Plans table wrapper */
+.avm-plans-wrapper {
+  padding: 12px;
+  height: 100%;
+  overflow: auto;
+}
+
+.avm-plans-table {
+  min-width: 600px;
+}
+
+/* Icon button */
+.avm-btn-icon {
+  padding: 4px 6px !important;
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avm-btn-icon:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-normal);
+}
+
+/* ConvertPlanModal */
+.avm-modal-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.avm-plan-error {
+  color: #ef4444;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.avm-version-select-container {
+  margin-bottom: 8px;
 }

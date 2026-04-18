@@ -236,18 +236,24 @@ export class DualPaneView {
       text: project.progress
     });
     progressBadge.style.backgroundColor = progressColors[project.progress] || '#64748b';
-    
+
+    if (project.spec) {
+      const specEl = item.createDiv({ cls: 'avm-project-spec' });
+      specEl.createEl('strong', { text: '配置组件/规格:' });
+      specEl.createSpan({ text: project.spec.substring(0, 100) + (project.spec.length > 100 ? '...' : '') });
+    }
+
     const isOverdue = this.checkOverdue(project);
     if (isOverdue) {
       item.addClass('avm-overdue');
     }
-    
+
     const meta = item.createDiv({ cls: 'avm-project-meta' });
-    
+
     if (project.manager) {
       meta.createSpan({ cls: 'avm-meta-item', text: `👤 ${project.manager}` });
     }
-    
+
     const links = item.createDiv({ cls: 'avm-project-links' });
     
     if (project.projectLink) {
@@ -267,6 +273,7 @@ export class DualPaneView {
         this.openExternalLink(project.componentLink);
       });
     }
+    
     
     if (project.requirements) {
       const req = item.createDiv({ cls: 'avm-project-requirements' });
@@ -484,6 +491,7 @@ class EditProjectModal extends Modal {
       manager: this.project.manager,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
+      spec: this.project.spec,
       requirements: this.project.requirements,
       progress: this.project.progress
     };
@@ -534,7 +542,13 @@ class EditProjectModal extends Modal {
         dropdown.setValue(data.progress);
         dropdown.onChange(value => data.progress = value as ProjectProgress);
       });
-    
+
+    new Setting(contentEl)
+      .setName('配置组件/规格')
+      .addTextArea(text => text
+        .setValue(data.spec)
+        .onChange(value => data.spec = value));
+
     new Setting(contentEl)
       .setName('项目需求')
       .addTextArea(text => text

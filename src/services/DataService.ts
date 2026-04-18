@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSy
 import { promises as fsPromises } from 'fs';
 import { join, isAbsolute, basename, extname } from 'path';
 import AppVersionManagerPlugin from '../main';
-import { App, Version, Project, ProjectProgress, ProgressHistoryItem, ConcurrencyConflictError, getProgressOrder, getFirstProgress } from '../types';
+import { App, Version, Project, Plan, ProjectProgress, ProgressHistoryItem, ConcurrencyConflictError, getProgressOrder, getFirstProgress } from '../types';
 
 // 自定义文件接口，用于支持绝对路径
 interface CustomFile {
@@ -94,6 +94,10 @@ export class DataService {
     return this.isAbsolutePath() ? join(this.getDataPath(), 'memos') : `${this.getDataPath()}/memos`;
   }
 
+  private getPlansFolder(): string {
+    return this.isAbsolutePath() ? join(this.getDataPath(), 'plans') : `${this.getDataPath()}/plans`;
+  }
+
   private async ensureFolder(path: string) {
     if (this.isAbsolutePath()) {
       // 使用文件系统API
@@ -154,6 +158,7 @@ export class DataService {
     await this.ensureFolder(this.getVersionsFolder());
     await this.ensureFolder(this.getProjectsFolder());
     await this.ensureFolder(this.getMemosFolder());
+    await this.ensureFolder(this.getPlansFolder());
   }
 
   async getAllApps(): Promise<App[]> {
@@ -203,6 +208,38 @@ export class DataService {
     }
   }
 
+  private async parsePlanFile(file: TFile | CustomFile): Promise<Plan | null> {
+    try {
+      let content: string;
+      const ctime = file.stat.ctime;
+      const mtime = file.stat.mtime;
+      
+      if ('readContent' in file) {
+        content = await file.readContent();
+      } else {
+        content = await this.app.vault.read(file);
+      }
+      
+      const frontmatter = this.parseFrontmatter(content);
+      if (!frontmatter) return null;
+      
+      return {
+        id: frontmatter.id ?? file.basename,
+        topic: frontmatter.topic ?? '',
+        manager: frontmatter.manager ?? '',
+        testDate: frontmatter.testDate ?? '',
+        releaseDate: frontmatter.releaseDate ?? '',
+        requirements: frontmatter.requirements ?? '',
+        createdAt: frontmatter.createdAt ?? ctime.toString(),
+        updatedAt: frontmatter.updatedAt ?? mtime.toString(),
+        version: this.parseNumericField(frontmatter.version, 1)
+      };
+    } catch (error) {
+      console.error('[AppVersionManager] Failed to parse plan file:', file.path, error);
+      return null;
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private parseFrontmatter(content: string): Record<string, any> | null {
     const match = content.match(/^---\n([\s\S]*?)\n---/);
@@ -239,6 +276,25 @@ export class DataService {
           value = false;
         } else if (value === 'null' || value === '~') {
           value = null;
+        } else if (value === '|') {
+          // 多行字符串，收集后续缩进的行
+          let multiline = '';
+          const lineIndex = lines.indexOf(line);
+          for (let i = lineIndex + 1; i < lines.length; i++) {
+            const nextLine = lines[i];
+            if (nextLine.startsWith('  ') || nextLine.startsWith('\t')) {
+              multiline += nextLine.trim() + '\n';
+            } else if (nextLine.trim() === '') {
+              multiline += '\n';
+            } else {
+              break;
+            }
+          }
+          frontmatter[key] = multiline.trimEnd();
+          continue;
+        } else {
+          frontmatter[key] = value;
+          continue;
         }
         
         frontmatter[key] = value;
@@ -782,6 +838,7 @@ export class DataService {
         manager: frontmatter.manager ?? '',
         projectLink: frontmatter.projectLink ?? '',
         componentLink: frontmatter.componentLink ?? '',
+        spec: frontmatter.spec ?? '',
         requirements: frontmatter.requirements ?? '',
         progress: frontmatter.progress ?? getFirstProgress(this.plugin.settings.progressStages),
         progressHistory: this.parseProgressHistory(frontmatter.progressHistory),
@@ -810,6 +867,7 @@ export class DataService {
     manager?: string;
     projectLink?: string;
     componentLink?: string;
+    spec?: string;
     requirements?: string;
     progress?: ProjectProgress;
     b1IntegrationTestTime?: string;
@@ -839,6 +897,7 @@ export class DataService {
       manager: data.manager || '',
       projectLink: data.projectLink || '',
       componentLink: data.componentLink || '',
+      spec: data.spec || '',
       requirements: data.requirements || '',
       progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
       progressHistory: [{
@@ -866,6 +925,7 @@ export class DataService {
       manager: project.manager,
       projectLink: project.projectLink,
       componentLink: project.componentLink,
+      spec: project.spec,
       requirements: project.requirements,
       progress: project.progress,
       progressHistory: project.progressHistory.map(h => `${h.progress}@${h.changedAt}`),
@@ -933,6 +993,7 @@ export class DataService {
       manager: project.manager,
       projectLink: project.projectLink,
       componentLink: project.componentLink,
+      spec: project.spec,
       requirements: project.requirements,
       progress: project.progress,
       progressHistory: project.progressHistory.map(h => `${h.progress}@${h.changedAt}`),
@@ -1215,5 +1276,174 @@ export class DataService {
         await this.app.vault.create(memoPath, '');
       }
     }
+  }
+
+  async getAllPlans(): Promise<Plan[]> {
+    const cacheKey = 'plans:all';
+    const cached = this.cache.get<Plan[]>(cacheKey);
+    if (cached) return cached;
+
+    await this.initializeDataFolders();
+    const plans: Plan[] = [];
+    const files = await this.getMarkdownFiles(this.getPlansFolder());
+    
+    for (const file of files) {
+      const plan = await this.parsePlanFile(file);
+      if (plan) plans.push(plan);
+    }
+    
+    const result = plans.sort((a, b) => a.topic.localeCompare(b.topic));
+    this.cache.set(cacheKey, result);
+    return result;
+  }
+
+  async createPlan(data: Partial<Plan>): Promise<Plan> {
+    await this.initializeDataFolders();
+    
+    const plans = await this.getAllPlans();
+    if (data.topic && plans.some(p => p.topic === data.topic)) {
+      throw new Error('Plan topic already exists');
+    }
+    
+    const id = this.generateId();
+    const now = Date.now().toString();
+    const plan: Plan = {
+      id,
+      topic: data.topic || '',
+      manager: data.manager || '',
+      testDate: data.testDate || '',
+      releaseDate: data.releaseDate || '',
+      requirements: data.requirements || '',
+      createdAt: now,
+      updatedAt: now,
+      version: 1
+    };
+    
+    const frontmatter = this.createFrontmatter({
+      id: plan.id,
+      topic: plan.topic,
+      manager: plan.manager,
+      testDate: plan.testDate,
+      releaseDate: plan.releaseDate,
+      requirements: plan.requirements,
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt,
+      version: plan.version
+    });
+    
+    const fileName = this.sanitizeFileName(plan.topic);
+    const filePath = this.isAbsolutePath() 
+      ? join(this.getPlansFolder(), `${fileName}__${id}.md`)
+      : normalizePath(`${this.getPlansFolder()}/${fileName}__${id}.md`);
+    
+    await this.writeFile(filePath, frontmatter);
+    this.cache.invalidate('plans:all');
+    
+    return plan;
+  }
+
+  async updatePlan(id: string, data: Partial<Plan>, expectedVersion?: number): Promise<Plan | null> {
+    const plans = await this.getAllPlans();
+    const plan = plans.find(p => p.id === id);
+    if (!plan) return null;
+    
+    if (expectedVersion !== undefined && plan.version !== expectedVersion) {
+      throw new ConcurrencyConflictError(`规划: ${plan.topic}`, plan.version, expectedVersion);
+    }
+    
+    if (data.topic && data.topic !== plan.topic) {
+      if (plans.some(p => p.topic === data.topic && p.id !== id)) {
+        throw new Error('Plan topic already exists');
+      }
+    }
+    
+    const oldTopic = plan.topic;
+    Object.assign(plan, data, { updatedAt: Date.now().toString() });
+    plan.version = (plan.version ?? 1) + 1;
+    
+    const oldFileName = this.sanitizeFileName(oldTopic);
+    const newFileName = this.sanitizeFileName(plan.topic);
+    
+    let file: TFile | CustomFile | null = null;
+    
+    if (this.isAbsolutePath()) {
+      const files = await this.getMarkdownFiles(this.getPlansFolder());
+      for (const f of files) {
+        const planData = await this.parsePlanFile(f);
+        if (planData?.id === id) {
+          file = f;
+          break;
+        }
+      }
+    } else {
+      const oldPath = normalizePath(`${this.getPlansFolder()}/${oldFileName}__${id}.md`);
+      const legacyOldPath = normalizePath(`${this.getPlansFolder()}/${oldFileName}.md`);
+      const fallbackFile =
+        this.app.vault.getAbstractFileByPath(oldPath)
+        ?? this.app.vault.getAbstractFileByPath(legacyOldPath);
+      file = (await this.findEntityFileById<Plan>(this.getPlansFolder(), this.parsePlanFile, id))
+        ?? (fallbackFile instanceof TFile ? fallbackFile : null);
+    }
+    
+    if (file) {
+      const frontmatter = this.createFrontmatter({
+        id: plan.id,
+        topic: plan.topic,
+        manager: plan.manager,
+        testDate: plan.testDate,
+        releaseDate: plan.releaseDate,
+        requirements: plan.requirements,
+        createdAt: plan.createdAt,
+        updatedAt: plan.updatedAt,
+        version: plan.version
+      });
+      
+      await this.modifyFile(file, frontmatter);
+      
+      if (oldFileName !== newFileName) {
+        const newPath = this.isAbsolutePath()
+          ? join(this.getPlansFolder(), `${newFileName}__${plan.id}.md`)
+          : normalizePath(`${this.getPlansFolder()}/${newFileName}__${plan.id}.md`);
+        await this.renameFile(file, newPath);
+      }
+    }
+    
+    this.cache.invalidate('plans:all');
+    return plan;
+  }
+
+  async deletePlan(id: string): Promise<boolean> {
+    const plans = await this.getAllPlans();
+    const plan = plans.find(p => p.id === id);
+    if (!plan) return false;
+    
+    const fileName = this.sanitizeFileName(plan.topic);
+    let file: TFile | CustomFile | null = null;
+    
+    if (this.isAbsolutePath()) {
+      const files = await this.getMarkdownFiles(this.getPlansFolder());
+      for (const f of files) {
+        const planData = await this.parsePlanFile(f);
+        if (planData?.id === id) {
+          file = f;
+          break;
+        }
+      }
+    } else {
+      const filePath = normalizePath(`${this.getPlansFolder()}/${fileName}__${id}.md`);
+      const legacyFilePath = normalizePath(`${this.getPlansFolder()}/${fileName}.md`);
+      const fallbackFile =
+        this.app.vault.getAbstractFileByPath(filePath)
+        ?? this.app.vault.getAbstractFileByPath(legacyFilePath);
+      file = (await this.findEntityFileById<Plan>(this.getPlansFolder(), this.parsePlanFile, id))
+        ?? (fallbackFile instanceof TFile ? fallbackFile : null);
+    }
+    
+    if (file) {
+      await this.deleteFile(file);
+    }
+    
+    this.cache.invalidate('plans:all');
+    return true;
   }
 }

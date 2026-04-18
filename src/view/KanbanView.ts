@@ -132,6 +132,10 @@ export class KanbanView {
       links.createEl('a', { cls: 'avm-link', text: '组件库', attr: { href: this.ensureProtocol(project.componentLink), target: '_blank', rel: 'noopener noreferrer' } });
     }
     
+    if (project.spec) {
+      card.createDiv({ cls: 'avm-card-spec', text: project.spec.substring(0, 60) + (project.spec.length > 60 ? '...' : '') });
+    }
+    
     card.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       this.showCardContextMenu(project, e);
@@ -247,6 +251,7 @@ class KanbanEditProjectModal extends Modal {
       manager: this.project.manager,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
+      spec: this.project.spec,
       requirements: this.project.requirements,
       progress: this.project.progress
     };
@@ -290,12 +295,6 @@ class KanbanEditProjectModal extends Modal {
         .onChange(value => data.componentLink = value));
     
     new Setting(contentEl)
-      .setName('项目需求')
-      .addTextArea(text => text
-        .setValue(data.requirements)
-        .onChange(value => data.requirements = value));
-    
-    new Setting(contentEl)
       .setName('项目进度')
       .addDropdown(dropdown => {
         const progressOrder = getProgressOrder(this.progressStages);
@@ -305,7 +304,19 @@ class KanbanEditProjectModal extends Modal {
         dropdown.setValue(data.progress);
         dropdown.onChange(value => data.progress = value as ProjectProgress);
       });
-    
+
+    new Setting(contentEl)
+      .setName('配置组件/规格')
+      .addTextArea(text => text
+        .setValue(data.spec)
+        .onChange(value => data.spec = value));
+
+    new Setting(contentEl)
+      .setName('项目需求')
+      .addTextArea(text => text
+        .setValue(data.requirements)
+        .onChange(value => data.requirements = value));
+
     createSaveButtons(
       contentEl,
       () => {

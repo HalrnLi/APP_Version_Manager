@@ -1,10 +1,11 @@
 import { ItemView, WorkspaceLeaf, Modal, App as ObsidianApp, Setting, ButtonComponent, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { App, Version, Project, ProjectProgress, SavedFilter, getProgressOrder, getProgressColors, getFirstProgress } from '../types';
+import { App, Version, Project, ProjectProgress, SavedFilter, Plan, getProgressOrder, getProgressColors, getFirstProgress, parseDateInput } from '../types';
 import { DualPaneView } from './DualPaneView';
 import { KanbanView } from './KanbanView';
 import { TableView } from './TableView';
 import { ConfirmModal } from './ConfirmModal';
+import { ConvertPlanModal } from './ConvertPlanModal';
 import { createSaveButtons, createActionButtons } from './ModalUtils';
 import { ImportExportService } from '../services/ImportExportService';
 
@@ -18,6 +19,7 @@ interface CreateProjectData {
   manager: string;
   projectLink: string;
   componentLink: string;
+  spec: string;
   requirements: string;
   progress: ProjectProgress;
 }
@@ -30,6 +32,8 @@ export class AppVersionManagerView extends ItemView {
   selectedAppId: string | null = null;
   selectedVersionId: string | null = null;
   currentView: ViewType = 'dual';
+  currentTab: 'projects' | 'plans' = 'projects';
+  plans: Plan[] = [];
   savedFilters: SavedFilter[] = [];
   currentFilter: { progress: ProjectProgress | null; keyword: string } = { progress: null, keyword: '' };
   importExportService: ImportExportService;
@@ -82,6 +86,7 @@ export class AppVersionManagerView extends ItemView {
       
       this.versions = await this.plugin.dataService.getVersionsByAppId(this.selectedAppId);
       this.projects = await this.plugin.dataService.getAllProjects();
+      this.plans = await this.plugin.dataService.getAllPlans();
     }
   }
 
@@ -129,7 +134,34 @@ export class AppVersionManagerView extends ItemView {
 
   private renderHeader() {
     this.headerEl.empty();
-    
+
+    // Tab 切换栏
+    const tabBar = this.headerEl.createDiv({ cls: 'avm-tab-bar' });
+    const tabs: { key: 'projects' | 'plans'; label: string }[] = [
+      { key: 'projects', label: '项目' },
+      { key: 'plans', label: '规划' }
+    ];
+    tabs.forEach(({ key, label }) => {
+      const tabEl = tabBar.createDiv({ cls: 'avm-tab' + (this.currentTab === key ? ' avm-tab-active' : '') });
+      tabEl.setText(label);
+      tabEl.addEventListener('click', () => {
+        if (this.currentTab !== key) {
+          this.currentTab = key;
+          this.render();
+        }
+      });
+    });
+
+    if (this.currentTab === 'plans') {
+      // 规划 Tab：只显示新建按钮
+      const planActionBar = this.headerEl.createDiv({ cls: 'avm-plan-action-bar' });
+      new ButtonComponent(planActionBar)
+        .setIcon('plus')
+        .setButtonText('新建规划')
+        .onClick(() => this.showCreatePlanModal());
+      return;
+    }
+
     const topBar = this.headerEl.createDiv({ cls: 'avm-top-bar' });
     
     const appSelector = topBar.createDiv({ cls: 'avm-app-selector' });
@@ -285,6 +317,11 @@ export class AppVersionManagerView extends ItemView {
 
   private renderMainView() {
     this.mainEl.empty();
+
+    if (this.currentTab === 'plans') {
+      this.renderPlansView();
+      return;
+    }
     
     const appFilteredProjects = this.getAppFilteredProjects();
     const filteredVersions = this.selectedAppId 
@@ -523,6 +560,134 @@ export class AppVersionManagerView extends ItemView {
     }).open();
   }
 
+  // ---------- 规划相关方法 ----------
+
+  private showCreatePlanModal() {
+    new PlanModal(this.app, undefined, async (data) => {
+      try {
+        await this.plugin.dataService.createPlan(data);
+        await this.refresh();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : String(error));
+      }
+    }).open();
+  }
+
+  private showEditPlanModal(plan: Plan) {
+    new PlanModal(this.app, plan, async (data) => {
+      try {
+        await this.plugin.dataService.updatePlan(plan.id, data, plan.version);
+        await this.refresh();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : String(error));
+      }
+    }).open();
+  }
+
+  private handleConvertPlan(plan: Plan) {
+    if (!this.selectedAppId) {
+      new Notice('请先选择 APP 再转为正式项目');
+      return;
+    }
+
+    const appVersions = this.versions.filter(v => v.appId === this.selectedAppId);
+
+    new ConvertPlanModal(
+      this.app,
+      plan,
+      appVersions,
+      this.plugin.dataService,
+      async () => {
+        new Notice('已转为正式项目');
+        this.currentTab = 'projects';
+        await this.refresh();
+        // 自动选中新创建项目对应的版本
+        const allProjects = await this.plugin.dataService.getAllProjects();
+        const newProject = allProjects.find(p => p.versionId && appVersions.some(v => v.id === p.versionId));
+        if (newProject) {
+          this.selectedVersionId = newProject.versionId;
+        }
+      }
+    ).open();
+  }
+
+  private async confirmDeletePlan(plan: Plan) {
+    new ConfirmModal(
+      this.app,
+      '删除规划',
+      `确定要删除规划 "${plan.topic}" 吗？`,
+      async () => {
+        try {
+          await this.plugin.dataService.deletePlan(plan.id);
+          await this.refresh();
+        } catch (error) {
+          new Notice(error instanceof Error ? error.message : String(error));
+        }
+      },
+      undefined,
+      true
+    ).open();
+  }
+
+  private renderPlansView() {
+    const plans = [...this.plans].sort((a, b) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    if (plans.length === 0) {
+      this.mainEl.createDiv({
+        cls: 'avm-empty-state',
+        text: '暂无规划，点击左上角「新建规划」创建'
+      });
+      return;
+    }
+
+    const wrapper = this.mainEl.createDiv({ cls: 'avm-plans-wrapper' });
+    const table = wrapper.createEl('table', { cls: 'avm-table avm-plans-table' });
+
+    // 表头
+    const thead = table.createEl('thead');
+    const headerRow = thead.createEl('tr');
+    ['项目主题', '项目经理', '提测时间', '发布时间', '操作'].forEach(text => {
+      headerRow.createEl('th', { text });
+    });
+
+    // 表体
+    const tbody = table.createEl('tbody');
+    plans.forEach(plan => {
+      const row = tbody.createEl('tr');
+
+      row.createEl('td', { cls: 'avm-cell-name', text: plan.topic });
+
+      row.createEl('td', { text: plan.manager || '-' });
+
+      row.createEl('td', { text: plan.testDate || '-' });
+
+      row.createEl('td', { text: plan.releaseDate || '-' });
+
+      const actionsCell = row.createEl('td', { cls: 'avm-cell-actions' });
+
+      new ButtonComponent(actionsCell)
+        .setIcon('pencil')
+        .setTooltip('编辑')
+        .setClass('avm-btn-icon')
+        .onClick(() => this.showEditPlanModal(plan));
+
+      new ButtonComponent(actionsCell)
+        .setIcon('trash')
+        .setTooltip('删除')
+        .setClass('avm-btn-icon')
+        .setClass('avm-btn-danger')
+        .onClick(() => this.confirmDeletePlan(plan));
+
+      new ButtonComponent(actionsCell)
+        .setIcon('arrow-right-circle')
+        .setTooltip('转为正式项目')
+        .setClass('avm-btn-icon')
+        .onClick(() => this.handleConvertPlan(plan));
+    });
+  }
+
   async onClose() {
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
@@ -711,6 +876,7 @@ class CreateProjectModal extends Modal {
       manager: '',
       projectLink: '',
       componentLink: '',
+      spec: '',
       requirements: '',
       progress: firstProgress
     };
@@ -748,7 +914,13 @@ class CreateProjectModal extends Modal {
         dropdown.setValue(data.progress);
         dropdown.onChange(value => data.progress = value as ProjectProgress);
       });
-    
+
+    new Setting(contentEl)
+      .setName('配置组件/规格')
+      .addTextArea(text => text
+        .setPlaceholder('可选')
+        .onChange(value => data.spec = value));
+
     new Setting(contentEl)
       .setName('项目需求')
       .addTextArea(text => text
@@ -970,6 +1142,100 @@ class ImportModal extends Modal {
     );
   }
   
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+interface PlanFormData {
+  topic: string;
+  manager?: string;
+  testDate?: string;
+  releaseDate?: string;
+  requirements?: string;
+}
+
+class PlanModal extends Modal {
+  plan?: Plan;
+  onSubmit: (data: PlanFormData) => void;
+
+  constructor(app: ObsidianApp, plan: Plan | undefined, onSubmit: (data: PlanFormData) => void) {
+    super(app);
+    this.plan = plan;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass('avm-modal');
+    
+    contentEl.createEl('h2', { text: this.plan ? '编辑规划' : '新建规划' });
+    
+    const data: PlanFormData = {
+      topic: this.plan?.topic ?? '',
+      manager: this.plan?.manager ?? '',
+      testDate: this.plan?.testDate ?? '',
+      releaseDate: this.plan?.releaseDate ?? '',
+      requirements: this.plan?.requirements ?? ''
+    };
+
+    new Setting(contentEl)
+      .setName('项目主题 *')
+      .addText(text => text
+        .setPlaceholder('输入项目主题')
+        .setValue(data.topic)
+        .onChange(value => data.topic = value));
+
+    new Setting(contentEl)
+      .setName('项目经理')
+      .addText(text => text
+        .setPlaceholder('选填')
+        .setValue(data.manager ?? '')
+        .onChange(value => data.manager = value || undefined));
+
+    new Setting(contentEl)
+      .setName('提测时间')
+      .addText(text => text
+        .setPlaceholder('选填，如 2026-04-01')
+        .setValue(data.testDate ?? '')
+        .onChange(value => data.testDate = parseDateInput(value) || undefined));
+
+    new Setting(contentEl)
+      .setName('发布时间')
+      .addText(text => text
+        .setPlaceholder('选填，如 2026-05-01')
+        .setValue(data.releaseDate ?? '')
+        .onChange(value => data.releaseDate = parseDateInput(value) || undefined));
+
+    new Setting(contentEl)
+      .setName('项目需求')
+      .addTextArea(text => text
+        .setPlaceholder('选填')
+        .setValue(data.requirements ?? '')
+        .onChange(value => data.requirements = value || undefined));
+
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: this.plan ? '保存' : '创建',
+        cancelText: '取消',
+        onConfirm: () => {
+          if (data.topic.trim()) {
+            this.onSubmit({
+              topic: data.topic.trim(),
+              manager: data.manager?.trim() || undefined,
+              testDate: data.testDate?.trim() || undefined,
+              releaseDate: data.releaseDate?.trim() || undefined,
+              requirements: data.requirements?.trim() || undefined
+            });
+            this.close();
+          }
+        },
+        onCancel: () => this.close()
+      }
+    );
+  }
+
   onClose() {
     this.contentEl.empty();
   }
