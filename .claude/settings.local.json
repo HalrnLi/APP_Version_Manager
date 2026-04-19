@@ -6,7 +6,13 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git rm:*)",
-      "Bash(find e:/Code/glm_5 -type f -name *.ts -o -name *.js -o -name *.json -o -name *.md)"
+      "Bash(find e:/Code/glm_5 -type f -name *.ts -o -name *.js -o -name *.json -o -name *.md)",
+      "Bash(cp /home/tao/code/APP_Version_Manager/main.js /home/tao/Note/Note/.obsidian/plugins/APP_Version_Manager/main.js)",
+      "Bash(cp /home/tao/code/APP_Version_Manager/manifest.json /home/tao/Note/Note/.obsidian/plugins/APP_Version_Manager/manifest.json)",
+      "Bash(cp /home/tao/code/APP_Version_Manager/src/styles.css /home/tao/Note/Note/.obsidian/plugins/APP_Version_Manager/styles.css)",
+      "Bash(git push *)",
+      "Bash(node *)",
+      "Bash(git *)"
     ]
   }
 }

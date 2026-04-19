@@ -1235,10 +1235,10 @@ class PlanModal extends Modal {
           if (data.topic.trim()) {
             this.onSubmit({
               topic: data.topic.trim(),
-              manager: data.manager?.trim() || undefined,
-              testDate: data.testDate?.trim() || undefined,
-              releaseDate: data.releaseDate?.trim() || undefined,
-              requirements: data.requirements?.trim() || undefined
+              manager: data.manager?.trim() || '',
+              testDate: data.testDate?.trim() || '',
+              releaseDate: data.releaseDate?.trim() || '',
+              requirements: data.requirements?.trim() || ''
             });
             this.close();
           }

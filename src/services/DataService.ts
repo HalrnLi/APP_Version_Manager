@@ -249,21 +249,22 @@ export class DataService {
     const frontmatter: Record<string, any> = {};
     const lines = match[1].split('\n');
     
-    for (const line of lines) {
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
       if (line.startsWith('#') || line.trim() === '') {
         continue;
       }
-      
+
       const colonIndex = line.indexOf(':');
       if (colonIndex > 0) {
         const key = line.substring(0, colonIndex).trim();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let value: any = line.substring(colonIndex + 1).trim();
-        
+
         if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
           continue;
         }
-        
+
         if (value.startsWith('"') && value.endsWith('"')) {
           value = value.slice(1, -1);
         } else if (value.startsWith("'") && value.endsWith("'")) {
@@ -279,8 +280,7 @@ export class DataService {
         } else if (value === '|') {
           // 多行字符串，收集后续缩进的行
           let multiline = '';
-          const lineIndex = lines.indexOf(line);
-          for (let i = lineIndex + 1; i < lines.length; i++) {
+          for (let i = li + 1; i < lines.length; i++) {
             const nextLine = lines[i];
             if (nextLine.startsWith('  ') || nextLine.startsWith('\t')) {
               multiline += nextLine.trim() + '\n';

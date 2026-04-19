@@ -34952,6 +34952,7 @@ var TableView = class {
       row.addClass("avm-overdue-row");
     }
     const version2 = this.versions.find((v) => v.id === project.versionId);
+    const nextStageInfo = getNextStageInfo(project);
     columns.forEach((col) => {
       const td = row.createEl("td");
       switch (col.key) {
@@ -34977,12 +34978,10 @@ var TableView = class {
           });
           break;
         case "nextStage":
-          const nextStageInfo = getNextStageInfo(project);
           td.createDiv({ text: nextStageInfo.stage });
           break;
         case "nextStageTime":
-          const nextStageInfo2 = getNextStageInfo(project);
-          td.createDiv({ text: nextStageInfo2.time });
+          td.createDiv({ text: nextStageInfo.time });
           break;
         case "links":
           const linksContainer = td.createDiv({ cls: "avm-cell-links" });
@@ -35036,7 +35035,8 @@ var TableView = class {
       const leaf = this.plugin.app.workspace.getLeaf(false);
       await leaf.openFile(file);
     } else {
-      window.open(`file://${memoPath}`, "_blank");
+      const encodedPath = encodeURIComponent(memoPath).replace(/%5C/g, "/");
+      window.open(`file://${encodedPath}`, "_blank");
     }
   }
   openExternalLink(rawUrl) {
@@ -35556,7 +35556,7 @@ var ImportExportService = class {
         project.manager,
         project.projectLink,
         project.componentLink,
-        project.requirements.replace(/\n/g, "\\n"),
+        (project.requirements || "").replace(/\n/g, "\\n"),
         project.progress,
         project.b1IntegrationTestTime,
         project.b1SystemTestTime,
@@ -35616,7 +35616,6 @@ var ImportExportService = class {
           componentLink: rowData["\u7EC4\u4EF6\u5E93\u94FE\u63A5"] || "",
           requirements: (rowData["\u9879\u76EE\u9700\u6C42"] || "").replace(/\\n/g, "\n"),
           progress: this.parseProgress(rowData["\u9879\u76EE\u8FDB\u5EA6"]),
-          plannedTestTime: rowData["\u8BA1\u5212\u63D0\u6D4B\u65F6\u95F4"] || "",
           actualReleaseTime: rowData["\u5B9E\u9645\u53D1\u5E03\u65F6\u95F4"] || ""
         };
         if (existingProject) {
@@ -35703,7 +35702,7 @@ var ImportExportService = class {
         "\u9879\u76EE\u7ECF\u7406": project.manager,
         "\u9879\u76EE\u94FE\u63A5": project.projectLink,
         "\u7EC4\u4EF6\u5E93\u94FE\u63A5": project.componentLink,
-        "\u9879\u76EE\u9700\u6C42": project.requirements,
+        "\u9879\u76EE\u9700\u6C42": project.requirements || "",
         "\u9879\u76EE\u8FDB\u5EA6": project.progress,
         "B1\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4": project.b1IntegrationTestTime,
         "B1\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4": project.b1SystemTestTime,
@@ -35754,7 +35753,6 @@ var ImportExportService = class {
           componentLink: row["\u7EC4\u4EF6\u5E93\u94FE\u63A5"] || "",
           requirements: row["\u9879\u76EE\u9700\u6C42"] || "",
           progress: this.parseProgress(row["\u9879\u76EE\u8FDB\u5EA6"]),
-          plannedTestTime: row["\u8BA1\u5212\u63D0\u6D4B\u65F6\u95F4"] || "",
           actualReleaseTime: row["\u5B9E\u9645\u53D1\u5E03\u65F6\u95F4"] || ""
         };
         if (existingProject) {
@@ -35765,7 +35763,8 @@ var ImportExportService = class {
         }
         result.success++;
       } catch (error) {
-        result.errors.push(`\u7B2C ${i + 2} \u884C: ${error}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        result.errors.push(`\u7B2C ${i + 2} \u884C: ${errorMessage}`);
       }
     }
     return result;
@@ -35787,7 +35786,7 @@ var ImportExportService = class {
         manager: project.manager,
         projectLink: project.projectLink,
         componentLink: project.componentLink,
-        requirements: project.requirements,
+        requirements: project.requirements || "",
         progress: project.progress,
         b1IntegrationTestTime: project.b1IntegrationTestTime,
         b1SystemTestTime: project.b1SystemTestTime,
@@ -36687,10 +36686,10 @@ var PlanModal = class extends import_obsidian9.Modal {
           if (data.topic.trim()) {
             this.onSubmit({
               topic: data.topic.trim(),
-              manager: ((_a2 = data.manager) == null ? void 0 : _a2.trim()) || void 0,
-              testDate: ((_b2 = data.testDate) == null ? void 0 : _b2.trim()) || void 0,
-              releaseDate: ((_c2 = data.releaseDate) == null ? void 0 : _c2.trim()) || void 0,
-              requirements: ((_d2 = data.requirements) == null ? void 0 : _d2.trim()) || void 0
+              manager: ((_a2 = data.manager) == null ? void 0 : _a2.trim()) || "",
+              testDate: ((_b2 = data.testDate) == null ? void 0 : _b2.trim()) || "",
+              releaseDate: ((_c2 = data.releaseDate) == null ? void 0 : _c2.trim()) || "",
+              requirements: ((_d2 = data.requirements) == null ? void 0 : _d2.trim()) || ""
             });
             this.close();
           }
@@ -36903,7 +36902,8 @@ var DataService = class {
       return {};
     const frontmatter = {};
     const lines = match[1].split("\n");
-    for (const line of lines) {
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
       if (line.startsWith("#") || line.trim() === "") {
         continue;
       }
@@ -36928,8 +36928,7 @@ var DataService = class {
           value = null;
         } else if (value === "|") {
           let multiline = "";
-          const lineIndex = lines.indexOf(line);
-          for (let i = lineIndex + 1; i < lines.length; i++) {
+          for (let i = li + 1; i < lines.length; i++) {
             const nextLine = lines[i];
             if (nextLine.startsWith("  ") || nextLine.startsWith("	")) {
               multiline += nextLine.trim() + "\n";
