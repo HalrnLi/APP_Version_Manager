@@ -71,7 +71,7 @@ export class ImportExportService {
         project.manager,
         project.projectLink,
         project.componentLink,
-        project.requirements.replace(/\n/g, '\\n'),
+        (project.requirements || '').replace(/\n/g, '\\n'),
         project.progress,
         project.b1IntegrationTestTime,
         project.b1SystemTestTime,
@@ -143,7 +143,6 @@ export class ImportExportService {
           componentLink: rowData['组件库链接'] || '',
           requirements: (rowData['项目需求'] || '').replace(/\\n/g, '\n'),
           progress: this.parseProgress(rowData['项目进度']),
-          plannedTestTime: rowData['计划提测时间'] || '',
           actualReleaseTime: rowData['实际发布时间'] || ''
         };
         
@@ -244,7 +243,7 @@ export class ImportExportService {
         '项目经理': project.manager,
         '项目链接': project.projectLink,
         '组件库链接': project.componentLink,
-        '项目需求': project.requirements,
+        '项目需求': project.requirements || '',
         '项目进度': project.progress,
         'B1集成测试时间': project.b1IntegrationTestTime,
         'B1系统测试时间': project.b1SystemTestTime,
@@ -306,7 +305,6 @@ export class ImportExportService {
           componentLink: row['组件库链接'] || '',
           requirements: row['项目需求'] || '',
           progress: this.parseProgress(row['项目进度']),
-          plannedTestTime: row['计划提测时间'] || '',
           actualReleaseTime: row['实际发布时间'] || ''
         };
         
@@ -319,7 +317,8 @@ export class ImportExportService {
         
         result.success++;
       } catch (error) {
-        result.errors.push(`第 ${i + 2} 行: ${error}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        result.errors.push(`第 ${i + 2} 行: ${errorMessage}`);
       }
     }
     
@@ -344,7 +343,7 @@ export class ImportExportService {
         manager: project.manager,
         projectLink: project.projectLink,
         componentLink: project.componentLink,
-        requirements: project.requirements,
+        requirements: project.requirements || '',
         progress: project.progress,
         b1IntegrationTestTime: project.b1IntegrationTestTime,
         b1SystemTestTime: project.b1SystemTestTime,
