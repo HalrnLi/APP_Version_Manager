@@ -102,6 +102,8 @@ export class TableView {
     
     const version = this.versions.find(v => v.id === project.versionId);
     
+    const nextStageInfo = getNextStageInfo(project);
+    
     columns.forEach(col => {
       const td = row.createEl('td');
       
@@ -133,13 +135,11 @@ export class TableView {
           break;
           
         case 'nextStage':
-          const nextStageInfo = getNextStageInfo(project);
           td.createDiv({ text: nextStageInfo.stage });
           break;
           
         case 'nextStageTime':
-          const nextStageInfo2 = getNextStageInfo(project);
-          td.createDiv({ text: nextStageInfo2.time });
+          td.createDiv({ text: nextStageInfo.time });
           break;
           
         case 'links':
@@ -203,7 +203,8 @@ export class TableView {
       const leaf = this.plugin.app.workspace.getLeaf(false);
       await leaf.openFile(file);
     } else {
-      window.open(`file://${memoPath}`, '_blank');
+      const encodedPath = encodeURIComponent(memoPath).replace(/%5C/g, '/');
+      window.open(`file://${encodedPath}`, '_blank');
     }
   }
   
