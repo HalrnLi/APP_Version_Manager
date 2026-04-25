@@ -1022,12 +1022,12 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
       .setName('添加新阶段')
       .addButton(btn => btn
         .setButtonText('添加阶段')
-        .onClick(() => {
+        .onClick(async () => {
           const stages = this.plugin.settings.progressStages;
           const newColor = this.generateRandomColor();
           stages.push({ name: `新阶段${stages.length + 1}`, color: newColor });
           this.plugin.settings.progressStages = stages;
-          this.plugin.saveSettings();
+          await this.plugin.saveSettings();
           this.display();
         }));
 
@@ -1037,9 +1037,9 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
       .addButton(btn => btn
         .setButtonText('重置')
         .setWarning()
-        .onClick(() => {
+        .onClick(async () => {
           this.plugin.settings.progressStages = JSON.parse(JSON.stringify(DEFAULT_PROGRESS_STAGES));
-          this.plugin.saveSettings();
+          await this.plugin.saveSettings();
           this.display();
         }));
   }

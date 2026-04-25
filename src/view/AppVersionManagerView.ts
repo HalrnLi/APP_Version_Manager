@@ -20,6 +20,7 @@ interface CreateProjectData {
   manager: string;
   projectLink: string;
   componentLink: string;
+  features: string;
   spec: string;
   requirements: string;
   progress: ProjectProgress;
@@ -404,6 +405,7 @@ export class AppVersionManagerView extends ItemView {
       projects = projects.filter(p =>
         p.name.toLowerCase().includes(keyword) ||
         p.manager.toLowerCase().includes(keyword) ||
+        p.features.toLowerCase().includes(keyword) ||
         p.requirements.toLowerCase().includes(keyword)
       );
     }
@@ -430,6 +432,7 @@ export class AppVersionManagerView extends ItemView {
       projects = projects.filter(p =>
         p.name.toLowerCase().includes(keyword) ||
         p.manager.toLowerCase().includes(keyword) ||
+        p.features.toLowerCase().includes(keyword) ||
         p.requirements.toLowerCase().includes(keyword)
       );
     }
@@ -888,6 +891,7 @@ class CreateProjectModal extends Modal {
       manager: '',
       projectLink: '',
       componentLink: '',
+      features: '',
       spec: '',
       requirements: '',
       progress: firstProgress
@@ -926,6 +930,12 @@ class CreateProjectModal extends Modal {
         dropdown.setValue(data.progress);
         dropdown.onChange(value => data.progress = value as ProjectProgress);
       });
+
+    new Setting(contentEl)
+      .setName('特性')
+      .addTextArea(text => text
+        .setPlaceholder('可选')
+        .onChange(value => data.features = value));
 
     new Setting(contentEl)
       .setName('配置组件/规格')

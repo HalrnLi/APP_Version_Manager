@@ -11,6 +11,7 @@ export interface ExportProjectJson {
   manager: string;
   projectLink: string;
   componentLink: string;
+  features: string;
   requirements: string;
   progress: string;
   b1IntegrationTestTime: string;
@@ -45,6 +46,7 @@ export class ImportExportService {
       '项目经理',
       '项目链接',
       '组件库链接',
+      '特性',
       '项目需求',
       '项目进度',
       'B1集成测试时间',
@@ -71,6 +73,7 @@ export class ImportExportService {
         project.manager,
         project.projectLink,
         project.componentLink,
+        project.features || '',
         (project.requirements || '').replace(/\n/g, '\\n'),
         project.progress,
         project.b1IntegrationTestTime,
@@ -141,6 +144,7 @@ export class ImportExportService {
           manager: rowData['项目经理'] || '',
           projectLink: rowData['项目链接'] || '',
           componentLink: rowData['组件库链接'] || '',
+          features: rowData['特性'] || '',
           requirements: (rowData['项目需求'] || '').replace(/\\n/g, '\n'),
           progress: this.parseProgress(rowData['项目进度']),
           actualReleaseTime: rowData['实际发布时间'] || ''
@@ -243,6 +247,7 @@ export class ImportExportService {
         '项目经理': project.manager,
         '项目链接': project.projectLink,
         '组件库链接': project.componentLink,
+        '特性': project.features || '',
         '项目需求': project.requirements || '',
         '项目进度': project.progress,
         'B1集成测试时间': project.b1IntegrationTestTime,
@@ -303,6 +308,7 @@ export class ImportExportService {
           manager: row['项目经理'] || '',
           projectLink: row['项目链接'] || '',
           componentLink: row['组件库链接'] || '',
+          features: row['特性'] || '',
           requirements: row['项目需求'] || '',
           progress: this.parseProgress(row['项目进度']),
           actualReleaseTime: row['实际发布时间'] || ''
@@ -343,6 +349,7 @@ export class ImportExportService {
         manager: project.manager,
         projectLink: project.projectLink,
         componentLink: project.componentLink,
+        features: project.features || '',
         requirements: project.requirements || '',
         progress: project.progress,
         b1IntegrationTestTime: project.b1IntegrationTestTime,

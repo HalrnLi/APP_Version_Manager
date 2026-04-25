@@ -207,21 +207,25 @@ export class GanttView {
     const bars: GanttBar[] = [];
 
     TEST_STAGES.forEach((stage, index) => {
-      const timeStr = (project as any)[stage.key] as string;
+      const timeStr = (project as unknown as Record<string, string>)[stage.key];
       if (!timeStr) return;
 
       // 手动解析日期字符串
       const [year, month, day] = timeStr.split('-').map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) return;
       const startDate = new Date(year, month - 1, day);
+      if (isNaN(startDate.getTime())) return;
       startDate.setHours(0, 0, 0, 0);
 
       // 确定结束日期
       let endDate: Date | null = null;
       for (let j = index + 1; j < TEST_STAGES.length; j++) {
-        const nextTimeStr = (project as any)[TEST_STAGES[j].key] as string;
+        const nextTimeStr = (project as unknown as Record<string, string>)[TEST_STAGES[j].key];
         if (nextTimeStr) {
           const [y, m, d] = nextTimeStr.split('-').map(Number);
+          if (isNaN(y) || isNaN(m) || isNaN(d)) continue;
           endDate = new Date(y, m - 1, d);
+          if (isNaN(endDate.getTime())) continue;
           endDate.setHours(0, 0, 0, 0);
           break;
         }

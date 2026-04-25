@@ -33974,30 +33974,26 @@ function parseDateInput(input) {
         day = parseInt(match[2]);
         year = parseInt(match[3]);
       } else if (pattern === patterns[2]) {
-        day = parseInt(match[1]);
-        month = parseInt(match[2]);
-        year = parseInt(match[3]);
-      } else if (pattern === patterns[3]) {
         year = parseInt(match[1]);
         month = parseInt(match[2]);
         day = parseInt(match[3]);
-      } else if (pattern === patterns[4]) {
+      } else if (pattern === patterns[3]) {
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = parseInt(match[3]);
-      } else if (pattern === patterns[5]) {
+      } else if (pattern === patterns[4]) {
         day = parseInt(match[1]);
         month = parseInt(match[2]);
         year = parseInt(match[3]);
+      } else if (pattern === patterns[5]) {
+        month = parseInt(match[1]);
+        day = parseInt(match[2]);
+        year = new Date().getFullYear();
       } else if (pattern === patterns[6]) {
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = new Date().getFullYear();
       } else if (pattern === patterns[7]) {
-        month = parseInt(match[1]);
-        day = parseInt(match[2]);
-        year = new Date().getFullYear();
-      } else if (pattern === patterns[8]) {
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = new Date().getFullYear();
@@ -34019,15 +34015,17 @@ function getNextStageInfo(project) {
   now.setHours(0, 0, 0, 0);
   let nextStage = null;
   let nextTime = null;
+  let nextDate = null;
   for (const stage of TEST_STAGES) {
     const timeStr = project[stage.key];
     if (timeStr) {
       const stageDate = new Date(timeStr);
       stageDate.setHours(0, 0, 0, 0);
       if (stageDate >= now) {
-        if (!nextTime || stageDate < new Date(nextTime)) {
+        if (!nextDate || stageDate < nextDate) {
           nextStage = stage.label;
           nextTime = timeStr;
+          nextDate = stageDate;
         }
       }
     }
@@ -34254,7 +34252,7 @@ function checkOverdue(project, stages, warningDays = 3) {
   const nextDate = new Date(nextStageInfo.time);
   nextDate.setHours(0, 0, 0, 0);
   const diffDays = Math.floor((nextDate.getTime() - now.getTime()) / (1e3 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays <= warningDays;
+  return diffDays < 0 || diffDays >= 0 && diffDays <= warningDays;
 }
 
 // src/view/DualPaneView.ts
@@ -34429,6 +34427,11 @@ var DualPaneView = class {
       text: project.progress
     });
     progressBadge.style.backgroundColor = progressColors[project.progress] || "#64748b";
+    if (project.features) {
+      const featuresEl = item.createDiv({ cls: "avm-project-features" });
+      featuresEl.createEl("strong", { text: "\u7279\u6027:" });
+      featuresEl.createSpan({ text: project.features.substring(0, 100) + (project.features.length > 100 ? "..." : "") });
+    }
     if (project.spec) {
       const specEl = item.createDiv({ cls: "avm-project-spec" });
       specEl.createEl("strong", { text: "\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C:" });
@@ -34600,6 +34603,7 @@ var EditProjectModal = class extends import_obsidian4.Modal {
       manager: this.project.manager,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
+      features: this.project.features,
       spec: this.project.spec,
       requirements: this.project.requirements,
       progress: this.project.progress
@@ -34625,6 +34629,7 @@ var EditProjectModal = class extends import_obsidian4.Modal {
       dropdown.setValue(data.progress);
       dropdown.onChange((value) => data.progress = value);
     });
+    new import_obsidian4.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setValue(data.features).onChange((value) => data.features = value));
     new import_obsidian4.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setValue(data.spec).onChange((value) => data.spec = value));
     new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setValue(data.requirements).onChange((value) => data.requirements = value));
     createSaveButtons(
@@ -34726,6 +34731,9 @@ var KanbanView = class {
     if (project.componentLink) {
       links.createEl("a", { cls: "avm-link", text: "\u7EC4\u4EF6\u5E93", attr: { href: this.ensureProtocol(project.componentLink), target: "_blank", rel: "noopener noreferrer" } });
     }
+    if (project.features) {
+      card.createDiv({ cls: "avm-card-features", text: project.features.substring(0, 60) + (project.features.length > 60 ? "..." : "") });
+    }
     if (project.spec) {
       card.createDiv({ cls: "avm-card-spec", text: project.spec.substring(0, 60) + (project.spec.length > 60 ? "..." : "") });
     }
@@ -34808,6 +34816,7 @@ var KanbanEditProjectModal = class extends import_obsidian5.Modal {
       manager: this.project.manager,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
+      features: this.project.features,
       spec: this.project.spec,
       requirements: this.project.requirements,
       progress: this.project.progress
@@ -34835,6 +34844,7 @@ var KanbanEditProjectModal = class extends import_obsidian5.Modal {
       dropdown.setValue(data.progress);
       dropdown.onChange((value) => data.progress = value);
     });
+    new import_obsidian5.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setValue(data.features).onChange((value) => data.features = value));
     new import_obsidian5.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setValue(data.spec).onChange((value) => data.spec = value));
     new import_obsidian5.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setValue(data.requirements).onChange((value) => data.requirements = value));
     createSaveButtons(
@@ -34917,6 +34927,7 @@ var TableView = class {
       { key: "name", label: "\u9879\u76EE\u540D\u79F0", width: "150px" },
       { key: "versionNumber", label: "\u7248\u672C\u53F7", width: "100px" },
       { key: "manager", label: "\u9879\u76EE\u7ECF\u7406", width: "100px" },
+      { key: "features", label: "\u7279\u6027", width: "150px" },
       { key: "spec", label: "\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C", width: "150px" },
       { key: "progress", label: "\u8FDB\u5EA6", width: "120px" },
       { key: "nextStage", label: "\u4E0B\u4E00\u9636\u6BB5", width: "120px" },
@@ -34964,6 +34975,9 @@ var TableView = class {
           break;
         case "manager":
           td.createDiv({ text: project.manager || "-" });
+          break;
+        case "features":
+          td.createDiv({ cls: "avm-cell-features", text: project.features || "-" });
           break;
         case "spec":
           td.createDiv({ cls: "avm-cell-spec", text: project.spec || "-" });
@@ -35141,6 +35155,7 @@ var TableEditProjectModal = class extends import_obsidian6.Modal {
       manager: this.project.manager,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
+      features: this.project.features,
       spec: this.project.spec,
       requirements: this.project.requirements,
       progress: this.project.progress
@@ -35166,6 +35181,7 @@ var TableEditProjectModal = class extends import_obsidian6.Modal {
       dropdown.setValue(data.progress);
       dropdown.onChange((value) => data.progress = value);
     });
+    new import_obsidian6.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setValue(data.features).onChange((value) => data.features = value));
     new import_obsidian6.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setValue(data.spec).onChange((value) => data.spec = value));
     new import_obsidian6.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setValue(data.requirements).onChange((value) => data.requirements = value));
     createSaveButtons(
@@ -35381,14 +35397,22 @@ var GanttView = class {
       if (!timeStr)
         return;
       const [year, month, day] = timeStr.split("-").map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day))
+        return;
       const startDate = new Date(year, month - 1, day);
+      if (isNaN(startDate.getTime()))
+        return;
       startDate.setHours(0, 0, 0, 0);
       let endDate = null;
       for (let j = index + 1; j < TEST_STAGES.length; j++) {
         const nextTimeStr = project[TEST_STAGES[j].key];
         if (nextTimeStr) {
           const [y, m, d] = nextTimeStr.split("-").map(Number);
+          if (isNaN(y) || isNaN(m) || isNaN(d))
+            continue;
           endDate = new Date(y, m - 1, d);
+          if (isNaN(endDate.getTime()))
+            continue;
           endDate.setHours(0, 0, 0, 0);
           break;
         }
@@ -35531,6 +35555,7 @@ var ImportExportService = class {
       "\u9879\u76EE\u7ECF\u7406",
       "\u9879\u76EE\u94FE\u63A5",
       "\u7EC4\u4EF6\u5E93\u94FE\u63A5",
+      "\u7279\u6027",
       "\u9879\u76EE\u9700\u6C42",
       "\u9879\u76EE\u8FDB\u5EA6",
       "B1\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4",
@@ -35556,6 +35581,7 @@ var ImportExportService = class {
         project.manager,
         project.projectLink,
         project.componentLink,
+        project.features || "",
         (project.requirements || "").replace(/\n/g, "\\n"),
         project.progress,
         project.b1IntegrationTestTime,
@@ -35614,6 +35640,7 @@ var ImportExportService = class {
           manager: rowData["\u9879\u76EE\u7ECF\u7406"] || "",
           projectLink: rowData["\u9879\u76EE\u94FE\u63A5"] || "",
           componentLink: rowData["\u7EC4\u4EF6\u5E93\u94FE\u63A5"] || "",
+          features: rowData["\u7279\u6027"] || "",
           requirements: (rowData["\u9879\u76EE\u9700\u6C42"] || "").replace(/\\n/g, "\n"),
           progress: this.parseProgress(rowData["\u9879\u76EE\u8FDB\u5EA6"]),
           actualReleaseTime: rowData["\u5B9E\u9645\u53D1\u5E03\u65F6\u95F4"] || ""
@@ -35702,6 +35729,7 @@ var ImportExportService = class {
         "\u9879\u76EE\u7ECF\u7406": project.manager,
         "\u9879\u76EE\u94FE\u63A5": project.projectLink,
         "\u7EC4\u4EF6\u5E93\u94FE\u63A5": project.componentLink,
+        "\u7279\u6027": project.features || "",
         "\u9879\u76EE\u9700\u6C42": project.requirements || "",
         "\u9879\u76EE\u8FDB\u5EA6": project.progress,
         "B1\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4": project.b1IntegrationTestTime,
@@ -35751,6 +35779,7 @@ var ImportExportService = class {
           manager: row["\u9879\u76EE\u7ECF\u7406"] || "",
           projectLink: row["\u9879\u76EE\u94FE\u63A5"] || "",
           componentLink: row["\u7EC4\u4EF6\u5E93\u94FE\u63A5"] || "",
+          features: row["\u7279\u6027"] || "",
           requirements: row["\u9879\u76EE\u9700\u6C42"] || "",
           progress: this.parseProgress(row["\u9879\u76EE\u8FDB\u5EA6"]),
           actualReleaseTime: row["\u5B9E\u9645\u53D1\u5E03\u65F6\u95F4"] || ""
@@ -35786,6 +35815,7 @@ var ImportExportService = class {
         manager: project.manager,
         projectLink: project.projectLink,
         componentLink: project.componentLink,
+        features: project.features || "",
         requirements: project.requirements || "",
         progress: project.progress,
         b1IntegrationTestTime: project.b1IntegrationTestTime,
@@ -36088,7 +36118,7 @@ var AppVersionManagerView = class extends import_obsidian9.ItemView {
     if (this.currentFilter.keyword) {
       const keyword = this.currentFilter.keyword.toLowerCase();
       projects = projects.filter(
-        (p) => p.name.toLowerCase().includes(keyword) || p.manager.toLowerCase().includes(keyword) || p.requirements.toLowerCase().includes(keyword)
+        (p) => p.name.toLowerCase().includes(keyword) || p.manager.toLowerCase().includes(keyword) || p.features.toLowerCase().includes(keyword) || p.requirements.toLowerCase().includes(keyword)
       );
     }
     return projects;
@@ -36105,7 +36135,7 @@ var AppVersionManagerView = class extends import_obsidian9.ItemView {
     if (this.currentFilter.keyword) {
       const keyword = this.currentFilter.keyword.toLowerCase();
       projects = projects.filter(
-        (p) => p.name.toLowerCase().includes(keyword) || p.manager.toLowerCase().includes(keyword) || p.requirements.toLowerCase().includes(keyword)
+        (p) => p.name.toLowerCase().includes(keyword) || p.manager.toLowerCase().includes(keyword) || p.features.toLowerCase().includes(keyword) || p.requirements.toLowerCase().includes(keyword)
       );
     }
     return projects;
@@ -36451,6 +36481,7 @@ var CreateProjectModal = class extends import_obsidian9.Modal {
       manager: "",
       projectLink: "",
       componentLink: "",
+      features: "",
       spec: "",
       requirements: "",
       progress: firstProgress
@@ -36467,6 +36498,7 @@ var CreateProjectModal = class extends import_obsidian9.Modal {
       dropdown.setValue(data.progress);
       dropdown.onChange((value) => data.progress = value);
     });
+    new import_obsidian9.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.features = value));
     new import_obsidian9.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.spec = value));
     new import_obsidian9.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.requirements = value));
     createActionButtons(
@@ -37375,7 +37407,7 @@ var DataService = class {
     });
   }
   async parseProjectFile(file) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u;
     try {
       let content;
       const ctime = file.stat.ctime;
@@ -37395,21 +37427,22 @@ var DataService = class {
         manager: (_d = frontmatter.manager) != null ? _d : "",
         projectLink: (_e = frontmatter.projectLink) != null ? _e : "",
         componentLink: (_f = frontmatter.componentLink) != null ? _f : "",
-        spec: (_g = frontmatter.spec) != null ? _g : "",
-        requirements: (_h = frontmatter.requirements) != null ? _h : "",
-        progress: (_i = frontmatter.progress) != null ? _i : getFirstProgress(this.plugin.settings.progressStages),
+        features: (_g = frontmatter.features) != null ? _g : "",
+        spec: (_h = frontmatter.spec) != null ? _h : "",
+        requirements: (_i = frontmatter.requirements) != null ? _i : "",
+        progress: (_j = frontmatter.progress) != null ? _j : getFirstProgress(this.plugin.settings.progressStages),
         progressHistory: this.parseProgressHistory(frontmatter.progressHistory),
-        b1IntegrationTestTime: (_j = frontmatter.b1IntegrationTestTime) != null ? _j : "",
-        b1SystemTestTime: (_k = frontmatter.b1SystemTestTime) != null ? _k : "",
-        b2IntegrationTestTime: (_l = frontmatter.b2IntegrationTestTime) != null ? _l : "",
-        b2SystemTestTime: (_m = frontmatter.b2SystemTestTime) != null ? _m : "",
-        b3IntegrationTestTime: (_n = frontmatter.b3IntegrationTestTime) != null ? _n : "",
-        b3SystemTestTime: (_o = frontmatter.b3SystemTestTime) != null ? _o : "",
-        b4IntegrationTestTime: (_p = frontmatter.b4IntegrationTestTime) != null ? _p : "",
-        b4SystemTestTime: (_q = frontmatter.b4SystemTestTime) != null ? _q : "",
-        actualReleaseTime: (_r = frontmatter.actualReleaseTime) != null ? _r : "",
-        createdAt: (_s = frontmatter.createdAt) != null ? _s : ctime.toString(),
-        updatedAt: (_t = frontmatter.updatedAt) != null ? _t : mtime.toString(),
+        b1IntegrationTestTime: (_k = frontmatter.b1IntegrationTestTime) != null ? _k : "",
+        b1SystemTestTime: (_l = frontmatter.b1SystemTestTime) != null ? _l : "",
+        b2IntegrationTestTime: (_m = frontmatter.b2IntegrationTestTime) != null ? _m : "",
+        b2SystemTestTime: (_n = frontmatter.b2SystemTestTime) != null ? _n : "",
+        b3IntegrationTestTime: (_o = frontmatter.b3IntegrationTestTime) != null ? _o : "",
+        b3SystemTestTime: (_p = frontmatter.b3SystemTestTime) != null ? _p : "",
+        b4IntegrationTestTime: (_q = frontmatter.b4IntegrationTestTime) != null ? _q : "",
+        b4SystemTestTime: (_r = frontmatter.b4SystemTestTime) != null ? _r : "",
+        actualReleaseTime: (_s = frontmatter.actualReleaseTime) != null ? _s : "",
+        createdAt: (_t = frontmatter.createdAt) != null ? _t : ctime.toString(),
+        updatedAt: (_u = frontmatter.updatedAt) != null ? _u : mtime.toString(),
         version: this.parseNumericField(frontmatter.version, 1)
       };
     } catch (error) {
@@ -37432,6 +37465,7 @@ var DataService = class {
       manager: data.manager || "",
       projectLink: data.projectLink || "",
       componentLink: data.componentLink || "",
+      features: data.features || "",
       spec: data.spec || "",
       requirements: data.requirements || "",
       progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
@@ -37459,6 +37493,7 @@ var DataService = class {
       manager: project.manager,
       projectLink: project.projectLink,
       componentLink: project.componentLink,
+      features: project.features,
       spec: project.spec,
       requirements: project.requirements,
       progress: project.progress,
@@ -37500,13 +37535,13 @@ var DataService = class {
     }
     const oldName = project.name;
     const progressChanged = data.progress && data.progress !== project.progress;
-    Object.assign(project, data, { updatedAt: Date.now().toString() });
-    project.version = ((_a = project.version) != null ? _a : 1) + 1;
+    const updatedProject = { ...project, ...data, updatedAt: Date.now().toString() };
+    updatedProject.version = ((_a = project.version) != null ? _a : 1) + 1;
     if (progressChanged && data.progress) {
-      project.progressHistory.push({
-        progress: data.progress,
-        changedAt: Date.now().toString()
-      });
+      updatedProject.progressHistory = [
+        ...project.progressHistory,
+        { progress: data.progress, changedAt: Date.now().toString() }
+      ];
     }
     const frontmatter = this.createFrontmatter({
       id: project.id,
@@ -37515,25 +37550,26 @@ var DataService = class {
       manager: project.manager,
       projectLink: project.projectLink,
       componentLink: project.componentLink,
-      spec: project.spec,
-      requirements: project.requirements,
-      progress: project.progress,
-      progressHistory: project.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
-      b1IntegrationTestTime: project.b1IntegrationTestTime,
-      b1SystemTestTime: project.b1SystemTestTime,
-      b2IntegrationTestTime: project.b2IntegrationTestTime,
-      b2SystemTestTime: project.b2SystemTestTime,
-      b3IntegrationTestTime: project.b3IntegrationTestTime,
-      b3SystemTestTime: project.b3SystemTestTime,
-      b4IntegrationTestTime: project.b4IntegrationTestTime,
-      b4SystemTestTime: project.b4SystemTestTime,
-      actualReleaseTime: project.actualReleaseTime,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-      version: project.version
+      features: updatedProject.features,
+      spec: updatedProject.spec,
+      requirements: updatedProject.requirements,
+      progress: updatedProject.progress,
+      progressHistory: updatedProject.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
+      b1IntegrationTestTime: updatedProject.b1IntegrationTestTime,
+      b1SystemTestTime: updatedProject.b1SystemTestTime,
+      b2IntegrationTestTime: updatedProject.b2IntegrationTestTime,
+      b2SystemTestTime: updatedProject.b2SystemTestTime,
+      b3IntegrationTestTime: updatedProject.b3IntegrationTestTime,
+      b3SystemTestTime: updatedProject.b3SystemTestTime,
+      b4IntegrationTestTime: updatedProject.b4IntegrationTestTime,
+      b4SystemTestTime: updatedProject.b4SystemTestTime,
+      actualReleaseTime: updatedProject.actualReleaseTime,
+      createdAt: updatedProject.createdAt,
+      updatedAt: updatedProject.updatedAt,
+      version: updatedProject.version
     });
     const oldFileName = this.sanitizeFileName(oldName);
-    const newFileName = this.sanitizeFileName(project.name);
+    const newFileName = this.sanitizeFileName(updatedProject.name);
     let file = null;
     if (this.isAbsolutePath()) {
       const files = await this.getMarkdownFiles(this.getProjectsFolder());
@@ -37571,7 +37607,7 @@ var DataService = class {
       }
     }
     this.cache.invalidate("projects:all");
-    return project;
+    return updatedProject;
   }
   async deleteProject(id, expectedVersion) {
     var _a;
@@ -38985,17 +39021,17 @@ var AppVersionManagerSettingTab = class extends import_obsidian12.PluginSettingT
     progressDesc.style.fontSize = "13px";
     progressDesc.setText("\u81EA\u5B9A\u4E49\u9879\u76EE\u8FDB\u5EA6\u7684\u5404\u4E2A\u9636\u6BB5\u540D\u79F0\u548C\u989C\u8272\u3002\u9636\u6BB5\u7684\u987A\u5E8F\u5373\u4E3A\u9879\u76EE\u6D41\u7A0B\u7684\u987A\u5E8F\u3002");
     this.renderProgressStagesSettings(containerEl);
-    new import_obsidian12.Setting(containerEl).setName("\u6DFB\u52A0\u65B0\u9636\u6BB5").addButton((btn) => btn.setButtonText("\u6DFB\u52A0\u9636\u6BB5").onClick(() => {
+    new import_obsidian12.Setting(containerEl).setName("\u6DFB\u52A0\u65B0\u9636\u6BB5").addButton((btn) => btn.setButtonText("\u6DFB\u52A0\u9636\u6BB5").onClick(async () => {
       const stages = this.plugin.settings.progressStages;
       const newColor = this.generateRandomColor();
       stages.push({ name: `\u65B0\u9636\u6BB5${stages.length + 1}`, color: newColor });
       this.plugin.settings.progressStages = stages;
-      this.plugin.saveSettings();
+      await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian12.Setting(containerEl).setName("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u9636\u6BB5").setDesc("\u6062\u590D\u9ED8\u8BA4\u7684\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E").addButton((btn) => btn.setButtonText("\u91CD\u7F6E").setWarning().onClick(() => {
+    new import_obsidian12.Setting(containerEl).setName("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u9636\u6BB5").setDesc("\u6062\u590D\u9ED8\u8BA4\u7684\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E").addButton((btn) => btn.setButtonText("\u91CD\u7F6E").setWarning().onClick(async () => {
       this.plugin.settings.progressStages = JSON.parse(JSON.stringify(DEFAULT_PROGRESS_STAGES));
-      this.plugin.saveSettings();
+      await this.plugin.saveSettings();
       this.display();
     }));
   }

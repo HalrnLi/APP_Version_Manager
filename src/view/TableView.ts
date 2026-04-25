@@ -56,6 +56,7 @@ export class TableView {
       { key: 'name', label: '项目名称', width: '150px' },
       { key: 'versionNumber', label: '版本号', width: '100px' },
       { key: 'manager', label: '项目经理', width: '100px' },
+      { key: 'features', label: '特性', width: '150px' },
       { key: 'spec', label: '配置组件/规格', width: '150px' },
       { key: 'progress', label: '进度', width: '120px' },
       { key: 'nextStage', label: '下一阶段', width: '120px' },
@@ -120,6 +121,10 @@ export class TableView {
           td.createDiv({ text: project.manager || '-' });
           break;
           
+        case 'features':
+          td.createDiv({ cls: 'avm-cell-features', text: project.features || '-' });
+          break;
+
         case 'spec':
           td.createDiv({ cls: 'avm-cell-spec', text: project.spec || '-' });
           break;
@@ -347,6 +352,7 @@ class TableEditProjectModal extends Modal {
       manager: this.project.manager,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
+      features: this.project.features,
       spec: this.project.spec,
       requirements: this.project.requirements,
       progress: this.project.progress
@@ -398,6 +404,12 @@ class TableEditProjectModal extends Modal {
         dropdown.setValue(data.progress);
         dropdown.onChange(value => data.progress = value as ProjectProgress);
       });
+
+    new Setting(contentEl)
+      .setName('特性')
+      .addTextArea(text => text
+        .setValue(data.features)
+        .onChange(value => data.features = value));
 
     new Setting(contentEl)
       .setName('配置组件/规格')
@@ -491,7 +503,7 @@ class ProgressConfirmModal extends Modal {
       }
     );
   }
-  
+
   onClose() {
     this.contentEl.empty();
   }

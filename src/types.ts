@@ -40,6 +40,7 @@ export interface Project {
   manager: string;
   projectLink: string;
   componentLink: string;
+  features: string;
   spec: string;
   requirements: string;
   progress: ProjectProgress;
@@ -229,35 +230,31 @@ export function parseDateInput(input: string): string | null {
         year = parseInt(match[1]);
         month = parseInt(match[2]);
         day = parseInt(match[3]);
-      } else if (pattern === patterns[1]) { // MM/DD/YYYY
+      } else if (pattern === patterns[1]) { // MM/DD/YYYY or DD/MM/YYYY
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = parseInt(match[3]);
-      } else if (pattern === patterns[2]) { // DD/MM/YYYY (假设为DD/MM/YYYY)
-        day = parseInt(match[1]);
-        month = parseInt(match[2]);
-        year = parseInt(match[3]);
-      } else if (pattern === patterns[3]) { // YYYY年MM月DD日
+      } else if (pattern === patterns[2]) { // YYYY年MM月DD日
         year = parseInt(match[1]);
         month = parseInt(match[2]);
         day = parseInt(match[3]);
-      } else if (pattern === patterns[4]) { // MM月DD日YYYY年
+      } else if (pattern === patterns[3]) { // MM月DD日YYYY年
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = parseInt(match[3]);
-      } else if (pattern === patterns[5]) { // DD日MM月YYYY年
+      } else if (pattern === patterns[4]) { // DD日MM月YYYY年
         day = parseInt(match[1]);
         month = parseInt(match[2]);
         year = parseInt(match[3]);
-      } else if (pattern === patterns[6]) { // MM-DD (month-day with current year)
+      } else if (pattern === patterns[5]) { // MM-DD (month-day with current year)
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = new Date().getFullYear();
-      } else if (pattern === patterns[7]) { // MM.DD (month.day with current year)
+      } else if (pattern === patterns[6]) { // MM.DD (month.day with current year)
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = new Date().getFullYear();
-      } else if (pattern === patterns[8]) { // MM月DD日 (month day with current year)
+      } else if (pattern === patterns[7]) { // MM月DD日 (month day with current year)
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = new Date().getFullYear();
@@ -284,25 +281,27 @@ export function parseDateInput(input: string): string | null {
 export function getNextStageInfo(project: Project): { stage: string; time: string } {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  
+
   let nextStage: string | null = null;
   let nextTime: string | null = null;
-  
+  let nextDate: Date | null = null;
+
   for (const stage of TEST_STAGES) {
     const timeStr = (project as any)[stage.key];
     if (timeStr) {
       const stageDate = new Date(timeStr);
       stageDate.setHours(0, 0, 0, 0);
-      
+
       if (stageDate >= now) {
-        if (!nextTime || stageDate < new Date(nextTime)) {
+        if (!nextDate || stageDate < nextDate) {
           nextStage = stage.label;
           nextTime = timeStr;
+          nextDate = stageDate;
         }
       }
     }
   }
-  
+
   return {
     stage: nextStage || '无',
     time: nextTime || ''

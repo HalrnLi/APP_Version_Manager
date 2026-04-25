@@ -132,6 +132,10 @@ export class KanbanView {
       links.createEl('a', { cls: 'avm-link', text: '组件库', attr: { href: this.ensureProtocol(project.componentLink), target: '_blank', rel: 'noopener noreferrer' } });
     }
     
+    if (project.features) {
+      card.createDiv({ cls: 'avm-card-features', text: project.features.substring(0, 60) + (project.features.length > 60 ? '...' : '') });
+    }
+
     if (project.spec) {
       card.createDiv({ cls: 'avm-card-spec', text: project.spec.substring(0, 60) + (project.spec.length > 60 ? '...' : '') });
     }
@@ -251,6 +255,7 @@ class KanbanEditProjectModal extends Modal {
       manager: this.project.manager,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
+      features: this.project.features,
       spec: this.project.spec,
       requirements: this.project.requirements,
       progress: this.project.progress
@@ -304,6 +309,12 @@ class KanbanEditProjectModal extends Modal {
         dropdown.setValue(data.progress);
         dropdown.onChange(value => data.progress = value as ProjectProgress);
       });
+
+    new Setting(contentEl)
+      .setName('特性')
+      .addTextArea(text => text
+        .setValue(data.features)
+        .onChange(value => data.features = value));
 
     new Setting(contentEl)
       .setName('配置组件/规格')

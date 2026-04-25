@@ -129,5 +129,5 @@ export function checkOverdue(project: Project, stages: ProgressStage[], warningD
 
   // 延期：已超过截止日期（diffDays < 0）
   // 或在预警期内（diffDays >= 0 && diffDays <= warningDays）
-  return diffDays >= 0 && diffDays <= warningDays;
+  return diffDays < 0 || (diffDays >= 0 && diffDays <= warningDays);
 }

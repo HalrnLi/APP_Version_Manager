@@ -838,6 +838,7 @@ export class DataService {
         manager: frontmatter.manager ?? '',
         projectLink: frontmatter.projectLink ?? '',
         componentLink: frontmatter.componentLink ?? '',
+        features: frontmatter.features ?? '',
         spec: frontmatter.spec ?? '',
         requirements: frontmatter.requirements ?? '',
         progress: frontmatter.progress ?? getFirstProgress(this.plugin.settings.progressStages),
@@ -867,6 +868,7 @@ export class DataService {
     manager?: string;
     projectLink?: string;
     componentLink?: string;
+    features?: string;
     spec?: string;
     requirements?: string;
     progress?: ProjectProgress;
@@ -897,6 +899,7 @@ export class DataService {
       manager: data.manager || '',
       projectLink: data.projectLink || '',
       componentLink: data.componentLink || '',
+      features: data.features || '',
       spec: data.spec || '',
       requirements: data.requirements || '',
       progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
@@ -925,6 +928,7 @@ export class DataService {
       manager: project.manager,
       projectLink: project.projectLink,
       componentLink: project.componentLink,
+      features: project.features,
       spec: project.spec,
       requirements: project.requirements,
       progress: project.progress,
@@ -975,15 +979,15 @@ export class DataService {
     
     const oldName = project.name;
     const progressChanged = data.progress && data.progress !== project.progress;
-    
-    Object.assign(project, data, { updatedAt: Date.now().toString() });
-    project.version = (project.version ?? 1) + 1;
-    
+
+    const updatedProject = { ...project, ...data, updatedAt: Date.now().toString() };
+    updatedProject.version = (project.version ?? 1) + 1;
+
     if (progressChanged && data.progress) {
-      project.progressHistory.push({
-        progress: data.progress,
-        changedAt: Date.now().toString()
-      });
+      updatedProject.progressHistory = [
+        ...project.progressHistory,
+        { progress: data.progress, changedAt: Date.now().toString() }
+      ];
     }
     
     const frontmatter = this.createFrontmatter({
@@ -993,26 +997,27 @@ export class DataService {
       manager: project.manager,
       projectLink: project.projectLink,
       componentLink: project.componentLink,
-      spec: project.spec,
-      requirements: project.requirements,
-      progress: project.progress,
-      progressHistory: project.progressHistory.map(h => `${h.progress}@${h.changedAt}`),
-      b1IntegrationTestTime: project.b1IntegrationTestTime,
-      b1SystemTestTime: project.b1SystemTestTime,
-      b2IntegrationTestTime: project.b2IntegrationTestTime,
-      b2SystemTestTime: project.b2SystemTestTime,
-      b3IntegrationTestTime: project.b3IntegrationTestTime,
-      b3SystemTestTime: project.b3SystemTestTime,
-      b4IntegrationTestTime: project.b4IntegrationTestTime,
-      b4SystemTestTime: project.b4SystemTestTime,
-      actualReleaseTime: project.actualReleaseTime,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-      version: project.version
+      features: updatedProject.features,
+      spec: updatedProject.spec,
+      requirements: updatedProject.requirements,
+      progress: updatedProject.progress,
+      progressHistory: updatedProject.progressHistory.map(h => `${h.progress}@${h.changedAt}`),
+      b1IntegrationTestTime: updatedProject.b1IntegrationTestTime,
+      b1SystemTestTime: updatedProject.b1SystemTestTime,
+      b2IntegrationTestTime: updatedProject.b2IntegrationTestTime,
+      b2SystemTestTime: updatedProject.b2SystemTestTime,
+      b3IntegrationTestTime: updatedProject.b3IntegrationTestTime,
+      b3SystemTestTime: updatedProject.b3SystemTestTime,
+      b4IntegrationTestTime: updatedProject.b4IntegrationTestTime,
+      b4SystemTestTime: updatedProject.b4SystemTestTime,
+      actualReleaseTime: updatedProject.actualReleaseTime,
+      createdAt: updatedProject.createdAt,
+      updatedAt: updatedProject.updatedAt,
+      version: updatedProject.version
     });
     
     const oldFileName = this.sanitizeFileName(oldName);
-    const newFileName = this.sanitizeFileName(project.name);
+    const newFileName = this.sanitizeFileName(updatedProject.name);
     
     let file: TFile | CustomFile | null = null;
     
@@ -1062,7 +1067,7 @@ export class DataService {
     }
     
     this.cache.invalidate('projects:all');
-    return project;
+    return updatedProject;
   }
 
   async deleteProject(id: string, expectedVersion?: number): Promise<boolean> {

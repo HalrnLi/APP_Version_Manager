@@ -262,6 +262,12 @@ export class DualPaneView {
     });
     progressBadge.style.backgroundColor = progressColors[project.progress] || '#64748b';
 
+    if (project.features) {
+      const featuresEl = item.createDiv({ cls: 'avm-project-features' });
+      featuresEl.createEl('strong', { text: '特性:' });
+      featuresEl.createSpan({ text: project.features.substring(0, 100) + (project.features.length > 100 ? '...' : '') });
+    }
+
     if (project.spec) {
       const specEl = item.createDiv({ cls: 'avm-project-spec' });
       specEl.createEl('strong', { text: '配置组件/规格:' });
@@ -516,6 +522,7 @@ class EditProjectModal extends Modal {
       manager: this.project.manager,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
+      features: this.project.features,
       spec: this.project.spec,
       requirements: this.project.requirements,
       progress: this.project.progress
@@ -567,6 +574,12 @@ class EditProjectModal extends Modal {
         dropdown.setValue(data.progress);
         dropdown.onChange(value => data.progress = value as ProjectProgress);
       });
+
+    new Setting(contentEl)
+      .setName('特性')
+      .addTextArea(text => text
+        .setValue(data.features)
+        .onChange(value => data.features = value));
 
     new Setting(contentEl)
       .setName('配置组件/规格')
