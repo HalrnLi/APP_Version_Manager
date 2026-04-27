@@ -38889,9 +38889,8 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
 .avm-gantt-project-name {
   font-weight: 500;
   font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .avm-gantt-project-version {
