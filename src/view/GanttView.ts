@@ -93,24 +93,32 @@ export class GanttView {
   private renderChart() {
     this.chartContainer = this.containerEl.createDiv({ cls: 'avm-gantt-chart' });
 
+    // 左侧项目信息区域
+    const sidebar = this.chartContainer.createDiv({ cls: 'avm-gantt-sidebar' });
+
+    // 右侧时间轴容器
+    const timelineContainer = this.chartContainer.createDiv({ cls: 'avm-gantt-timeline-container' });
+
     // 渲染时间轴头部
-    this.renderTimelineHeader();
+    this.renderTimelineHeader(sidebar, timelineContainer);
 
     // 渲染项目行
-    this.renderProjectRows();
+    this.renderProjectRows(sidebar, timelineContainer);
   }
 
-  private renderTimelineHeader() {
-    const header = this.chartContainer!.createDiv({ cls: 'avm-gantt-timeline-header' });
-
-    // 左侧项目名称列头
-    header.createDiv({ cls: 'avm-gantt-row-header avm-gantt-col-header', text: '项目' });
-
-    // 时间轴
-    const timelineEl = header.createDiv({ cls: 'avm-gantt-timeline' });
+  private renderTimelineHeader(sidebar: HTMLElement, timelineContainer: HTMLElement) {
     const days = this.getTimelineDays();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    // 左侧项目名称列头
+    sidebar.createDiv({ cls: 'avm-gantt-sidebar-header', text: '项目' });
+
+    // 时间轴头部
+    const header = timelineContainer.createDiv({ cls: 'avm-gantt-timeline-header' });
+
+    // 时间轴
+    const timelineEl = header.createDiv({ cls: 'avm-gantt-timeline' });
 
     for (let i = 0; i < days; i++) {
       const date = this.getDateFromIndex(i);
@@ -135,11 +143,11 @@ export class GanttView {
     }
   }
 
-  private renderProjectRows() {
+  private renderProjectRows(sidebar: HTMLElement, timelineContainer: HTMLElement) {
     const sortedProjects = this.sortProjectsByNextStage();
 
     if (sortedProjects.length === 0) {
-      this.chartContainer!.createDiv({
+      timelineContainer.createDiv({
         cls: 'avm-gantt-empty',
         text: '暂无项目数据'
       });
@@ -147,37 +155,41 @@ export class GanttView {
     }
 
     sortedProjects.forEach(project => {
-      this.renderProjectRow(project);
+      this.renderProjectRow(project, sidebar, timelineContainer);
     });
   }
 
   private sortProjectsByNextStage(): Project[] {
-    return [...this.projects].sort((a, b) => {
-      const nextA = getNextStageInfo(a);
-      const nextB = getNextStageInfo(b);
+    return [...this.projects]
+      .filter(p => p.progress !== '已发布')
+      .sort((a, b) => {
+        const nextA = getNextStageInfo(a);
+        const nextB = getNextStageInfo(b);
 
-      if (!nextA.time && !nextB.time) return 0;
-      if (!nextA.time) return 1;
-      if (!nextB.time) return -1;
+        if (!nextA.time && !nextB.time) return 0;
+        if (!nextA.time) return 1;
+        if (!nextB.time) return -1;
 
-      return new Date(nextA.time).getTime() - new Date(nextB.time).getTime();
-    });
+        return new Date(nextA.time).getTime() - new Date(nextB.time).getTime();
+      });
   }
 
-  private renderProjectRow(project: Project) {
-    const row = this.chartContainer!.createDiv({ cls: 'avm-gantt-row' });
+  private renderProjectRow(project: Project, sidebar: HTMLElement, timelineContainer: HTMLElement) {
+    const days = this.getTimelineDays();
 
-    // 左侧项目信息
-    const rowHeader = row.createDiv({ cls: 'avm-gantt-row-header' });
-    rowHeader.createDiv({ cls: 'avm-gantt-project-name', text: project.name });
+    // 左侧项目信息 - 在 sidebar 中
+    const sidebarRow = sidebar.createDiv({ cls: 'avm-gantt-sidebar-row' });
+    sidebarRow.createDiv({ cls: 'avm-gantt-project-name', text: project.name });
     const version = this.getProjectVersion(project.versionId);
     if (version) {
-      rowHeader.createDiv({ cls: 'avm-gantt-project-version', text: version.versionNumber });
+      sidebarRow.createDiv({ cls: 'avm-gantt-project-version', text: version.versionNumber });
     }
+
+    // 右侧时间轴行
+    const row = timelineContainer.createDiv({ cls: 'avm-gantt-row' });
 
     // 时间轴格子区域
     const cellsContainer = row.createDiv({ cls: 'avm-gantt-cells' });
-    const days = this.getTimelineDays();
 
     for (let i = 0; i < days; i++) {
       cellsContainer.createDiv({ cls: 'avm-gantt-time-cell' });
@@ -253,12 +265,20 @@ export class GanttView {
     const startIndex = this.getIndexFromDate(bar.startDate);
     const endIndex = this.getIndexFromDate(bar.endDate!);
 
-    // 计算跨越的格子数
-    const spanCells = endIndex - startIndex + 1;
+    // 只渲染可见范围内的部分
+    const visibleStartIndex = Math.max(0, startIndex);
+    const visibleEndIndex = Math.min(totalDays - 1, endIndex);
+
+    // 如果完全不可见，跳过渲染
+    if (visibleStartIndex > visibleEndIndex) {
+      return;
+    }
+
+    const spanCells = visibleEndIndex - visibleStartIndex + 1;
 
     // 创建时间条，绝对定位
     const barEl = container.createDiv({ cls: 'avm-gantt-bar' });
-    barEl.style.left = `${startIndex * this.cellWidth}px`;
+    barEl.style.left = `${visibleStartIndex * this.cellWidth}px`;
     barEl.style.width = `${spanCells * this.cellWidth - 4}px`;
     barEl.style.backgroundColor = bar.color;
 

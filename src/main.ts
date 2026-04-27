@@ -687,8 +687,25 @@ export default class AppVersionManagerPlugin extends Plugin {
 
 .avm-gantt-chart {
   flex: 1;
-  overflow: auto;
-  padding: 12px;
+  overflow: hidden;
+  display: flex;
+}
+
+.avm-gantt-sidebar {
+  width: 280px;
+  min-width: 280px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  display: flex;
+  flex-direction: column;
+}
+
+.avm-gantt-timeline-container {
+  flex: 1;
+  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .avm-gantt-timeline-header {
@@ -700,25 +717,22 @@ export default class AppVersionManagerPlugin extends Plugin {
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.avm-gantt-row-header {
-  width: 200px;
-  min-width: 200px;
-  padding: 8px 12px;
-  border-right: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
-}
-
-.avm-gantt-col-header {
+.avm-gantt-sidebar-header {
   height: 40px;
   display: flex;
   align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
   font-weight: 600;
   font-size: 13px;
+  background: var(--background-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .avm-gantt-timeline {
   display: flex;
-  overflow-x: auto;
 }
 
 .avm-gantt-day-cell {
@@ -755,11 +769,16 @@ export default class AppVersionManagerPlugin extends Plugin {
   background: var(--background-modifier-hover);
 }
 
-.avm-gantt-row-header {
+.avm-gantt-sidebar-row {
+  width: 280px;
+  min-width: 280px;
+  padding: 8px 12px;
+  border-right: 1px solid var(--background-modifier-border);
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 2px;
+  background: var(--background-secondary);
 }
 
 .avm-gantt-project-name {
@@ -778,6 +797,7 @@ export default class AppVersionManagerPlugin extends Plugin {
 .avm-gantt-cells {
   display: flex;
   position: relative;
+  overflow: hidden;
 }
 
 .avm-gantt-time-cell {
@@ -1007,6 +1027,23 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
           this.plugin.settings.overdueWarningDays = value;
           await this.plugin.saveSettings();
         }));
+
+    containerEl.createEl('h3', { text: '甘特图设置' });
+
+    new Setting(containerEl)
+      .setName('自动刷新间隔')
+      .setDesc('甘特图自动刷新数据的时间间隔（0=关闭）')
+      .addDropdown(dropdown => {
+        dropdown.addOption('0', '关闭');
+        dropdown.addOption('1', '1分钟');
+        dropdown.addOption('2', '2分钟');
+        dropdown.addOption('5', '5分钟');
+        dropdown.setValue(String(this.plugin.settings.autoRefreshInterval));
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.autoRefreshInterval = parseInt(value);
+          await this.plugin.saveSettings();
+        });
+      });
 
     containerEl.createEl('h3', { text: '项目进度阶段配置' });
     

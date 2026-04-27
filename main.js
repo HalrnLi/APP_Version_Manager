@@ -33887,7 +33887,8 @@ var DEFAULT_SETTINGS = {
   dataPath: "app-version-manager",
   backupPath: "",
   progressStages: DEFAULT_PROGRESS_STAGES,
-  overdueWarningDays: 3
+  overdueWarningDays: 3,
+  autoRefreshInterval: 2
 };
 function getProgressOrder(stages) {
   return stages.map((s) => s.name);
@@ -35321,16 +35322,18 @@ var GanttView = class {
   }
   renderChart() {
     this.chartContainer = this.containerEl.createDiv({ cls: "avm-gantt-chart" });
-    this.renderTimelineHeader();
-    this.renderProjectRows();
+    const sidebar = this.chartContainer.createDiv({ cls: "avm-gantt-sidebar" });
+    const timelineContainer = this.chartContainer.createDiv({ cls: "avm-gantt-timeline-container" });
+    this.renderTimelineHeader(sidebar, timelineContainer);
+    this.renderProjectRows(sidebar, timelineContainer);
   }
-  renderTimelineHeader() {
-    const header = this.chartContainer.createDiv({ cls: "avm-gantt-timeline-header" });
-    header.createDiv({ cls: "avm-gantt-row-header avm-gantt-col-header", text: "\u9879\u76EE" });
-    const timelineEl = header.createDiv({ cls: "avm-gantt-timeline" });
+  renderTimelineHeader(sidebar, timelineContainer) {
     const days2 = this.getTimelineDays();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    sidebar.createDiv({ cls: "avm-gantt-sidebar-header", text: "\u9879\u76EE" });
+    const header = timelineContainer.createDiv({ cls: "avm-gantt-timeline-header" });
+    const timelineEl = header.createDiv({ cls: "avm-gantt-timeline" });
     for (let i = 0; i < days2; i++) {
       const date = this.getDateFromIndex(i);
       const cell = timelineEl.createDiv({ cls: "avm-gantt-day-cell" });
@@ -35346,21 +35349,21 @@ var GanttView = class {
       cell.createDiv({ cls: "avm-gantt-date-label", text: this.formatDate(date) });
     }
   }
-  renderProjectRows() {
+  renderProjectRows(sidebar, timelineContainer) {
     const sortedProjects = this.sortProjectsByNextStage();
     if (sortedProjects.length === 0) {
-      this.chartContainer.createDiv({
+      timelineContainer.createDiv({
         cls: "avm-gantt-empty",
         text: "\u6682\u65E0\u9879\u76EE\u6570\u636E"
       });
       return;
     }
     sortedProjects.forEach((project) => {
-      this.renderProjectRow(project);
+      this.renderProjectRow(project, sidebar, timelineContainer);
     });
   }
   sortProjectsByNextStage() {
-    return [...this.projects].sort((a, b) => {
+    return [...this.projects].filter((p) => p.progress !== "\u5DF2\u53D1\u5E03").sort((a, b) => {
       const nextA = getNextStageInfo(a);
       const nextB = getNextStageInfo(b);
       if (!nextA.time && !nextB.time)
@@ -35372,16 +35375,16 @@ var GanttView = class {
       return new Date(nextA.time).getTime() - new Date(nextB.time).getTime();
     });
   }
-  renderProjectRow(project) {
-    const row = this.chartContainer.createDiv({ cls: "avm-gantt-row" });
-    const rowHeader = row.createDiv({ cls: "avm-gantt-row-header" });
-    rowHeader.createDiv({ cls: "avm-gantt-project-name", text: project.name });
+  renderProjectRow(project, sidebar, timelineContainer) {
+    const days2 = this.getTimelineDays();
+    const sidebarRow = sidebar.createDiv({ cls: "avm-gantt-sidebar-row" });
+    sidebarRow.createDiv({ cls: "avm-gantt-project-name", text: project.name });
     const version2 = this.getProjectVersion(project.versionId);
     if (version2) {
-      rowHeader.createDiv({ cls: "avm-gantt-project-version", text: version2.versionNumber });
+      sidebarRow.createDiv({ cls: "avm-gantt-project-version", text: version2.versionNumber });
     }
+    const row = timelineContainer.createDiv({ cls: "avm-gantt-row" });
     const cellsContainer = row.createDiv({ cls: "avm-gantt-cells" });
-    const days2 = this.getTimelineDays();
     for (let i = 0; i < days2; i++) {
       cellsContainer.createDiv({ cls: "avm-gantt-time-cell" });
     }
@@ -35435,9 +35438,14 @@ var GanttView = class {
   renderBar(container, bar, totalDays) {
     const startIndex = this.getIndexFromDate(bar.startDate);
     const endIndex = this.getIndexFromDate(bar.endDate);
-    const spanCells = endIndex - startIndex + 1;
+    const visibleStartIndex = Math.max(0, startIndex);
+    const visibleEndIndex = Math.min(totalDays - 1, endIndex);
+    if (visibleStartIndex > visibleEndIndex) {
+      return;
+    }
+    const spanCells = visibleEndIndex - visibleStartIndex + 1;
     const barEl = container.createDiv({ cls: "avm-gantt-bar" });
-    barEl.style.left = `${startIndex * this.cellWidth}px`;
+    barEl.style.left = `${visibleStartIndex * this.cellWidth}px`;
     barEl.style.width = `${spanCells * this.cellWidth - 4}px`;
     barEl.style.backgroundColor = bar.color;
     barEl.createDiv({ cls: "avm-gantt-bar-label", text: bar.stageLabel });
@@ -35851,6 +35859,7 @@ var AppVersionManagerView = class extends import_obsidian9.ItemView {
     this.savedFilters = [];
     this.currentFilter = { progress: null, keyword: "" };
     this.searchDebounceTimer = null;
+    this.autoRefreshTimer = null;
     this.plugin = plugin;
     this.importExportService = new ImportExportService(this.app, this.plugin);
     this.loadSavedFilters();
@@ -35869,6 +35878,7 @@ var AppVersionManagerView = class extends import_obsidian9.ItemView {
     await this.loadData();
     this.render();
     this.registerEvents();
+    this.startAutoRefresh();
   }
   renderLoading() {
     this.containerEl.empty();
@@ -36363,7 +36373,24 @@ var AppVersionManagerView = class extends import_obsidian9.ItemView {
       clearTimeout(this.searchDebounceTimer);
       this.searchDebounceTimer = null;
     }
+    this.stopAutoRefresh();
     this.containerEl.empty();
+  }
+  startAutoRefresh() {
+    this.stopAutoRefresh();
+    const interval = this.plugin.settings.autoRefreshInterval;
+    if (interval > 0) {
+      const milliseconds = interval * 60 * 1e3;
+      this.autoRefreshTimer = window.setInterval(() => {
+        this.refresh();
+      }, milliseconds);
+    }
+  }
+  stopAutoRefresh() {
+    if (this.autoRefreshTimer) {
+      clearInterval(this.autoRefreshTimer);
+      this.autoRefreshTimer = null;
+    }
   }
 };
 var CreateAppModal = class extends import_obsidian9.Modal {
@@ -38765,8 +38792,25 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
 
 .avm-gantt-chart {
   flex: 1;
-  overflow: auto;
-  padding: 12px;
+  overflow: hidden;
+  display: flex;
+}
+
+.avm-gantt-sidebar {
+  width: 280px;
+  min-width: 280px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  display: flex;
+  flex-direction: column;
+}
+
+.avm-gantt-timeline-container {
+  flex: 1;
+  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .avm-gantt-timeline-header {
@@ -38778,25 +38822,22 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.avm-gantt-row-header {
-  width: 200px;
-  min-width: 200px;
-  padding: 8px 12px;
-  border-right: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
-}
-
-.avm-gantt-col-header {
+.avm-gantt-sidebar-header {
   height: 40px;
   display: flex;
   align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
   font-weight: 600;
   font-size: 13px;
+  background: var(--background-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .avm-gantt-timeline {
   display: flex;
-  overflow-x: auto;
 }
 
 .avm-gantt-day-cell {
@@ -38833,11 +38874,16 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
   background: var(--background-modifier-hover);
 }
 
-.avm-gantt-row-header {
+.avm-gantt-sidebar-row {
+  width: 280px;
+  min-width: 280px;
+  padding: 8px 12px;
+  border-right: 1px solid var(--background-modifier-border);
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 2px;
+  background: var(--background-secondary);
 }
 
 .avm-gantt-project-name {
@@ -38856,6 +38902,7 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
 .avm-gantt-cells {
   display: flex;
   position: relative;
+  overflow: hidden;
 }
 
 .avm-gantt-time-cell {
@@ -39014,6 +39061,18 @@ var AppVersionManagerSettingTab = class extends import_obsidian12.PluginSettingT
       this.plugin.settings.overdueWarningDays = value;
       await this.plugin.saveSettings();
     }));
+    containerEl.createEl("h3", { text: "\u7518\u7279\u56FE\u8BBE\u7F6E" });
+    new import_obsidian12.Setting(containerEl).setName("\u81EA\u52A8\u5237\u65B0\u95F4\u9694").setDesc("\u7518\u7279\u56FE\u81EA\u52A8\u5237\u65B0\u6570\u636E\u7684\u65F6\u95F4\u95F4\u9694\uFF080=\u5173\u95ED\uFF09").addDropdown((dropdown) => {
+      dropdown.addOption("0", "\u5173\u95ED");
+      dropdown.addOption("1", "1\u5206\u949F");
+      dropdown.addOption("2", "2\u5206\u949F");
+      dropdown.addOption("5", "5\u5206\u949F");
+      dropdown.setValue(String(this.plugin.settings.autoRefreshInterval));
+      dropdown.onChange(async (value) => {
+        this.plugin.settings.autoRefreshInterval = parseInt(value);
+        await this.plugin.saveSettings();
+      });
+    });
     containerEl.createEl("h3", { text: "\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E" });
     const progressDesc = containerEl.createDiv({ cls: "avm-progress-desc" });
     progressDesc.style.marginBottom = "12px";

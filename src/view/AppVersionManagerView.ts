@@ -44,6 +44,7 @@ export class AppVersionManagerView extends ItemView {
   private headerEl: HTMLElement;
   private mainEl: HTMLElement;
   private searchDebounceTimer: number | null = null;
+  private autoRefreshTimer: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: AppVersionManagerPlugin) {
     super(leaf);
@@ -69,6 +70,7 @@ export class AppVersionManagerView extends ItemView {
     await this.loadData();
     this.render();
     this.registerEvents();
+    this.startAutoRefresh();
   }
 
   private renderLoading() {
@@ -708,7 +710,26 @@ export class AppVersionManagerView extends ItemView {
       clearTimeout(this.searchDebounceTimer);
       this.searchDebounceTimer = null;
     }
+    this.stopAutoRefresh();
     this.containerEl.empty();
+  }
+
+  private startAutoRefresh() {
+    this.stopAutoRefresh();
+    const interval = this.plugin.settings.autoRefreshInterval;
+    if (interval > 0) {
+      const milliseconds = interval * 60 * 1000;
+      this.autoRefreshTimer = window.setInterval(() => {
+        this.refresh();
+      }, milliseconds);
+    }
+  }
+
+  private stopAutoRefresh() {
+    if (this.autoRefreshTimer) {
+      clearInterval(this.autoRefreshTimer);
+      this.autoRefreshTimer = null;
+    }
   }
 }
 

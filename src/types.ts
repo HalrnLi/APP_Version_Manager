@@ -118,6 +118,7 @@ export interface PluginSettings {
   backupPath: string;
   progressStages: ProgressStage[];
   overdueWarningDays: number;
+  autoRefreshInterval: number;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -129,7 +130,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   dataPath: 'app-version-manager',
   backupPath: '',
   progressStages: DEFAULT_PROGRESS_STAGES,
-  overdueWarningDays: 3
+  overdueWarningDays: 3,
+  autoRefreshInterval: 2
 };
 
 export function getProgressOrder(stages: ProgressStage[]): ProjectProgress[] {
