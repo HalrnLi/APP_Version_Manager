@@ -1,0 +1,32 @@
+[
+  {
+    "content": "Add spec field to Project interface in types.ts",
+    "activeForm": "Adding spec field to Project interface in types.ts",
+    "status": "completed"
+  },
+  {
+    "content": "Add spec read/write in DataService.ts",
+    "activeForm": "Adding spec read/write in DataService.ts",
+    "status": "in_progress"
+  },
+  {
+    "content": "Add spec UI in AppVersionManagerView.ts (CreateProjectModal)",
+    "activeForm": "Adding spec UI in AppVersionManagerView.ts (CreateProjectModal)",
+    "status": "pending"
+  },
+  {
+    "content": "Add spec UI in DualPaneView.ts (display + EditProjectModal)",
+    "activeForm": "Adding spec UI in DualPaneView.ts (display + EditProjectModal)",
+    "status": "pending"
+  },
+  {
+    "content": "Add spec UI in KanbanView.ts (display + KanbanEditProjectModal)",
+    "activeForm": "Adding spec UI in KanbanView.ts (display + KanbanEditProjectModal)",
+    "status": "pending"
+  },
+  {
+    "content": "Add spec UI in TableView.ts (column + TableEditProjectModal)",
+    "activeForm": "Adding spec UI in TableView.ts (column + TableEditProjectModal)",
+    "status": "pending"
+  }
+]

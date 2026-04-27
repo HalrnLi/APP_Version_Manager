@@ -12,7 +12,15 @@
       "Bash(cp /home/tao/code/APP_Version_Manager/src/styles.css /home/tao/Note/Note/.obsidian/plugins/APP_Version_Manager/styles.css)",
       "Bash(git push *)",
       "Bash(node *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(npx tsc *)",
+      "Bash(gh search *)",
+      "WebSearch",
+      "Bash(gh repo *)",
+      "WebFetch(domain:github.com)",
+      "Bash(npx claude-mem *)",
+      "Bash(npm install *)",
+      "Bash(echo \"EXIT: $?\")"
     ]
   }
 }

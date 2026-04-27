@@ -1,0 +1,2 @@
+{"created_at_ms":1776322936204,"session_id":"session-1776322936204-0","type":"session_meta","updated_at_ms":1776322936204,"version":1}
+{"message":{"blocks":[{"text":"为 APP_Version_Manager 插件的 Project 类型新增一个配置组件/规格字段。\n\n要求：\n1. 在 src/types.ts 的 Project 接口中新增一个字段：spec（配置组件/规格），类型为 string\n2. 在 src/services/DataService.ts 中添加该字段的读取和写入逻辑\n3. 在 src/view/AppVersionManagerView.ts 中添加该字段的 UI 编辑（编辑项目弹窗）和展示（卡片/表格/看板视图）\n4. 字段名使用 spec，中文标签为配置组件/规格或规格\n\n修改已有的未提交文件，不要修改 main.js（那是构建产物）。\n\n完成后列出所有修改的文件和关键改动。","type":"text"}],"role":"user"},"type":"message"}
