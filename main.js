@@ -35339,12 +35339,15 @@ var GanttView = class {
     today.setHours(0, 0, 0, 0);
     sidebar.createDiv({ cls: "avm-gantt-sidebar-header", text: "\u9879\u76EE" });
     const header = timelineContainer.createDiv({ cls: "avm-gantt-timeline-header" });
+    header.style.height = "40px";
     const timelineEl = header.createDiv({ cls: "avm-gantt-timeline" });
+    timelineEl.style.width = `${days2 * this.cellWidth}px`;
     for (let i = 0; i < days2; i++) {
       const date = this.getDateFromIndex(i);
       const cell = timelineEl.createDiv({ cls: "avm-gantt-day-cell" });
       cell.style.width = `${this.cellWidth}px`;
       cell.style.minWidth = `${this.cellWidth}px`;
+      cell.style.height = "40px";
       const dayOfWeek = date.getDay();
       if (dayOfWeek === 0 || dayOfWeek === 6) {
         cell.addClass("avm-gantt-weekend");
@@ -35408,9 +35411,13 @@ var GanttView = class {
       sidebarRow.createDiv({ cls: "avm-gantt-project-version", text: version2.versionNumber });
     }
     const row = timelineContainer.createDiv({ cls: "avm-gantt-row" });
+    row.style.height = "50px";
     const cellsContainer = row.createDiv({ cls: "avm-gantt-cells" });
+    cellsContainer.style.width = `${days2 * this.cellWidth}px`;
     for (let i = 0; i < days2; i++) {
-      cellsContainer.createDiv({ cls: "avm-gantt-time-cell" });
+      const cell = cellsContainer.createDiv({ cls: "avm-gantt-time-cell" });
+      cell.style.width = `${this.cellWidth}px`;
+      cell.style.minWidth = `${this.cellWidth}px`;
     }
     const bar = this.getProjectBar(project);
     if (bar) {
@@ -35475,18 +35482,17 @@ var GanttView = class {
     const spanCells = visibleEndIndex - visibleStartIndex + 1;
     const barEl = container.createDiv({ cls: "avm-gantt-project-bar" });
     barEl.style.left = `${visibleStartIndex * this.cellWidth}px`;
-    barEl.style.width = `${spanCells * this.cellWidth - 4}px`;
+    barEl.style.width = `${spanCells * this.cellWidth}px`;
     barEl.style.backgroundColor = bar.color;
     barEl.style.height = "28px";
-    barEl.style.top = "10px";
+    barEl.style.top = "11px";
     barEl.style.borderRadius = "4px";
     bar.markers.forEach((marker) => {
       const markerIndex = this.getIndexFromDate(marker.date);
       if (markerIndex >= visibleStartIndex && markerIndex <= visibleEndIndex) {
         const markerEl = barEl.createDiv({ cls: "avm-gantt-marker" });
-        const relativePos = (markerIndex - visibleStartIndex) / spanCells;
-        markerEl.style.left = `${relativePos * 100}%`;
-        markerEl.style.transform = "translateX(-50%) translateY(-50%) rotate(45deg)";
+        const markerOffsetFromBarStart = (markerIndex - visibleStartIndex) * this.cellWidth + this.cellWidth / 2;
+        markerEl.style.left = `${markerOffsetFromBarStart}px`;
         markerEl.style.backgroundColor = marker.color;
         markerEl.setAttribute("title", `${bar.project.name} - ${marker.label}
 ${this.formatDate(marker.date)}`);
@@ -38870,6 +38876,7 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
 
 .avm-gantt-sidebar-header {
   height: 40px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   padding: 0 12px;
@@ -38880,6 +38887,7 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
   position: sticky;
   top: 0;
   z-index: 10;
+  box-sizing: border-box;
 }
 
 .avm-gantt-timeline {
@@ -38894,6 +38902,7 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
   border-right: 1px solid var(--background-modifier-border);
   font-size: 11px;
   color: var(--text-muted);
+  box-sizing: border-box;
 }
 
 .avm-gantt-day-cell.avm-gantt-weekend {
@@ -38913,7 +38922,9 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
 .avm-gantt-row {
   display: flex;
   border-bottom: 1px solid var(--background-modifier-border);
+  height: 50px;
   min-height: 50px;
+  align-items: center;
 }
 
 .avm-gantt-row:hover {
@@ -38923,13 +38934,16 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
 .avm-gantt-sidebar-row {
   width: 280px;
   min-width: 280px;
-  padding: 8px 12px;
+  height: 50px;
+  min-height: 50px;
+  padding: 0 12px;
   border-right: 1px solid var(--background-modifier-border);
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 2px;
   background: var(--background-secondary);
+  box-sizing: border-box;
 }
 
 .avm-gantt-project-name {
@@ -38953,8 +38967,9 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
 .avm-gantt-time-cell {
   width: 40px;
   min-width: 40px;
-  height: 40px;
+  height: 50px;
   border-right: 1px solid var(--background-modifier-border);
+  box-sizing: border-box;
 }
 
 .avm-gantt-bar {
@@ -39010,8 +39025,8 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
   width: 12px;
   height: 12px;
   top: 50%;
-  border-radius: 2px;
   transform: translateX(-50%) translateY(-50%) rotate(45deg);
+  border-radius: 2px;
   border: 2px solid white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }

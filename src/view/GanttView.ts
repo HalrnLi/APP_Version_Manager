@@ -130,9 +130,11 @@ export class GanttView {
 
     // 时间轴头部
     const header = timelineContainer.createDiv({ cls: 'avm-gantt-timeline-header' });
+    header.style.height = '40px';
 
-    // 时间轴
+    // 时间轴 - 设置固定宽度确保与下方格子对齐
     const timelineEl = header.createDiv({ cls: 'avm-gantt-timeline' });
+    timelineEl.style.width = `${days * this.cellWidth}px`;
 
     for (let i = 0; i < days; i++) {
       const date = this.getDateFromIndex(i);
@@ -140,6 +142,7 @@ export class GanttView {
       const cell = timelineEl.createDiv({ cls: 'avm-gantt-day-cell' });
       cell.style.width = `${this.cellWidth}px`;
       cell.style.minWidth = `${this.cellWidth}px`;
+      cell.style.height = '40px';
 
       // 周末高亮
       const dayOfWeek = date.getDay();
@@ -220,12 +223,16 @@ export class GanttView {
 
     // 右侧时间轴行
     const row = timelineContainer.createDiv({ cls: 'avm-gantt-row' });
+    row.style.height = '50px';
 
-    // 时间轴格子区域
+    // 时间轴格子区域 - 设置固定宽度确保对齐
     const cellsContainer = row.createDiv({ cls: 'avm-gantt-cells' });
+    cellsContainer.style.width = `${days * this.cellWidth}px`;
 
     for (let i = 0; i < days; i++) {
-      cellsContainer.createDiv({ cls: 'avm-gantt-time-cell' });
+      const cell = cellsContainer.createDiv({ cls: 'avm-gantt-time-cell' });
+      cell.style.width = `${this.cellWidth}px`;
+      cell.style.minWidth = `${this.cellWidth}px`;
     }
 
     // 获取该项目的单一甘特条（包含所有测试日期标记）
@@ -318,24 +325,26 @@ export class GanttView {
 
     const spanCells = visibleEndIndex - visibleStartIndex + 1;
 
-    // 创建单一时间条
+    // 创建单一时间条 - 宽度精确匹配格子总和，不使用 -4 偏移
     const barEl = container.createDiv({ cls: 'avm-gantt-project-bar' });
     barEl.style.left = `${visibleStartIndex * this.cellWidth}px`;
-    barEl.style.width = `${spanCells * this.cellWidth - 4}px`;
+    barEl.style.width = `${spanCells * this.cellWidth}px`;
     barEl.style.backgroundColor = bar.color;
     barEl.style.height = '28px';
-    barEl.style.top = '10px';
+    barEl.style.top = '11px'; // 垂直居中对齐: (50px row - 28px bar) / 2 = 11px
     barEl.style.borderRadius = '4px';
 
     // 在条形上渲染每个测试日期的菱形标记
+    // 使用绝对像素定位确保与日期列对齐
     bar.markers.forEach(marker => {
       const markerIndex = this.getIndexFromDate(marker.date);
       // 只渲染在可见范围内的标记
       if (markerIndex >= visibleStartIndex && markerIndex <= visibleEndIndex) {
         const markerEl = barEl.createDiv({ cls: 'avm-gantt-marker' });
-        const relativePos = (markerIndex - visibleStartIndex) / spanCells;
-        markerEl.style.left = `${relativePos * 100}%`;
-        markerEl.style.transform = 'translateX(-50%) translateY(-50%) rotate(45deg)';
+        // 计算标记在条形内的绝对像素位置
+        // 标记应对齐到对应日期列的中心
+        const markerOffsetFromBarStart = (markerIndex - visibleStartIndex) * this.cellWidth + this.cellWidth / 2;
+        markerEl.style.left = `${markerOffsetFromBarStart}px`;
         markerEl.style.backgroundColor = marker.color;
         markerEl.setAttribute('title', `${bar.project.name} - ${marker.label}\n${this.formatDate(marker.date)}`);
       }

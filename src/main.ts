@@ -721,6 +721,7 @@ export default class AppVersionManagerPlugin extends Plugin {
 
 .avm-gantt-sidebar-header {
   height: 40px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   padding: 0 12px;
@@ -731,6 +732,7 @@ export default class AppVersionManagerPlugin extends Plugin {
   position: sticky;
   top: 0;
   z-index: 10;
+  box-sizing: border-box;
 }
 
 .avm-gantt-timeline {
@@ -745,6 +747,7 @@ export default class AppVersionManagerPlugin extends Plugin {
   border-right: 1px solid var(--background-modifier-border);
   font-size: 11px;
   color: var(--text-muted);
+  box-sizing: border-box;
 }
 
 .avm-gantt-day-cell.avm-gantt-weekend {
@@ -764,7 +767,9 @@ export default class AppVersionManagerPlugin extends Plugin {
 .avm-gantt-row {
   display: flex;
   border-bottom: 1px solid var(--background-modifier-border);
+  height: 50px;
   min-height: 50px;
+  align-items: center;
 }
 
 .avm-gantt-row:hover {
@@ -774,13 +779,16 @@ export default class AppVersionManagerPlugin extends Plugin {
 .avm-gantt-sidebar-row {
   width: 280px;
   min-width: 280px;
-  padding: 8px 12px;
+  height: 50px;
+  min-height: 50px;
+  padding: 0 12px;
   border-right: 1px solid var(--background-modifier-border);
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 2px;
   background: var(--background-secondary);
+  box-sizing: border-box;
 }
 
 .avm-gantt-project-name {
@@ -804,8 +812,9 @@ export default class AppVersionManagerPlugin extends Plugin {
 .avm-gantt-time-cell {
   width: 40px;
   min-width: 40px;
-  height: 40px;
+  height: 50px;
   border-right: 1px solid var(--background-modifier-border);
+  box-sizing: border-box;
 }
 
 .avm-gantt-bar {
@@ -861,8 +870,8 @@ export default class AppVersionManagerPlugin extends Plugin {
   width: 12px;
   height: 12px;
   top: 50%;
-  border-radius: 2px;
   transform: translateX(-50%) translateY(-50%) rotate(45deg);
+  border-radius: 2px;
   border: 2px solid white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
