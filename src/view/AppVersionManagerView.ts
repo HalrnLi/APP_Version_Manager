@@ -1,30 +1,19 @@
-import { ItemView, WorkspaceLeaf, Modal, App as ObsidianApp, Setting, ButtonComponent, Notice } from 'obsidian';
+import { ItemView, WorkspaceLeaf, App as ObsidianApp, Setting, ButtonComponent, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { App, Version, Project, ProjectProgress, SavedFilter, Plan, getProgressOrder, getProgressColors, getFirstProgress, parseDateInput } from '../types';
+import { App, Version, Project, ProjectProgress, SavedFilter, Plan, getProgressOrder } from '../types';
 import { DualPaneView } from './DualPaneView';
 import { KanbanView } from './KanbanView';
 import { TableView } from './TableView';
 // import { GanttView } from './GanttView';
 import { ConfirmModal } from './ConfirmModal';
 import { ConvertPlanModal } from './ConvertPlanModal';
-import { createSaveButtons, createActionButtons } from './ModalUtils';
 import { ImportExportService } from '../services/ImportExportService';
+import { CreateAppModal, RenameAppModal, CreateVersionModal, CreateProjectModal, DeleteFilterModal, ExportModal, ImportModal, PlanModal } from './modals';
+import type { CreateProjectData, PlanFormData } from './modals';
 
 export const VIEW_TYPE_APP_VERSION_MANAGER = 'app-version-manager-view';
 
 type ViewType = 'dual' | 'kanban' | 'table'; // | 'gantt';
-
-interface CreateProjectData {
-  name: string;
-  versionId: string;
-  manager: string;
-  projectLink: string;
-  componentLink: string;
-  features: string;
-  spec: string;
-  requirements: string;
-  progress: ProjectProgress;
-}
 
 export class AppVersionManagerView extends ItemView {
   plugin: AppVersionManagerPlugin;
@@ -67,8 +56,12 @@ export class AppVersionManagerView extends ItemView {
 
   async onOpen() {
     this.renderLoading();
-    await this.loadData();
-    this.render();
+    try {
+      await this.loadData();
+      this.render();
+    } catch (error) {
+      this.renderError(error instanceof Error ? error.message : String(error));
+    }
     this.registerEvents();
     this.startAutoRefresh();
   }
@@ -80,16 +73,28 @@ export class AppVersionManagerView extends ItemView {
     loadingEl.createEl('span', { text: '加载中...' });
   }
 
+  private renderError(message: string) {
+    this.containerEl.empty();
+    this.containerEl.addClass('app-version-manager');
+    const errorEl = this.containerEl.createDiv({ cls: 'avm-error' });
+    errorEl.createEl('p', { text: `加载失败: ${message}` });
+    const retryBtn = errorEl.createEl('button', { text: '重试' });
+    retryBtn.addEventListener('click', () => this.refresh());
+  }
+
   private async loadData() {
     this.apps = await this.plugin.dataService.getAllApps();
-    
+
     if (this.apps.length > 0) {
       if (!this.selectedAppId || !this.apps.find(a => a.id === this.selectedAppId)) {
         this.selectedAppId = this.plugin.settings.defaultAppId || this.apps[0].id;
       }
-      
+
       this.versions = await this.plugin.dataService.getVersionsByAppId(this.selectedAppId);
-      this.projects = await this.plugin.dataService.getAllProjects();
+      // 只保留当前 app 关联的 projects（用 Set 过滤，避免 O(n*m) 的 .includes()）
+      const allProjects = await this.plugin.dataService.getAllProjects();
+      const versionIds = new Set(this.versions.map(v => v.id));
+      this.projects = allProjects.filter(p => versionIds.has(p.versionId));
       this.plans = await this.plugin.dataService.getAllPlans();
     }
   }
@@ -128,12 +133,16 @@ export class AppVersionManagerView extends ItemView {
   private render() {
     this.containerEl.empty();
     this.containerEl.addClass('app-version-manager');
-    
-    this.headerEl = this.containerEl.createDiv({ cls: 'avm-header' });
-    this.renderHeader();
-    
-    this.mainEl = this.containerEl.createDiv({ cls: 'avm-main' });
-    this.renderMainView();
+
+    try {
+      this.headerEl = this.containerEl.createDiv({ cls: 'avm-header' });
+      this.renderHeader();
+
+      this.mainEl = this.containerEl.createDiv({ cls: 'avm-main' });
+      this.renderMainView();
+    } catch (error) {
+      this.renderError(error instanceof Error ? error.message : String(error));
+    }
   }
 
   private renderHeader() {
@@ -328,7 +337,7 @@ export class AppVersionManagerView extends ItemView {
       return;
     }
     
-    const appFilteredProjects = this.getAppFilteredProjects();
+    const appFilteredProjects = this.getFilteredProjects({ versionId: '' });
     const filteredVersions = this.selectedAppId 
       ? this.versions.filter(v => v.appId === this.selectedAppId)
       : [];
@@ -386,51 +395,19 @@ export class AppVersionManagerView extends ItemView {
     }
   }
 
-  private getFilteredProjects(): Project[] {
+  private getFilteredProjects(options?: { versionId?: string }): Project[] {
+    // this.projects 已在 loadData() 中按 app 过滤，无需再次过滤 appVersionIds
     let projects = this.projects;
-    
-    if (this.selectedAppId) {
-      const appVersionIds = this.versions
-        .filter(v => v.appId === this.selectedAppId)
-        .map(v => v.id);
-      projects = projects.filter(p => appVersionIds.includes(p.versionId));
-    }
-    
-    if (this.selectedVersionId) {
-      projects = projects.filter(p => p.versionId === this.selectedVersionId);
-    }
-    
-    if (this.currentFilter.progress) {
-      projects = projects.filter(p => p.progress === this.currentFilter.progress);
-    }
-    
-    if (this.currentFilter.keyword) {
-      const keyword = this.currentFilter.keyword.toLowerCase();
-      projects = projects.filter(p =>
-        p.name.toLowerCase().includes(keyword) ||
-        p.manager.toLowerCase().includes(keyword) ||
-        p.features.toLowerCase().includes(keyword) ||
-        p.requirements.toLowerCase().includes(keyword)
-      );
-    }
-    
-    return projects;
-  }
 
-  private getAppFilteredProjects(): Project[] {
-    let projects = this.projects;
-    
-    if (this.selectedAppId) {
-      const appVersionIds = this.versions
-        .filter(v => v.appId === this.selectedAppId)
-        .map(v => v.id);
-      projects = projects.filter(p => appVersionIds.includes(p.versionId));
+    const versionFilter = options?.versionId ?? this.selectedVersionId;
+    if (versionFilter) {
+      projects = projects.filter(p => p.versionId === versionFilter);
     }
-    
+
     if (this.currentFilter.progress) {
       projects = projects.filter(p => p.progress === this.currentFilter.progress);
     }
-    
+
     if (this.currentFilter.keyword) {
       const keyword = this.currentFilter.keyword.toLowerCase();
       projects = projects.filter(p =>
@@ -440,7 +417,7 @@ export class AppVersionManagerView extends ItemView {
         p.requirements.toLowerCase().includes(keyword)
       );
     }
-    
+
     return projects;
   }
 
@@ -732,556 +709,5 @@ export class AppVersionManagerView extends ItemView {
       clearInterval(this.autoRefreshTimer);
       this.autoRefreshTimer = null;
     }
-  }
-}
-
-class CreateAppModal extends Modal {
-  onSubmit: (name: string) => void;
-  
-  constructor(app: ObsidianApp, onSubmit: (name: string) => void) {
-    super(app);
-    this.onSubmit = onSubmit;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '新建APP' });
-    
-    let appName = '';
-    
-    new Setting(contentEl)
-      .setName('APP名称')
-      .addText(text => text
-        .setPlaceholder('输入APP名称')
-        .onChange(value => appName = value));
-    
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: '创建',
-        cancelText: '取消',
-        onConfirm: () => {
-          if (appName.trim()) {
-            this.onSubmit(appName.trim());
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-
-class RenameAppModal extends Modal {
-  currentName: string;
-  onSubmit: (newName: string) => void;
-  
-  constructor(app: ObsidianApp, currentName: string, onSubmit: (newName: string) => void) {
-    super(app);
-    this.currentName = currentName;
-    this.onSubmit = onSubmit;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '重命名APP' });
-    
-    let newName = this.currentName;
-    
-    new Setting(contentEl)
-      .setName('APP名称')
-      .addText(text => text
-        .setValue(this.currentName)
-        .onChange(value => newName = value));
-    
-    createSaveButtons(
-      contentEl,
-      () => {
-        if (newName.trim() && newName !== this.currentName) {
-          this.onSubmit(newName.trim());
-          this.close();
-        }
-      },
-      () => this.close()
-    );
-  }
-  
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-
-class CreateVersionModal extends Modal {
-  onSubmit: (data: { versionNumber: string; bllVersion: string; ippVersion: string; webVersion: string; updateContent: string }) => void;
-  
-  constructor(app: ObsidianApp, onSubmit: (data: { versionNumber: string; bllVersion: string; ippVersion: string; webVersion: string; updateContent: string }) => void) {
-    super(app);
-    this.onSubmit = onSubmit;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '新建版本' });
-    
-    const data = {
-      versionNumber: '',
-      bllVersion: '',
-      ippVersion: '',
-      webVersion: '',
-      updateContent: ''
-    };
-    
-    new Setting(contentEl)
-      .setName('APP版本号 *')
-      .addText(text => text
-        .setPlaceholder('如: 1.0.0')
-        .onChange(value => data.versionNumber = value));
-    
-    new Setting(contentEl)
-      .setName('BLL版本 *')
-      .addText(text => text
-        .onChange(value => data.bllVersion = value));
-    
-    new Setting(contentEl)
-      .setName('IPP版本 *')
-      .addText(text => text
-        .onChange(value => data.ippVersion = value));
-    
-    new Setting(contentEl)
-      .setName('Web版本 *')
-      .addText(text => text
-        .onChange(value => data.webVersion = value));
-    
-    new Setting(contentEl)
-      .setName('更新内容')
-      .addTextArea(text => text
-        .setPlaceholder('可选')
-        .onChange(value => data.updateContent = value));
-    
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: '创建',
-        cancelText: '取消',
-        onConfirm: () => {
-          if (data.versionNumber && data.bllVersion && data.ippVersion && data.webVersion) {
-            this.onSubmit(data);
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-
-class CreateProjectModal extends Modal {
-  versionId: string;
-  progressStages: { name: string; color: string }[];
-  onSubmit: (data: CreateProjectData) => void;
-  
-  constructor(app: ObsidianApp, versionId: string, progressStages: { name: string; color: string }[], onSubmit: (data: CreateProjectData) => void) {
-    super(app);
-    this.versionId = versionId;
-    this.progressStages = progressStages;
-    this.onSubmit = onSubmit;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '新建项目' });
-    
-    const firstProgress = getFirstProgress(this.progressStages);
-    const data = {
-      name: '',
-      versionId: this.versionId,
-      manager: '',
-      projectLink: '',
-      componentLink: '',
-      features: '',
-      spec: '',
-      requirements: '',
-      progress: firstProgress
-    };
-    
-    new Setting(contentEl)
-      .setName('项目名称 *')
-      .addText(text => text
-        .setPlaceholder('输入项目名称')
-        .onChange(value => data.name = value));
-    
-    new Setting(contentEl)
-      .setName('项目经理')
-      .addText(text => text
-        .onChange(value => data.manager = value));
-    
-    new Setting(contentEl)
-      .setName('项目链接')
-      .addText(text => text
-        .setPlaceholder('https://...')
-        .onChange(value => data.projectLink = value));
-    
-    new Setting(contentEl)
-      .setName('组件库链接')
-      .addText(text => text
-        .setPlaceholder('https://...')
-        .onChange(value => data.componentLink = value));
-    
-    new Setting(contentEl)
-      .setName('项目进度')
-      .addDropdown(dropdown => {
-        const progressOrder = getProgressOrder(this.progressStages);
-        progressOrder.forEach(progress => {
-          dropdown.addOption(progress, progress);
-        });
-        dropdown.setValue(data.progress);
-        dropdown.onChange(value => data.progress = value as ProjectProgress);
-      });
-
-    new Setting(contentEl)
-      .setName('特性')
-      .addTextArea(text => text
-        .setPlaceholder('可选')
-        .onChange(value => data.features = value));
-
-    new Setting(contentEl)
-      .setName('配置组件/规格')
-      .addTextArea(text => text
-        .setPlaceholder('可选')
-        .onChange(value => data.spec = value));
-
-    new Setting(contentEl)
-      .setName('项目需求')
-      .addTextArea(text => text
-        .setPlaceholder('可选')
-        .onChange(value => data.requirements = value));
-    
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: '创建',
-        cancelText: '取消',
-        onConfirm: () => {
-          if (data.name) {
-            this.onSubmit(data);
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-
-class DeleteFilterModal extends Modal {
-  filters: SavedFilter[];
-  onSubmit: (filterId: string) => Promise<void>;
-  onCloseCallback: () => void;
-  
-  constructor(app: ObsidianApp, filters: SavedFilter[], onSubmit: (filterId: string) => Promise<void>, onCloseCallback: () => void) {
-    super(app);
-    this.filters = filters;
-    this.onSubmit = onSubmit;
-    this.onCloseCallback = onCloseCallback;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '删除筛选条件' });
-    
-    this.filters.forEach(filter => {
-      new Setting(contentEl)
-        .setName(filter.name)
-        .addButton(btn => btn
-          .setButtonText('删除')
-          .setWarning()
-          .onClick(() => {
-            this.doDelete(filter.id);
-          }));
-    });
-    
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('关闭')
-        .onClick(() => this.close()));
-  }
-  
-  private async doDelete(filterId: string) {
-    const filter = this.filters.find(f => f.id === filterId);
-    if (!filter) return;
-    
-    this.filters = this.filters.filter(f => f.id !== filterId);
-    await this.onSubmit(filterId);
-    
-    if (this.filters.length === 0) {
-      this.close();
-    } else {
-      this.contentEl.empty();
-      this.onOpen();
-    }
-  }
-  
-  onClose() {
-    this.contentEl.empty();
-    setTimeout(() => {
-      this.onCloseCallback();
-    }, 100);
-  }
-}
-
-class ExportModal extends Modal {
-  importExportService: ImportExportService;
-  projects: Project[];
-  versions: Version[];
-  format: 'csv' | 'xlsx' = 'csv';
-  
-  constructor(app: ObsidianApp, service: ImportExportService, projects: Project[], versions: Version[]) {
-    super(app);
-    this.importExportService = service;
-    this.projects = projects;
-    this.versions = versions;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '导出数据' });
-    
-    new Setting(contentEl)
-      .setName('导出格式')
-      .addDropdown(dropdown => {
-        dropdown.addOption('csv', 'CSV');
-        dropdown.addOption('xlsx', 'Excel (XLSX)');
-        dropdown.setValue(this.format);
-        dropdown.onChange(value => {
-          this.format = value === 'xlsx' ? 'xlsx' : 'csv';
-        });
-      });
-    
-    const statusEl = contentEl.createDiv({ cls: 'avm-export-status' });
-    
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: '导出',
-        cancelText: '取消',
-        onConfirm: async () => {
-          statusEl.setText('处理中...');
-          try {
-            if (this.format === 'xlsx') {
-              const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
-              this.downloadFile(buffer, 'projects.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            } else {
-              const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
-              this.downloadFile(csv, 'projects.csv', 'text/csv');
-            }
-            statusEl.setText('导出成功');
-            setTimeout(() => this.close(), 800);
-          } catch (error) {
-            statusEl.setText(`导出失败: ${error instanceof Error ? error.message : String(error)}`);
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  
-  private downloadFile(content: string | ArrayBuffer, filename: string, mimeType: string) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-
-class ImportModal extends Modal {
-  importExportService: ImportExportService;
-  appId: string;
-  onComplete: () => void;
-  
-  constructor(app: ObsidianApp, service: ImportExportService, appId: string, onComplete: () => void) {
-    super(app);
-    this.importExportService = service;
-    this.appId = appId;
-    this.onComplete = onComplete;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '导入数据' });
-    
-    const fileInput = contentEl.createEl('input', {
-      attr: { type: 'file', accept: '.csv,.xlsx,.xls' }
-    });
-    
-    const statusEl = contentEl.createDiv({ cls: 'avm-import-status' });
-    
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: '导入',
-        cancelText: '取消',
-        onConfirm: async () => {
-          const file = fileInput.files?.[0];
-          if (!file) {
-            new Notice('请选择文件');
-            return;
-          }
-          
-          statusEl.setText('处理中...');
-          
-          try {
-            let result;
-            if (file.name.endsWith('.csv')) {
-              const content = await file.text();
-              result = await this.importExportService.importFromCSV(content, this.appId);
-            } else {
-              const buffer = await file.arrayBuffer();
-              result = await this.importExportService.importFromExcel(buffer, this.appId);
-            }
-            
-            new Notice(`导入完成！成功: ${result.success} 条${result.errors.length > 0 ? `\n错误: ${result.errors.join('\n')}` : ''}`);
-            statusEl.setText('导入成功');
-            setTimeout(() => {
-              this.onComplete();
-              this.close();
-            }, 800);
-          } catch (error) {
-            statusEl.setText(`导入失败: ${error instanceof Error ? error.message : String(error)}`);
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-
-interface PlanFormData {
-  topic: string;
-  manager?: string;
-  testDate?: string;
-  releaseDate?: string;
-  requirements?: string;
-}
-
-class PlanModal extends Modal {
-  plan?: Plan;
-  onSubmit: (data: PlanFormData) => void;
-
-  constructor(app: ObsidianApp, plan: Plan | undefined, onSubmit: (data: PlanFormData) => void) {
-    super(app);
-    this.plan = plan;
-    this.onSubmit = onSubmit;
-  }
-
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: this.plan ? '编辑规划' : '新建规划' });
-    
-    const data: PlanFormData = {
-      topic: this.plan?.topic ?? '',
-      manager: this.plan?.manager ?? '',
-      testDate: this.plan?.testDate ?? '',
-      releaseDate: this.plan?.releaseDate ?? '',
-      requirements: this.plan?.requirements ?? ''
-    };
-
-    new Setting(contentEl)
-      .setName('项目主题 *')
-      .addText(text => text
-        .setPlaceholder('输入项目主题')
-        .setValue(data.topic)
-        .onChange(value => data.topic = value));
-
-    new Setting(contentEl)
-      .setName('项目经理')
-      .addText(text => text
-        .setPlaceholder('选填')
-        .setValue(data.manager ?? '')
-        .onChange(value => data.manager = value || undefined));
-
-    new Setting(contentEl)
-      .setName('提测时间')
-      .addText(text => text
-        .setPlaceholder('选填，如 2026-04-01')
-        .setValue(data.testDate ?? '')
-        .onChange(value => data.testDate = parseDateInput(value) || undefined));
-
-    new Setting(contentEl)
-      .setName('发布时间')
-      .addText(text => text
-        .setPlaceholder('选填，如 2026-05-01')
-        .setValue(data.releaseDate ?? '')
-        .onChange(value => data.releaseDate = parseDateInput(value) || undefined));
-
-    new Setting(contentEl)
-      .setName('项目需求')
-      .addTextArea(text => text
-        .setPlaceholder('选填')
-        .setValue(data.requirements ?? '')
-        .onChange(value => data.requirements = value || undefined));
-
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: this.plan ? '保存' : '创建',
-        cancelText: '取消',
-        onConfirm: () => {
-          if (data.topic.trim()) {
-            this.onSubmit({
-              topic: data.topic.trim(),
-              manager: data.manager?.trim() || '',
-              testDate: data.testDate?.trim() || '',
-              releaseDate: data.releaseDate?.trim() || '',
-              requirements: data.requirements?.trim() || ''
-            });
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-
-  onClose() {
-    this.contentEl.empty();
   }
 }

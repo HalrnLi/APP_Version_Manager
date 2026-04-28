@@ -4,6 +4,9 @@ import { promises as fsPromises } from 'fs';
 import { join, isAbsolute, basename, extname } from 'path';
 import AppVersionManagerPlugin from '../main';
 import { App, Version, Project, Plan, ProjectProgress, ProgressHistoryItem, ConcurrencyConflictError, getProgressOrder, getFirstProgress } from '../types';
+import { DataCache } from '../utils/DataCache';
+import { parseFrontmatter, createFrontmatter, parseNumericField, parseProgressHistory } from '../utils/frontmatter';
+import { generateId, sanitizeFileName, compareVersions } from '../utils/idUtils';
 
 // 自定义文件接口，用于支持绝对路径
 interface CustomFile {
@@ -17,47 +20,6 @@ interface CustomFile {
   readContent(): Promise<string>;
 }
 
-// 简单内存缓存 - 使用两个 Map 分别存储数据和时间戳
-// 由于 TypeScript 类型系统的限制，使用 string-keyed Map 存储
-// 调用方需要确保 get<T>/set<T> 使用相同的类型参数
-class DataCache {
-  private cache = new Map<string, unknown>();
-  private ttl: number;
-  private timestamps = new Map<string, number>();
-
-  constructor(ttlMs: number = 5000) {
-    this.ttl = ttlMs;
-  }
-
-  get<T>(key: string): T | null {
-    if (!this.cache.has(key)) return null;
-    
-    const timestamp = this.timestamps.get(key) ?? 0;
-    if (Date.now() - timestamp > this.ttl) {
-      this.cache.delete(key);
-      this.timestamps.delete(key);
-      return null;
-    }
-    
-    return this.cache.get(key) as T;
-  }
-
-  set<T>(key: string, data: T): void {
-    this.cache.set(key, data);
-    this.timestamps.set(key, Date.now());
-  }
-
-  invalidate(key?: string): void {
-    if (key) {
-      this.cache.delete(key);
-      this.timestamps.delete(key);
-    } else {
-      this.cache.clear();
-      this.timestamps.clear();
-    }
-  }
-}
-
 export class DataService {
   app: ObsidianApp;
   plugin: AppVersionManagerPlugin;
@@ -66,7 +28,7 @@ export class DataService {
   constructor(app: ObsidianApp, plugin: AppVersionManagerPlugin) {
     this.app = app;
     this.plugin = plugin;
-    this.cache = new DataCache(5000);
+    this.cache = new DataCache(30000);
   }
 
   private getDataPath(): string {
@@ -146,13 +108,6 @@ export class DataService {
     }
   }
 
-  private generateId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  }
-
   async initializeDataFolders() {
     await this.ensureFolder(this.getAppsFolder());
     await this.ensureFolder(this.getVersionsFolder());
@@ -192,7 +147,7 @@ export class DataService {
         content = await this.app.vault.read(file);
       }
       
-      const frontmatter = this.parseFrontmatter(content);
+      const frontmatter = parseFrontmatter(content);
       if (!frontmatter) return null;
       
       return {
@@ -200,7 +155,7 @@ export class DataService {
         name: frontmatter.name ?? file.basename,
         createdAt: frontmatter.createdAt ?? ctime.toString(),
         updatedAt: frontmatter.updatedAt ?? mtime.toString(),
-        version: this.parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1)
       };
     } catch (error) {
       console.error('[AppVersionManager] Failed to parse app file:', file.path, error);
@@ -220,7 +175,7 @@ export class DataService {
         content = await this.app.vault.read(file);
       }
       
-      const frontmatter = this.parseFrontmatter(content);
+      const frontmatter = parseFrontmatter(content);
       if (!frontmatter) return null;
       
       return {
@@ -232,107 +187,12 @@ export class DataService {
         requirements: frontmatter.requirements ?? '',
         createdAt: frontmatter.createdAt ?? ctime.toString(),
         updatedAt: frontmatter.updatedAt ?? mtime.toString(),
-        version: this.parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1)
       };
     } catch (error) {
       console.error('[AppVersionManager] Failed to parse plan file:', file.path, error);
       return null;
     }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private parseFrontmatter(content: string): Record<string, any> | null {
-    const match = content.match(/^---\n([\s\S]*?)\n---/);
-    if (!match) return {};
-    
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const frontmatter: Record<string, any> = {};
-    const lines = match[1].split('\n');
-    
-    for (let li = 0; li < lines.length; li++) {
-      const line = lines[li];
-      if (line.startsWith('#') || line.trim() === '') {
-        continue;
-      }
-
-      const colonIndex = line.indexOf(':');
-      if (colonIndex > 0) {
-        const key = line.substring(0, colonIndex).trim();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let value: any = line.substring(colonIndex + 1).trim();
-
-        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
-          continue;
-        }
-
-        if (value.startsWith('"') && value.endsWith('"')) {
-          value = value.slice(1, -1);
-        } else if (value.startsWith("'") && value.endsWith("'")) {
-          value = value.slice(1, -1);
-        } else if (value.startsWith('[') && value.endsWith(']')) {
-          value = value.slice(1, -1).split(',').map((v: string) => v.trim()).filter((v: string) => v);
-        } else if (value === 'true') {
-          value = true;
-        } else if (value === 'false') {
-          value = false;
-        } else if (value === 'null' || value === '~') {
-          value = null;
-        } else if (value === '|') {
-          // 多行字符串，收集后续缩进的行
-          let multiline = '';
-          for (let i = li + 1; i < lines.length; i++) {
-            const nextLine = lines[i];
-            if (nextLine.startsWith('  ') || nextLine.startsWith('\t')) {
-              multiline += nextLine.trim() + '\n';
-            } else if (nextLine.trim() === '') {
-              multiline += '\n';
-            } else {
-              break;
-            }
-          }
-          frontmatter[key] = multiline.trimEnd();
-          continue;
-        } else {
-          frontmatter[key] = value;
-          continue;
-        }
-        
-        frontmatter[key] = value;
-      }
-    }
-    
-    return frontmatter;
-  }
-
-  private parseNumericField(value: unknown, fallback: number): number {
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (typeof value === 'string' && value.trim() !== '') {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) return parsed;
-    }
-    return fallback;
-  }
-
-  private parseProgressHistory(raw: unknown): ProgressHistoryItem[] {
-    if (!Array.isArray(raw)) return [];
-    const history: ProgressHistoryItem[] = [];
-    for (const item of raw) {
-      if (typeof item === 'string') {
-        const at = item.lastIndexOf('@');
-        if (at > 0) {
-          const progress = item.slice(0, at) as ProjectProgress;
-          const changedAt = item.slice(at + 1);
-          history.push({ progress, changedAt });
-        }
-      } else if (item && typeof item === 'object') {
-        const progress = (item as any).progress;
-        const changedAt = (item as any).changedAt;
-        if (typeof progress === 'string' && typeof changedAt === 'string') {
-          history.push({ progress: progress as ProjectProgress, changedAt });
-        }
-      }
-    }
-    return history;
   }
 
   private async getMarkdownFiles(folderPath: string): Promise<(TFile | CustomFile)[]> {
@@ -378,6 +238,19 @@ export class DataService {
     id: string
   ): Promise<TFile | CustomFile | null> {
     const files = await this.getMarkdownFiles(folderPath);
+    // 快速路径：文件名格式为 {name}__{id}.md，通过文件名直接匹配 ID
+    for (const file of files) {
+      const fileName = 'name' in file ? file.name : `${file.basename}.${file.extension}`;
+      const nameWithoutExt = fileName.replace(/\.md$/, '');
+      const separatorIndex = nameWithoutExt.lastIndexOf('__');
+      if (separatorIndex >= 0) {
+        const idFromFile = nameWithoutExt.slice(separatorIndex + 2);
+        if (idFromFile === id) {
+          return file;
+        }
+      }
+    }
+    // 回退：全量解析（兼容旧格式文件）
     for (const file of files) {
       const entity = await parser.call(this, file);
       if (entity?.id === id) {
@@ -385,21 +258,6 @@ export class DataService {
       }
     }
     return null;
-  }
-
-  private createFrontmatter(data: Record<string, any>): string {
-    let fm = '---\n';
-    for (const [key, value] of Object.entries(data)) {
-      if (Array.isArray(value)) {
-        fm += `${key}: [${value.join(', ')}]\n`;
-      } else if (typeof value === 'string' && value.includes('\n')) {
-        fm += `${key}: |\n  ${value.replace(/\n/g, '\n  ')}\n`;
-      } else {
-        fm += `${key}: ${value}\n`;
-      }
-    }
-    fm += '---\n\n';
-    return fm;
   }
 
   async createApp(name: string): Promise<App> {
@@ -410,11 +268,11 @@ export class DataService {
       throw new Error('APP name already exists');
     }
     
-    const id = this.generateId();
+    const id = generateId();
     const now = Date.now().toString();
     const app: App = { id, name, createdAt: now, updatedAt: now, version: 1 };
     
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       id: app.id,
       name: app.name,
       createdAt: app.createdAt,
@@ -422,7 +280,7 @@ export class DataService {
       version: app.version
     });
     
-    const fileName = this.sanitizeFileName(name);
+    const fileName = sanitizeFileName(name);
     const filePath = this.isAbsolutePath() 
       ? join(this.getAppsFolder(), `${fileName}__${id}.md`)
       : normalizePath(`${this.getAppsFolder()}/${fileName}__${id}.md`);
@@ -451,8 +309,8 @@ export class DataService {
     app.updatedAt = Date.now().toString();
     app.version = (app.version ?? 1) + 1;
     
-    const oldFileName = this.sanitizeFileName(oldName);
-    const newFileName = this.sanitizeFileName(name);
+    const oldFileName = sanitizeFileName(oldName);
+    const newFileName = sanitizeFileName(name);
     
     let file: TFile | CustomFile | null = null;
     
@@ -478,7 +336,7 @@ export class DataService {
     }
     
     if (file) {
-      const frontmatter = this.createFrontmatter({
+      const frontmatter = createFrontmatter({
         id: app.id,
         name: app.name,
         createdAt: app.createdAt,
@@ -523,7 +381,7 @@ export class DataService {
     }
     
     // 收集 App 文件
-    const fileName = this.sanitizeFileName(app.name);
+    const fileName = sanitizeFileName(app.name);
     let appFile: TFile | CustomFile | null = null;
     if (this.isAbsolutePath()) {
       const files = await this.getMarkdownFiles(this.getAppsFolder());
@@ -580,31 +438,9 @@ export class DataService {
       }
     }
     
-    const result = versions.sort((a, b) => this.compareVersions(b.versionNumber, a.versionNumber));
+    const result = versions.sort((a, b) => compareVersions(b.versionNumber, a.versionNumber));
     this.cache.set(cacheKey, result);
     return result;
-  }
-
-  private compareVersions(a: string, b: string): number {
-    const parse = (v: string) => {
-      const [main, prerelease] = v.split('-', 2);
-      const nums = main.split('.').map((part) => {
-        const n = Number(part);
-        return Number.isFinite(n) ? n : 0;
-      });
-      return { nums, prerelease: prerelease ?? '' };
-    };
-    const va = parse(a);
-    const vb = parse(b);
-    const maxLength = Math.max(va.nums.length, vb.nums.length);
-    for (let i = 0; i < maxLength; i++) {
-      const na = va.nums[i] ?? 0;
-      const nb = vb.nums[i] ?? 0;
-      if (na !== nb) return na - nb;
-    }
-    if (va.prerelease && !vb.prerelease) return -1;
-    if (!va.prerelease && vb.prerelease) return 1;
-    return va.prerelease.localeCompare(vb.prerelease);
   }
 
   private async parseVersionFile(file: TFile | CustomFile): Promise<Version | null> {
@@ -619,7 +455,7 @@ export class DataService {
         content = await this.app.vault.read(file);
       }
       
-      const frontmatter = this.parseFrontmatter(content);
+      const frontmatter = parseFrontmatter(content);
       if (!frontmatter || !frontmatter.appId) return null;
       
       return {
@@ -633,7 +469,7 @@ export class DataService {
         isArchived: frontmatter.isArchived === true,
         createdAt: frontmatter.createdAt ?? ctime.toString(),
         updatedAt: frontmatter.updatedAt ?? mtime.toString(),
-        version: this.parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1)
       };
     } catch (error) {
       console.error('[AppVersionManager] Failed to parse version file:', file.path, error);
@@ -656,7 +492,7 @@ export class DataService {
       throw new Error('Version number already exists for this APP');
     }
     
-    const id = this.generateId();
+    const id = generateId();
     const now = Date.now().toString();
     const version: Version = {
       id,
@@ -668,7 +504,7 @@ export class DataService {
       version: 1
     };
     
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       id: version.id,
       appId: version.appId,
       versionNumber: version.versionNumber,
@@ -683,8 +519,8 @@ export class DataService {
     });
     
     const app = (await this.getAllApps()).find(a => a.id === data.appId);
-    const appName = app ? this.sanitizeFileName(app.name) : 'unknown';
-    const versionNum = this.sanitizeFileName(data.versionNumber);
+    const appName = app ? sanitizeFileName(app.name) : 'unknown';
+    const versionNum = sanitizeFileName(data.versionNumber);
     const fileName = `${appName}_${versionNum}__${id}`;
     const filePath = this.isAbsolutePath()
       ? join(this.getVersionsFolder(), `${fileName}.md`)
@@ -716,13 +552,13 @@ export class DataService {
     version.version = (version.version ?? 1) + 1;
     
     const app = (await this.getAllApps()).find(a => a.id === version.appId);
-    const appName = app ? this.sanitizeFileName(app.name) : 'unknown';
-    const versionNum = this.sanitizeFileName(version.versionNumber);
+    const appName = app ? sanitizeFileName(app.name) : 'unknown';
+    const versionNum = sanitizeFileName(version.versionNumber);
     const fileName = `${appName}_${versionNum}__${version.id}`;
     const file = await this.findEntityFileById<Version>(this.getVersionsFolder(), this.parseVersionFile, id);
     
     if (file) {
-      const frontmatter = this.createFrontmatter({
+      const frontmatter = createFrontmatter({
         id: version.id,
         appId: version.appId,
         versionNumber: version.versionNumber,
@@ -778,15 +614,20 @@ export class DataService {
   }
 
   async getAllVersions(): Promise<Version[]> {
+    const cacheKey = 'versions:all';
+    const cached = this.cache.get<Version[]>(cacheKey);
+    if (cached) return cached;
+
     await this.initializeDataFolders();
     const versions: Version[] = [];
     const files = await this.getMarkdownFiles(this.getVersionsFolder());
-    
+
     for (const file of files) {
       const version = await this.parseVersionFile(file);
       if (version) versions.push(version);
     }
-    
+
+    this.cache.set(cacheKey, versions);
     return versions;
   }
 
@@ -799,21 +640,10 @@ export class DataService {
   }
 
   async getProjectsByVersionId(versionId: string): Promise<Project[]> {
-    await this.initializeDataFolders();
-    const projects: Project[] = [];
-    const files = await this.getMarkdownFiles(this.getProjectsFolder());
-    
-    for (const file of files) {
-      const project = await this.parseProjectFile(file);
-      if (project && project.versionId === versionId) {
-        projects.push(project);
-      }
-    }
-    
-    return projects.sort((a, b) => {
-      const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
-      return progressOrder.indexOf(a.progress) - progressOrder.indexOf(b.progress);
-    });
+    const allProjects = await this.getAllProjects();
+    const filtered = allProjects.filter(p => p.versionId === versionId);
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    return filtered.sort((a, b) => progressOrder.indexOf(a.progress) - progressOrder.indexOf(b.progress));
   }
 
   private async parseProjectFile(file: TFile | CustomFile): Promise<Project | null> {
@@ -828,7 +658,7 @@ export class DataService {
         content = await this.app.vault.read(file);
       }
       
-      const frontmatter = this.parseFrontmatter(content);
+      const frontmatter = parseFrontmatter(content);
       if (!frontmatter) return null;
       
       return {
@@ -842,7 +672,7 @@ export class DataService {
         spec: frontmatter.spec ?? '',
         requirements: frontmatter.requirements ?? '',
         progress: frontmatter.progress ?? getFirstProgress(this.plugin.settings.progressStages),
-        progressHistory: this.parseProgressHistory(frontmatter.progressHistory),
+        progressHistory: parseProgressHistory(frontmatter.progressHistory),
         b1IntegrationTestTime: frontmatter.b1IntegrationTestTime ?? '',
         b1SystemTestTime: frontmatter.b1SystemTestTime ?? '',
         b2IntegrationTestTime: frontmatter.b2IntegrationTestTime ?? '',
@@ -854,7 +684,7 @@ export class DataService {
         actualReleaseTime: frontmatter.actualReleaseTime ?? '',
         createdAt: frontmatter.createdAt ?? ctime.toString(),
         updatedAt: frontmatter.updatedAt ?? mtime.toString(),
-        version: this.parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1)
       };
     } catch (error) {
       console.error('[AppVersionManager] Failed to parse project file:', file.path, error);
@@ -890,7 +720,7 @@ export class DataService {
       throw new Error('Project name already exists');
     }
     
-    const id = this.generateId();
+    const id = generateId();
     const now = Date.now().toString();
     const project: Project = {
       id,
@@ -921,7 +751,7 @@ export class DataService {
       version: 1
     };
     
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       id: project.id,
       name: project.name,
       versionId: project.versionId,
@@ -947,7 +777,7 @@ export class DataService {
       version: project.version
     });
     
-    const fileName = this.sanitizeFileName(data.name);
+    const fileName = sanitizeFileName(data.name);
     const projectFilePath = this.isAbsolutePath()
       ? join(this.getProjectsFolder(), `${fileName}__${id}.md`)
       : normalizePath(`${this.getProjectsFolder()}/${fileName}__${id}.md`);
@@ -990,7 +820,7 @@ export class DataService {
       ];
     }
     
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       id: project.id,
       name: project.name,
       versionId: project.versionId,
@@ -1016,8 +846,8 @@ export class DataService {
       version: updatedProject.version
     });
     
-    const oldFileName = this.sanitizeFileName(oldName);
-    const newFileName = this.sanitizeFileName(updatedProject.name);
+    const oldFileName = sanitizeFileName(oldName);
+    const newFileName = sanitizeFileName(updatedProject.name);
     
     let file: TFile | CustomFile | null = null;
     
@@ -1078,7 +908,7 @@ export class DataService {
       throw new ConcurrencyConflictError(`项目: ${project.name}`, project.version, expectedVersion);
     }
     
-    const fileName = this.sanitizeFileName(project.name);
+    const fileName = sanitizeFileName(project.name);
     let file: TFile | CustomFile | null = null;
     let memoFile: TFile | CustomFile | null = null;
     
@@ -1147,19 +977,6 @@ export class DataService {
     return projects;
   }
 
-  private sanitizeFileName(name: string): string {
-    const reserved = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
-    const cleaned = name
-      .replace(/[\\/:*?"<>|]/g, '_')
-      .replace(/\.\.+/g, '_')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .replace(/[. ]+$/g, '');
-    const safe = cleaned || 'unnamed';
-    const withoutReserved = reserved.test(safe) ? `_${safe}` : safe;
-    return withoutReserved.slice(0, 120);
-  }
-
   async searchProjects(keyword: string): Promise<Project[]> {
     const allProjects = await this.getAllProjects();
     const lowerKeyword = keyword.toLowerCase();
@@ -1187,7 +1004,7 @@ export class DataService {
   }
 
   getProjectMemoPath(projectName: string, projectId?: string): string {
-    const fileName = this.sanitizeFileName(projectName);
+    const fileName = sanitizeFileName(projectName);
     const targetPath = `${this.getMemosFolder()}/${fileName}.md`;
     return this.isAbsolutePath() ? targetPath : normalizePath(targetPath);
   }
@@ -1216,11 +1033,11 @@ export class DataService {
 
   async upsertAppRecord(record: App): Promise<void> {
     await this.initializeDataFolders();
-    const fileName = this.sanitizeFileName(record.name);
+    const fileName = sanitizeFileName(record.name);
     const targetPath = this.isAbsolutePath()
       ? join(this.getAppsFolder(), `${fileName}__${record.id}.md`)
       : normalizePath(`${this.getAppsFolder()}/${fileName}__${record.id}.md`);
-    const frontmatter = this.createFrontmatter(record as unknown as Record<string, unknown>);
+    const frontmatter = createFrontmatter(record as unknown as Record<string, unknown>);
     const existingFile = await this.findEntityFileById<App>(this.getAppsFolder(), this.parseAppFile, record.id);
     if (existingFile) {
       await this.modifyFile(existingFile, frontmatter);
@@ -1235,12 +1052,12 @@ export class DataService {
   async upsertVersionRecord(record: Version): Promise<void> {
     await this.initializeDataFolders();
     const app = await this.getAppById(record.appId);
-    const appName = this.sanitizeFileName(app?.name || 'unknown');
-    const versionName = this.sanitizeFileName(record.versionNumber);
+    const appName = sanitizeFileName(app?.name || 'unknown');
+    const versionName = sanitizeFileName(record.versionNumber);
     const targetPath = this.isAbsolutePath()
       ? join(this.getVersionsFolder(), `${appName}_${versionName}__${record.id}.md`)
       : normalizePath(`${this.getVersionsFolder()}/${appName}_${versionName}__${record.id}.md`);
-    const frontmatter = this.createFrontmatter(record as unknown as Record<string, unknown>);
+    const frontmatter = createFrontmatter(record as unknown as Record<string, unknown>);
     const existingFile = await this.findEntityFileById<Version>(this.getVersionsFolder(), this.parseVersionFile, record.id);
     if (existingFile) {
       await this.modifyFile(existingFile, frontmatter);
@@ -1254,11 +1071,11 @@ export class DataService {
 
   async upsertProjectRecord(record: Project): Promise<void> {
     await this.initializeDataFolders();
-    const fileName = this.sanitizeFileName(record.name);
+    const fileName = sanitizeFileName(record.name);
     const targetPath = this.isAbsolutePath()
       ? join(this.getProjectsFolder(), `${fileName}__${record.id}.md`)
       : normalizePath(`${this.getProjectsFolder()}/${fileName}__${record.id}.md`);
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       ...record,
       progressHistory: record.progressHistory.map(h => `${h.progress}@${h.changedAt}`)
     } as Record<string, unknown>);
@@ -1310,7 +1127,7 @@ export class DataService {
       throw new Error('Plan topic already exists');
     }
     
-    const id = this.generateId();
+    const id = generateId();
     const now = Date.now().toString();
     const plan: Plan = {
       id,
@@ -1324,7 +1141,7 @@ export class DataService {
       version: 1
     };
     
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       id: plan.id,
       topic: plan.topic,
       manager: plan.manager,
@@ -1336,7 +1153,7 @@ export class DataService {
       version: plan.version
     });
     
-    const fileName = this.sanitizeFileName(plan.topic);
+    const fileName = sanitizeFileName(plan.topic);
     const filePath = this.isAbsolutePath() 
       ? join(this.getPlansFolder(), `${fileName}__${id}.md`)
       : normalizePath(`${this.getPlansFolder()}/${fileName}__${id}.md`);
@@ -1366,8 +1183,8 @@ export class DataService {
     Object.assign(plan, data, { updatedAt: Date.now().toString() });
     plan.version = (plan.version ?? 1) + 1;
     
-    const oldFileName = this.sanitizeFileName(oldTopic);
-    const newFileName = this.sanitizeFileName(plan.topic);
+    const oldFileName = sanitizeFileName(oldTopic);
+    const newFileName = sanitizeFileName(plan.topic);
     
     let file: TFile | CustomFile | null = null;
     
@@ -1391,7 +1208,7 @@ export class DataService {
     }
     
     if (file) {
-      const frontmatter = this.createFrontmatter({
+      const frontmatter = createFrontmatter({
         id: plan.id,
         topic: plan.topic,
         manager: plan.manager,
@@ -1422,7 +1239,7 @@ export class DataService {
     const plan = plans.find(p => p.id === id);
     if (!plan) return false;
     
-    const fileName = this.sanitizeFileName(plan.topic);
+    const fileName = sanitizeFileName(plan.topic);
     let file: TFile | CustomFile | null = null;
     
     if (this.isAbsolutePath()) {

@@ -33848,10 +33848,10 @@ __export(main_exports, {
   default: () => AppVersionManagerPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian11 = require("obsidian");
+var import_obsidian21 = require("obsidian");
 
 // src/view/AppVersionManagerView.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 
 // src/types.ts
 var ConcurrencyConflictError = class extends Error {
@@ -34038,7 +34038,7 @@ function getNextStageInfo(project) {
 }
 
 // src/view/DualPaneView.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/view/ConfirmModal.ts
 var import_obsidian = require("obsidian");
@@ -34162,6 +34162,75 @@ var TestPlanModal = class extends import_obsidian3.Modal {
   }
 };
 
+// src/view/EditProjectModal.ts
+var import_obsidian4 = require("obsidian");
+var EditProjectModal = class extends import_obsidian4.Modal {
+  constructor(app, project, apps, versions, progressStages, onSubmit, options) {
+    super(app);
+    this.project = project;
+    this.apps = apps;
+    this.versions = versions;
+    this.progressStages = progressStages;
+    this.onSubmit = onSubmit;
+    this.versionLabelFn = options == null ? void 0 : options.versionLabelFn;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("avm-modal");
+    contentEl.createEl("h2", { text: "\u7F16\u8F91\u9879\u76EE" });
+    const data = {
+      name: this.project.name,
+      versionId: this.project.versionId,
+      manager: this.project.manager,
+      projectLink: this.project.projectLink,
+      componentLink: this.project.componentLink,
+      features: this.project.features,
+      spec: this.project.spec,
+      requirements: this.project.requirements,
+      progress: this.project.progress
+    };
+    new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u540D\u79F0 *").addText((text) => text.setValue(data.name).onChange((value) => data.name = value));
+    new import_obsidian4.Setting(contentEl).setName("\u6240\u5C5E\u7248\u672C").addDropdown((dropdown) => {
+      this.versions.forEach((version2) => {
+        const app = this.apps.find((a) => a.id === version2.appId);
+        const label = this.versionLabelFn ? this.versionLabelFn(version2, app) : version2.versionNumber;
+        dropdown.addOption(version2.id, label);
+      });
+      if (data.versionId) {
+        dropdown.setValue(data.versionId);
+      }
+      dropdown.onChange((value) => data.versionId = value);
+    });
+    new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => text.setValue(data.manager).onChange((value) => data.manager = value));
+    new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u94FE\u63A5").addText((text) => text.setValue(data.projectLink).onChange((value) => data.projectLink = value));
+    new import_obsidian4.Setting(contentEl).setName("\u7EC4\u4EF6\u5E93\u94FE\u63A5").addText((text) => text.setValue(data.componentLink).onChange((value) => data.componentLink = value));
+    new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u8FDB\u5EA6").addDropdown((dropdown) => {
+      const progressOrder = getProgressOrder(this.progressStages);
+      progressOrder.forEach((progress) => {
+        dropdown.addOption(progress, progress);
+      });
+      dropdown.setValue(data.progress);
+      dropdown.onChange((value) => data.progress = value);
+    });
+    new import_obsidian4.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setValue(data.features).onChange((value) => data.features = value));
+    new import_obsidian4.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setValue(data.spec).onChange((value) => data.spec = value));
+    new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setValue(data.requirements).onChange((value) => data.requirements = value));
+    createSaveButtons(
+      contentEl,
+      () => {
+        if (data.name && data.versionId) {
+          this.onSubmit(data);
+          this.close();
+        }
+      },
+      () => this.close()
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
 // src/utils/projectSorting.ts
 function calculateOverdueStats(projects, stages, warningDays = 3) {
   const stats = { overdue: 0, warning: 0, onTrack: 0 };
@@ -34256,6 +34325,44 @@ function checkOverdue(project, stages, warningDays = 3) {
   return diffDays < 0 || diffDays >= 0 && diffDays <= warningDays;
 }
 
+// src/utils/linkUtils.ts
+var import_obsidian5 = require("obsidian");
+function openExternalLink(rawUrl) {
+  const normalized = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+  try {
+    const url = new URL(normalized);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      new import_obsidian5.Notice("\u4EC5\u5141\u8BB8\u6253\u5F00 http/https \u94FE\u63A5");
+      return;
+    }
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
+  } catch (e) {
+    new import_obsidian5.Notice("\u94FE\u63A5\u683C\u5F0F\u65E0\u6548");
+  }
+}
+async function openProjectNote(app, memoPath, isAbsolutePath) {
+  let file = app.vault.getAbstractFileByPath(memoPath);
+  if (!file && isAbsolutePath) {
+    const adapter = app.vault.adapter;
+    const basePath = typeof (adapter == null ? void 0 : adapter.getBasePath) === "function" ? adapter.getBasePath() : void 0;
+    if (basePath) {
+      const normalizedMemoPath = (0, import_obsidian5.normalizePath)(memoPath.replace(/\\/g, "/"));
+      const normalizedBase = (0, import_obsidian5.normalizePath)(basePath.replace(/\\/g, "/"));
+      if (normalizedMemoPath.startsWith(normalizedBase)) {
+        const relativePath = normalizedMemoPath.slice(normalizedBase.length).replace(/^\/+/, "");
+        file = app.vault.getAbstractFileByPath(relativePath);
+      }
+    }
+  }
+  if (file instanceof import_obsidian5.TFile) {
+    const leaf = app.workspace.getLeaf(false);
+    await leaf.openFile(file);
+  } else {
+    const encodedPath = encodeURIComponent(memoPath).replace(/%5C/g, "/");
+    window.open(`file://${encodedPath}`, "_blank");
+  }
+}
+
 // src/view/DualPaneView.ts
 var DualPaneView = class {
   constructor(containerEl, plugin, apps, versions, projects, selectedVersionId, onVersionSelect, onCreateVersion, onCreateProject, onRefresh) {
@@ -34283,7 +34390,7 @@ var DualPaneView = class {
     container.empty();
     const header = container.createDiv({ cls: "avm-pane-header" });
     header.createEl("h3", { text: "\u7248\u672C\u5217\u8868" });
-    new import_obsidian4.ButtonComponent(header).setIcon("plus").setTooltip("\u65B0\u5EFA\u7248\u672C").onClick(() => {
+    new import_obsidian6.ButtonComponent(header).setIcon("plus").setTooltip("\u65B0\u5EFA\u7248\u672C").onClick(() => {
       this.onCreateVersion();
     });
     const versionList = container.createDiv({ cls: "avm-version-list" });
@@ -34341,7 +34448,7 @@ var DualPaneView = class {
     });
   }
   showVersionContextMenu(version2, event, isArchived) {
-    const menu = new import_obsidian4.Menu();
+    const menu = new import_obsidian6.Menu();
     menu.addItem((item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditVersionModal(version2)));
     if (isArchived) {
       menu.addItem((item) => item.setTitle("\u53D6\u6D88\u5F52\u6863").setIcon("archive").onClick(async () => {
@@ -34366,7 +34473,7 @@ var DualPaneView = class {
             await this.plugin.dataService.deleteVersion(version2.id);
             this.onRefresh();
           } catch (error) {
-            new import_obsidian4.Notice(error instanceof Error ? error.message : String(error));
+            new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
           }
         },
         void 0,
@@ -34381,7 +34488,7 @@ var DualPaneView = class {
         await this.plugin.dataService.updateVersion(version2.id, data, version2.version);
         this.onRefresh();
       } catch (error) {
-        new import_obsidian4.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -34390,7 +34497,7 @@ var DualPaneView = class {
     const header = container.createDiv({ cls: "avm-pane-header" });
     header.createEl("h3", { text: "\u9879\u76EE\u5217\u8868" });
     if (this.selectedVersionId) {
-      new import_obsidian4.ButtonComponent(header).setIcon("plus").setTooltip("\u65B0\u5EFA\u9879\u76EE").onClick(() => {
+      new import_obsidian6.ButtonComponent(header).setIcon("plus").setTooltip("\u65B0\u5EFA\u9879\u76EE").onClick(() => {
         this.onCreateProject();
       });
     }
@@ -34452,7 +34559,7 @@ var DualPaneView = class {
       link.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this.openExternalLink(project.projectLink);
+        openExternalLink(project.projectLink);
       });
     }
     if (project.componentLink) {
@@ -34460,7 +34567,7 @@ var DualPaneView = class {
       link.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this.openExternalLink(project.componentLink);
+        openExternalLink(project.componentLink);
       });
     }
     if (project.requirements) {
@@ -34472,39 +34579,17 @@ var DualPaneView = class {
       e.preventDefault();
       this.showProjectContextMenu(project, e);
     });
-    item.addEventListener("dblclick", (e) => {
+    item.addEventListener("dblclick", async (e) => {
       e.preventDefault();
-      this.openProjectNote(project);
+      const memoPath = await this.plugin.dataService.ensureMemoFile(project.name);
+      await openProjectNote(this.plugin.app, memoPath, this.plugin.dataService.isAbsolutePath());
     });
-  }
-  async openProjectNote(project) {
-    const memoPath = await this.plugin.dataService.ensureMemoFile(project.name);
-    const file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
-    if (file instanceof import_obsidian4.TFile) {
-      const leaf = this.plugin.app.workspace.getLeaf(false);
-      await leaf.openFile(file);
-    } else {
-      window.open(`file://${memoPath}`, "_blank");
-    }
-  }
-  openExternalLink(rawUrl) {
-    const normalized = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
-    try {
-      const url = new URL(normalized);
-      if (url.protocol !== "http:" && url.protocol !== "https:") {
-        new import_obsidian4.Notice("\u4EC5\u5141\u8BB8\u6253\u5F00 http/https \u94FE\u63A5");
-        return;
-      }
-      window.open(url.toString(), "_blank", "noopener,noreferrer");
-    } catch (e) {
-      new import_obsidian4.Notice("\u94FE\u63A5\u683C\u5F0F\u65E0\u6548");
-    }
   }
   checkOverdue(project) {
     return checkOverdue(project, this.plugin.settings.progressStages, this.plugin.settings.overdueWarningDays);
   }
   showProjectContextMenu(project, event) {
-    const menu = new import_obsidian4.Menu();
+    const menu = new import_obsidian6.Menu();
     menu.addItem((item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project)));
     menu.addItem((item) => item.setTitle("\u63D0\u6D4B\u8BA1\u5212").setIcon("calendar").onClick(() => this.showTestPlanModal(project)));
     menu.addSeparator();
@@ -34518,7 +34603,7 @@ var DualPaneView = class {
             await this.plugin.dataService.deleteProject(project.id);
             setTimeout(() => this.onRefresh(), 100);
           } catch (error) {
-            new import_obsidian4.Notice(error instanceof Error ? error.message : String(error));
+            new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
           }
         },
         void 0,
@@ -34533,7 +34618,7 @@ var DualPaneView = class {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        new import_obsidian4.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -34543,12 +34628,12 @@ var DualPaneView = class {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        new import_obsidian4.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
 };
-var EditVersionModal = class extends import_obsidian4.Modal {
+var EditVersionModal = class extends import_obsidian6.Modal {
   constructor(app, version2, onSubmit) {
     super(app);
     this.version = version2;
@@ -34565,11 +34650,11 @@ var EditVersionModal = class extends import_obsidian4.Modal {
       webVersion: this.version.webVersion,
       updateContent: this.version.updateContent
     };
-    new import_obsidian4.Setting(contentEl).setName("APP\u7248\u672C\u53F7 *").addText((text) => text.setValue(data.versionNumber).onChange((value) => data.versionNumber = value));
-    new import_obsidian4.Setting(contentEl).setName("BLL\u7248\u672C *").addText((text) => text.setValue(data.bllVersion).onChange((value) => data.bllVersion = value));
-    new import_obsidian4.Setting(contentEl).setName("IPP\u7248\u672C *").addText((text) => text.setValue(data.ippVersion).onChange((value) => data.ippVersion = value));
-    new import_obsidian4.Setting(contentEl).setName("Web\u7248\u672C *").addText((text) => text.setValue(data.webVersion).onChange((value) => data.webVersion = value));
-    new import_obsidian4.Setting(contentEl).setName("\u66F4\u65B0\u5185\u5BB9").addTextArea((text) => text.setValue(data.updateContent).onChange((value) => data.updateContent = value));
+    new import_obsidian6.Setting(contentEl).setName("APP\u7248\u672C\u53F7 *").addText((text) => text.setValue(data.versionNumber).onChange((value) => data.versionNumber = value));
+    new import_obsidian6.Setting(contentEl).setName("BLL\u7248\u672C *").addText((text) => text.setValue(data.bllVersion).onChange((value) => data.bllVersion = value));
+    new import_obsidian6.Setting(contentEl).setName("IPP\u7248\u672C *").addText((text) => text.setValue(data.ippVersion).onChange((value) => data.ippVersion = value));
+    new import_obsidian6.Setting(contentEl).setName("Web\u7248\u672C *").addText((text) => text.setValue(data.webVersion).onChange((value) => data.webVersion = value));
+    new import_obsidian6.Setting(contentEl).setName("\u66F4\u65B0\u5185\u5BB9").addTextArea((text) => text.setValue(data.updateContent).onChange((value) => data.updateContent = value));
     createSaveButtons(
       contentEl,
       () => {
@@ -34585,72 +34670,9 @@ var EditVersionModal = class extends import_obsidian4.Modal {
     this.contentEl.empty();
   }
 };
-var EditProjectModal = class extends import_obsidian4.Modal {
-  constructor(app, project, apps, versions, progressStages, onSubmit) {
-    super(app);
-    this.project = project;
-    this.apps = apps;
-    this.versions = versions;
-    this.progressStages = progressStages;
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: "\u7F16\u8F91\u9879\u76EE" });
-    const data = {
-      name: this.project.name,
-      versionId: this.project.versionId,
-      manager: this.project.manager,
-      projectLink: this.project.projectLink,
-      componentLink: this.project.componentLink,
-      features: this.project.features,
-      spec: this.project.spec,
-      requirements: this.project.requirements,
-      progress: this.project.progress
-    };
-    new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u540D\u79F0 *").addText((text) => text.setValue(data.name).onChange((value) => data.name = value));
-    new import_obsidian4.Setting(contentEl).setName("\u6240\u5C5E\u7248\u672C").addDropdown((dropdown) => {
-      this.versions.forEach((version2) => {
-        dropdown.addOption(version2.id, version2.versionNumber);
-      });
-      if (data.versionId) {
-        dropdown.setValue(data.versionId);
-      }
-      dropdown.onChange((value) => data.versionId = value);
-    });
-    new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => text.setValue(data.manager).onChange((value) => data.manager = value));
-    new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u94FE\u63A5").addText((text) => text.setValue(data.projectLink).onChange((value) => data.projectLink = value));
-    new import_obsidian4.Setting(contentEl).setName("\u7EC4\u4EF6\u5E93\u94FE\u63A5").addText((text) => text.setValue(data.componentLink).onChange((value) => data.componentLink = value));
-    new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u8FDB\u5EA6").addDropdown((dropdown) => {
-      const progressOrder = getProgressOrder(this.progressStages);
-      progressOrder.forEach((progress) => {
-        dropdown.addOption(progress, progress);
-      });
-      dropdown.setValue(data.progress);
-      dropdown.onChange((value) => data.progress = value);
-    });
-    new import_obsidian4.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setValue(data.features).onChange((value) => data.features = value));
-    new import_obsidian4.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setValue(data.spec).onChange((value) => data.spec = value));
-    new import_obsidian4.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setValue(data.requirements).onChange((value) => data.requirements = value));
-    createSaveButtons(
-      contentEl,
-      () => {
-        if (data.name && data.versionId) {
-          this.onSubmit(data);
-          this.close();
-        }
-      },
-      () => this.close()
-    );
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
 
 // src/view/KanbanView.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var KanbanView = class {
   constructor(containerEl, plugin, projects, versions, apps, onRefresh = () => {
   }) {
@@ -34758,7 +34780,7 @@ var KanbanView = class {
     return checkOverdue(project, this.plugin.settings.progressStages, this.plugin.settings.overdueWarningDays);
   }
   showCardContextMenu(project, event) {
-    const menu = new import_obsidian5.Menu();
+    const menu = new import_obsidian7.Menu();
     menu.addItem((item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project)));
     menu.addItem((item) => item.setTitle("\u66F4\u6539\u8FDB\u5EA6").setIcon("arrow-right").onClick(() => this.showProgressChangeModal(project)));
     menu.addSeparator();
@@ -34778,13 +34800,15 @@ var KanbanView = class {
     menu.showAtMouseEvent(event);
   }
   showEditProjectModal(project) {
-    new KanbanEditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        new import_obsidian5.Notice((error == null ? void 0 : error.message) || String(error));
+        new import_obsidian7.Notice(error instanceof Error ? error.message : String(error));
       }
+    }, {
+      versionLabelFn: (v, app) => app ? `${app.name} - ${v.versionNumber}` : v.versionNumber
     }).open();
   }
   showProgressChangeModal(project) {
@@ -34793,77 +34817,12 @@ var KanbanView = class {
         await this.plugin.dataService.updateProject(project.id, { progress: newProgress }, project.version);
         this.onRefresh();
       } catch (error) {
-        new import_obsidian5.Notice((error == null ? void 0 : error.message) || String(error));
+        new import_obsidian7.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
 };
-var KanbanEditProjectModal = class extends import_obsidian5.Modal {
-  constructor(app, project, apps, versions, progressStages, onSubmit) {
-    super(app);
-    this.project = project;
-    this.apps = apps;
-    this.versions = versions;
-    this.progressStages = progressStages;
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: "\u7F16\u8F91\u9879\u76EE" });
-    const data = {
-      name: this.project.name,
-      versionId: this.project.versionId,
-      manager: this.project.manager,
-      projectLink: this.project.projectLink,
-      componentLink: this.project.componentLink,
-      features: this.project.features,
-      spec: this.project.spec,
-      requirements: this.project.requirements,
-      progress: this.project.progress
-    };
-    new import_obsidian5.Setting(contentEl).setName("\u9879\u76EE\u540D\u79F0 *").addText((text) => text.setValue(data.name).onChange((value) => data.name = value));
-    new import_obsidian5.Setting(contentEl).setName("\u6240\u5C5E\u7248\u672C").addDropdown((dropdown) => {
-      this.versions.forEach((version2) => {
-        const app = this.apps.find((a) => a.id === version2.appId);
-        const label = app ? `${app.name} - ${version2.versionNumber}` : version2.versionNumber;
-        dropdown.addOption(version2.id, label);
-      });
-      if (data.versionId) {
-        dropdown.setValue(data.versionId);
-      }
-      dropdown.onChange((value) => data.versionId = value);
-    });
-    new import_obsidian5.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => text.setValue(data.manager).onChange((value) => data.manager = value));
-    new import_obsidian5.Setting(contentEl).setName("\u9879\u76EE\u94FE\u63A5").addText((text) => text.setValue(data.projectLink).onChange((value) => data.projectLink = value));
-    new import_obsidian5.Setting(contentEl).setName("\u7EC4\u4EF6\u5E93\u94FE\u63A5").addText((text) => text.setValue(data.componentLink).onChange((value) => data.componentLink = value));
-    new import_obsidian5.Setting(contentEl).setName("\u9879\u76EE\u8FDB\u5EA6").addDropdown((dropdown) => {
-      const progressOrder = getProgressOrder(this.progressStages);
-      progressOrder.forEach((progress) => {
-        dropdown.addOption(progress, progress);
-      });
-      dropdown.setValue(data.progress);
-      dropdown.onChange((value) => data.progress = value);
-    });
-    new import_obsidian5.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setValue(data.features).onChange((value) => data.features = value));
-    new import_obsidian5.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setValue(data.spec).onChange((value) => data.spec = value));
-    new import_obsidian5.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setValue(data.requirements).onChange((value) => data.requirements = value));
-    createSaveButtons(
-      contentEl,
-      () => {
-        if (data.name && data.versionId) {
-          this.onSubmit(data);
-          this.close();
-        }
-      },
-      () => this.close()
-    );
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var ProgressChangeModal = class extends import_obsidian5.Modal {
+var ProgressChangeModal = class extends import_obsidian7.Modal {
   constructor(app, project, progressStages, onSubmit) {
     super(app);
     this.project = project;
@@ -34875,7 +34834,7 @@ var ProgressChangeModal = class extends import_obsidian5.Modal {
     contentEl.addClass("avm-modal");
     contentEl.createEl("h2", { text: "\u66F4\u6539\u8FDB\u5EA6" });
     let newProgress = this.project.progress;
-    new import_obsidian5.Setting(contentEl).setName("\u9009\u62E9\u65B0\u8FDB\u5EA6").addDropdown((dropdown) => {
+    new import_obsidian7.Setting(contentEl).setName("\u9009\u62E9\u65B0\u8FDB\u5EA6").addDropdown((dropdown) => {
       const progressOrder = getProgressOrder(this.progressStages);
       progressOrder.forEach((progress) => {
         dropdown.addOption(progress, progress);
@@ -34902,10 +34861,11 @@ var ProgressChangeModal = class extends import_obsidian5.Modal {
 };
 
 // src/view/TableView.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 var TableView = class {
   constructor(containerEl, plugin, projects, versions, apps, onRefresh = () => {
   }) {
+    this.sortState = { column: null, direction: "asc" };
     this.containerEl = containerEl;
     this.plugin = plugin;
     this.projects = projects;
@@ -34915,7 +34875,90 @@ var TableView = class {
     this.render();
   }
   applySorting(projects) {
-    return sortProjectsByPriority(projects, this.plugin.settings.progressStages);
+    if (!this.sortState.column) {
+      return sortProjectsByPriority(projects, this.plugin.settings.progressStages);
+    }
+    const { column, direction } = this.sortState;
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const sign = direction === "desc" ? -1 : 1;
+    const sorted = [...projects].sort((a, b) => {
+      let cmp = 0;
+      switch (column) {
+        case "versionNumber": {
+          const versionA = this.versions.find((v) => v.id === a.versionId);
+          const versionB = this.versions.find((v) => v.id === b.versionId);
+          const aStr = (versionA == null ? void 0 : versionA.versionNumber) || "";
+          const bStr = (versionB == null ? void 0 : versionB.versionNumber) || "";
+          if (aStr === "" && bStr === "")
+            break;
+          if (aStr === "")
+            return 1;
+          if (bStr === "")
+            return -1;
+          cmp = aStr.localeCompare(bStr);
+          break;
+        }
+        case "manager": {
+          const aStr = a.manager || "";
+          const bStr = b.manager || "";
+          if (aStr === "" && bStr === "")
+            break;
+          if (aStr === "")
+            return 1;
+          if (bStr === "")
+            return -1;
+          cmp = aStr.localeCompare(bStr);
+          break;
+        }
+        case "features": {
+          const aStr = a.features || "";
+          const bStr = b.features || "";
+          if (aStr === "" && bStr === "")
+            break;
+          if (aStr === "")
+            return 1;
+          if (bStr === "")
+            return -1;
+          cmp = aStr.localeCompare(bStr);
+          break;
+        }
+        case "progress": {
+          const aIdx = progressOrder.indexOf(a.progress);
+          const bIdx = progressOrder.indexOf(b.progress);
+          cmp = aIdx - bIdx;
+          break;
+        }
+        case "nextStageTime": {
+          const infoA = getNextStageInfo(a);
+          const infoB = getNextStageInfo(b);
+          const timeA = infoA.time ? new Date(infoA.time).getTime() : null;
+          const timeB = infoB.time ? new Date(infoB.time).getTime() : null;
+          if (timeA === null && timeB === null)
+            break;
+          if (timeA === null)
+            return 1;
+          if (timeB === null)
+            return -1;
+          cmp = timeA - timeB;
+          break;
+        }
+        default:
+          return 0;
+      }
+      return cmp * sign;
+    });
+    return sorted;
+  }
+  toggleSort(column) {
+    if (this.sortState.column === column) {
+      this.sortState = {
+        column,
+        direction: this.sortState.direction === "asc" ? "desc" : "asc"
+      };
+    } else {
+      this.sortState = { column, direction: "asc" };
+    }
+    this.render();
   }
   render() {
     this.containerEl.empty();
@@ -34926,18 +34969,29 @@ var TableView = class {
     const headerRow = thead.createEl("tr");
     const columns = [
       { key: "name", label: "\u9879\u76EE\u540D\u79F0", width: "150px" },
-      { key: "versionNumber", label: "\u7248\u672C\u53F7", width: "100px" },
-      { key: "manager", label: "\u9879\u76EE\u7ECF\u7406", width: "100px" },
-      { key: "features", label: "\u7279\u6027", width: "150px" },
+      { key: "versionNumber", label: "\u7248\u672C\u53F7", width: "100px", sortable: true },
+      { key: "manager", label: "\u9879\u76EE\u7ECF\u7406", width: "100px", sortable: true },
+      { key: "features", label: "\u7279\u6027", width: "150px", sortable: true },
       { key: "spec", label: "\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C", width: "150px" },
-      { key: "progress", label: "\u8FDB\u5EA6", width: "120px" },
+      { key: "progress", label: "\u8FDB\u5EA6", width: "120px", sortable: true },
       { key: "nextStage", label: "\u4E0B\u4E00\u9636\u6BB5", width: "120px" },
-      { key: "nextStageTime", label: "\u4E0B\u4E00\u9636\u6BB5\u65F6\u95F4", width: "120px" },
+      { key: "nextStageTime", label: "\u4E0B\u4E00\u9636\u6BB5\u65F6\u95F4", width: "120px", sortable: true },
       { key: "links", label: "\u94FE\u63A5", width: "120px" }
     ];
     columns.forEach((col) => {
-      const th = headerRow.createEl("th", { text: col.label });
+      const th = headerRow.createEl("th");
       th.style.width = col.width;
+      const labelSpan = th.createSpan({ text: col.label });
+      if (col.sortable) {
+        th.style.cursor = "pointer";
+        th.addEventListener("click", () => this.toggleSort(col.key));
+        const iconSpan = th.createSpan({ cls: "avm-sort-icon" });
+        if (this.sortState.column === col.key) {
+          iconSpan.textContent = this.sortState.direction === "asc" ? " \u2191" : " \u2193";
+        } else {
+          iconSpan.textContent = "";
+        }
+      }
     });
     const tbody = table.createEl("tbody");
     const sortedProjects = this.applySorting(this.projects);
@@ -35005,7 +35059,7 @@ var TableView = class {
             link.addEventListener("click", (e) => {
               e.preventDefault();
               e.stopPropagation();
-              this.openExternalLink(project.projectLink);
+              openExternalLink(project.projectLink);
             });
           }
           if (project.componentLink) {
@@ -35013,7 +35067,7 @@ var TableView = class {
             link.addEventListener("click", (e) => {
               e.preventDefault();
               e.stopPropagation();
-              this.openExternalLink(project.componentLink);
+              openExternalLink(project.componentLink);
             });
           }
           if (!project.projectLink && !project.componentLink) {
@@ -35026,52 +35080,17 @@ var TableView = class {
       e.preventDefault();
       this.showRowContextMenu(project, e);
     });
-    row.addEventListener("dblclick", (e) => {
+    row.addEventListener("dblclick", async (e) => {
       e.preventDefault();
-      this.openProjectNote(project);
+      const memoPath = await this.plugin.dataService.ensureMemoFile(project.name);
+      await openProjectNote(this.plugin.app, memoPath, this.plugin.dataService.isAbsolutePath());
     });
-  }
-  async openProjectNote(project) {
-    const memoPath = await this.plugin.dataService.ensureMemoFile(project.name);
-    let file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
-    if (!file && this.plugin.dataService.isAbsolutePath()) {
-      const adapter = this.plugin.app.vault.adapter;
-      const basePath = typeof (adapter == null ? void 0 : adapter.getBasePath) === "function" ? adapter.getBasePath() : void 0;
-      if (basePath) {
-        const normalizedMemoPath = (0, import_obsidian6.normalizePath)(memoPath.replace(/\\/g, "/"));
-        const normalizedBase = (0, import_obsidian6.normalizePath)(basePath.replace(/\\/g, "/"));
-        if (normalizedMemoPath.startsWith(normalizedBase)) {
-          const relativePath = normalizedMemoPath.slice(normalizedBase.length).replace(/^\/+/, "");
-          file = this.plugin.app.vault.getAbstractFileByPath(relativePath);
-        }
-      }
-    }
-    if (file instanceof import_obsidian6.TFile) {
-      const leaf = this.plugin.app.workspace.getLeaf(false);
-      await leaf.openFile(file);
-    } else {
-      const encodedPath = encodeURIComponent(memoPath).replace(/%5C/g, "/");
-      window.open(`file://${encodedPath}`, "_blank");
-    }
-  }
-  openExternalLink(rawUrl) {
-    const normalized = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
-    try {
-      const url = new URL(normalized);
-      if (url.protocol !== "http:" && url.protocol !== "https:") {
-        new import_obsidian6.Notice("\u4EC5\u5141\u8BB8\u6253\u5F00 http/https \u94FE\u63A5");
-        return;
-      }
-      window.open(url.toString(), "_blank", "noopener,noreferrer");
-    } catch (e) {
-      new import_obsidian6.Notice("\u94FE\u63A5\u683C\u5F0F\u65E0\u6548");
-    }
   }
   checkOverdue(project) {
     return checkOverdue(project, this.plugin.settings.progressStages, this.plugin.settings.overdueWarningDays);
   }
   showRowContextMenu(project, event) {
-    const menu = new import_obsidian6.Menu();
+    const menu = new import_obsidian8.Menu();
     menu.addItem((item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project)));
     menu.addItem((item) => item.setTitle("\u63D0\u6D4B\u8BA1\u5212").setIcon("calendar").onClick(() => this.showTestPlanModal(project)));
     menu.addSeparator();
@@ -35085,7 +35104,7 @@ var TableView = class {
             await this.plugin.dataService.deleteProject(project.id);
             setTimeout(() => this.onRefresh(), 100);
           } catch (error) {
-            new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+            new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
           }
         },
         void 0,
@@ -35111,18 +35130,18 @@ var TableView = class {
           await this.plugin.dataService.updateProject(project.id, { progress: nextProgress }, project.version);
           this.onRefresh();
         } catch (error) {
-          new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+          new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
         }
       }
     ).open();
   }
   showEditProjectModal(project) {
-    new TableEditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -35132,75 +35151,12 @@ var TableView = class {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
 };
-var TableEditProjectModal = class extends import_obsidian6.Modal {
-  constructor(app, project, apps, versions, progressStages, onSubmit) {
-    super(app);
-    this.project = project;
-    this.apps = apps;
-    this.versions = versions;
-    this.progressStages = progressStages;
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: "\u7F16\u8F91\u9879\u76EE" });
-    const data = {
-      name: this.project.name,
-      versionId: this.project.versionId,
-      manager: this.project.manager,
-      projectLink: this.project.projectLink,
-      componentLink: this.project.componentLink,
-      features: this.project.features,
-      spec: this.project.spec,
-      requirements: this.project.requirements,
-      progress: this.project.progress
-    };
-    new import_obsidian6.Setting(contentEl).setName("\u9879\u76EE\u540D\u79F0 *").addText((text) => text.setValue(data.name).onChange((value) => data.name = value));
-    new import_obsidian6.Setting(contentEl).setName("\u6240\u5C5E\u7248\u672C").addDropdown((dropdown) => {
-      this.versions.forEach((version2) => {
-        dropdown.addOption(version2.id, version2.versionNumber);
-      });
-      if (data.versionId) {
-        dropdown.setValue(data.versionId);
-      }
-      dropdown.onChange((value) => data.versionId = value);
-    });
-    new import_obsidian6.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => text.setValue(data.manager).onChange((value) => data.manager = value));
-    new import_obsidian6.Setting(contentEl).setName("\u9879\u76EE\u94FE\u63A5").addText((text) => text.setValue(data.projectLink).onChange((value) => data.projectLink = value));
-    new import_obsidian6.Setting(contentEl).setName("\u7EC4\u4EF6\u5E93\u94FE\u63A5").addText((text) => text.setValue(data.componentLink).onChange((value) => data.componentLink = value));
-    new import_obsidian6.Setting(contentEl).setName("\u9879\u76EE\u8FDB\u5EA6").addDropdown((dropdown) => {
-      const progressOrder = getProgressOrder(this.progressStages);
-      progressOrder.forEach((progress) => {
-        dropdown.addOption(progress, progress);
-      });
-      dropdown.setValue(data.progress);
-      dropdown.onChange((value) => data.progress = value);
-    });
-    new import_obsidian6.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setValue(data.features).onChange((value) => data.features = value));
-    new import_obsidian6.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setValue(data.spec).onChange((value) => data.spec = value));
-    new import_obsidian6.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setValue(data.requirements).onChange((value) => data.requirements = value));
-    createSaveButtons(
-      contentEl,
-      () => {
-        if (data.name && data.versionId) {
-          this.onSubmit(data);
-          this.close();
-        }
-      },
-      () => this.close()
-    );
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var ProgressConfirmModal = class extends import_obsidian6.Modal {
+var ProgressConfirmModal = class extends import_obsidian8.Modal {
   constructor(app, project, nextProgress, progressStages, onConfirm) {
     super(app);
     this.project = project;
@@ -35248,8 +35204,8 @@ var ProgressConfirmModal = class extends import_obsidian6.Modal {
 };
 
 // src/view/ConvertPlanModal.ts
-var import_obsidian7 = require("obsidian");
-var ConvertPlanModal = class extends import_obsidian7.Modal {
+var import_obsidian9 = require("obsidian");
+var ConvertPlanModal = class extends import_obsidian9.Modal {
   constructor(app, plan, versions, dataService, onSuccess) {
     super(app);
     this.errorEl = null;
@@ -35270,8 +35226,8 @@ var ConvertPlanModal = class extends import_obsidian7.Modal {
       manager: this.plan.manager || void 0,
       requirements: this.plan.requirements || void 0
     };
-    new import_obsidian7.Setting(contentEl).setName("\u9879\u76EE\u540D *").addText((text) => text.setPlaceholder("\u8F93\u5165\u9879\u76EE\u540D").onChange((value) => data.name = value.trim()));
-    new import_obsidian7.Setting(contentEl).setName("\u7248\u672C *").addDropdown((dropdown) => {
+    new import_obsidian9.Setting(contentEl).setName("\u9879\u76EE\u540D *").addText((text) => text.setPlaceholder("\u8F93\u5165\u9879\u76EE\u540D").onChange((value) => data.name = value.trim()));
+    new import_obsidian9.Setting(contentEl).setName("\u7248\u672C *").addDropdown((dropdown) => {
       this.versions.forEach((v) => {
         dropdown.addOption(v.id, v.versionNumber);
       });
@@ -35279,16 +35235,16 @@ var ConvertPlanModal = class extends import_obsidian7.Modal {
         data.versionId = value;
       });
     });
-    new import_obsidian7.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => {
+    new import_obsidian9.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => {
       var _a;
       return text.setPlaceholder("\u9009\u586B").setValue((_a = data.manager) != null ? _a : "").onChange((value) => data.manager = value || void 0);
     });
-    new import_obsidian7.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => {
+    new import_obsidian9.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => {
       var _a;
       return text.setPlaceholder("\u9009\u586B").setValue((_a = data.requirements) != null ? _a : "").onChange((value) => data.requirements = value || void 0);
     });
     const buttonsEl = contentEl.createDiv({ cls: "avm-modal-buttons" });
-    new import_obsidian7.Setting(buttonsEl).addButton((button) => button.setButtonText("\u786E\u5B9A").setCta().onClick(async () => {
+    new import_obsidian9.Setting(buttonsEl).addButton((button) => button.setButtonText("\u786E\u5B9A").setCta().onClick(async () => {
       let errorMsg = "";
       if (!data.name) {
         errorMsg = "\u8BF7\u586B\u5199\u9879\u76EE\u540D";
@@ -35318,7 +35274,7 @@ var ConvertPlanModal = class extends import_obsidian7.Modal {
         this.close();
         this.onSuccess();
       } catch (error) {
-        new import_obsidian7.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian9.Notice(error instanceof Error ? error.message : String(error));
       }
     })).addButton((button) => button.setButtonText("\u53D6\u6D88").onClick(() => this.close()));
   }
@@ -35623,9 +35579,401 @@ var ImportExportService = class {
   }
 };
 
+// src/view/modals/CreateAppModal.ts
+var import_obsidian10 = require("obsidian");
+var CreateAppModal = class extends import_obsidian10.Modal {
+  constructor(app, onSubmit) {
+    super(app);
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("avm-modal");
+    contentEl.createEl("h2", { text: "\u65B0\u5EFAAPP" });
+    let appName = "";
+    new import_obsidian10.Setting(contentEl).setName("APP\u540D\u79F0").addText((text) => text.setPlaceholder("\u8F93\u5165APP\u540D\u79F0").onChange((value) => appName = value));
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: "\u521B\u5EFA",
+        cancelText: "\u53D6\u6D88",
+        onConfirm: () => {
+          if (appName.trim()) {
+            this.onSubmit(appName.trim());
+            this.close();
+          }
+        },
+        onCancel: () => this.close()
+      }
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
+// src/view/modals/RenameAppModal.ts
+var import_obsidian11 = require("obsidian");
+var RenameAppModal = class extends import_obsidian11.Modal {
+  constructor(app, currentName, onSubmit) {
+    super(app);
+    this.currentName = currentName;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("avm-modal");
+    contentEl.createEl("h2", { text: "\u91CD\u547D\u540DAPP" });
+    let newName = this.currentName;
+    new import_obsidian11.Setting(contentEl).setName("APP\u540D\u79F0").addText((text) => text.setValue(this.currentName).onChange((value) => newName = value));
+    createSaveButtons(
+      contentEl,
+      () => {
+        if (newName.trim() && newName !== this.currentName) {
+          this.onSubmit(newName.trim());
+          this.close();
+        }
+      },
+      () => this.close()
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
+// src/view/modals/CreateVersionModal.ts
+var import_obsidian12 = require("obsidian");
+var CreateVersionModal = class extends import_obsidian12.Modal {
+  constructor(app, onSubmit) {
+    super(app);
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("avm-modal");
+    contentEl.createEl("h2", { text: "\u65B0\u5EFA\u7248\u672C" });
+    const data = {
+      versionNumber: "",
+      bllVersion: "",
+      ippVersion: "",
+      webVersion: "",
+      updateContent: ""
+    };
+    new import_obsidian12.Setting(contentEl).setName("APP\u7248\u672C\u53F7 *").addText((text) => text.setPlaceholder("\u5982: 1.0.0").onChange((value) => data.versionNumber = value));
+    new import_obsidian12.Setting(contentEl).setName("BLL\u7248\u672C *").addText((text) => text.onChange((value) => data.bllVersion = value));
+    new import_obsidian12.Setting(contentEl).setName("IPP\u7248\u672C *").addText((text) => text.onChange((value) => data.ippVersion = value));
+    new import_obsidian12.Setting(contentEl).setName("Web\u7248\u672C *").addText((text) => text.onChange((value) => data.webVersion = value));
+    new import_obsidian12.Setting(contentEl).setName("\u66F4\u65B0\u5185\u5BB9").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.updateContent = value));
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: "\u521B\u5EFA",
+        cancelText: "\u53D6\u6D88",
+        onConfirm: () => {
+          if (data.versionNumber && data.bllVersion && data.ippVersion && data.webVersion) {
+            this.onSubmit(data);
+            this.close();
+          }
+        },
+        onCancel: () => this.close()
+      }
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
+// src/view/modals/CreateProjectModal.ts
+var import_obsidian13 = require("obsidian");
+var CreateProjectModal = class extends import_obsidian13.Modal {
+  constructor(app, versionId, progressStages, onSubmit) {
+    super(app);
+    this.versionId = versionId;
+    this.progressStages = progressStages;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("avm-modal");
+    contentEl.createEl("h2", { text: "\u65B0\u5EFA\u9879\u76EE" });
+    const firstProgress = getFirstProgress(this.progressStages);
+    const data = {
+      name: "",
+      versionId: this.versionId,
+      manager: "",
+      projectLink: "",
+      componentLink: "",
+      features: "",
+      spec: "",
+      requirements: "",
+      progress: firstProgress
+    };
+    new import_obsidian13.Setting(contentEl).setName("\u9879\u76EE\u540D\u79F0 *").addText((text) => text.setPlaceholder("\u8F93\u5165\u9879\u76EE\u540D\u79F0").onChange((value) => data.name = value));
+    new import_obsidian13.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => text.onChange((value) => data.manager = value));
+    new import_obsidian13.Setting(contentEl).setName("\u9879\u76EE\u94FE\u63A5").addText((text) => text.setPlaceholder("https://...").onChange((value) => data.projectLink = value));
+    new import_obsidian13.Setting(contentEl).setName("\u7EC4\u4EF6\u5E93\u94FE\u63A5").addText((text) => text.setPlaceholder("https://...").onChange((value) => data.componentLink = value));
+    new import_obsidian13.Setting(contentEl).setName("\u9879\u76EE\u8FDB\u5EA6").addDropdown((dropdown) => {
+      const progressOrder = getProgressOrder(this.progressStages);
+      progressOrder.forEach((progress) => {
+        dropdown.addOption(progress, progress);
+      });
+      dropdown.setValue(data.progress);
+      dropdown.onChange((value) => data.progress = value);
+    });
+    new import_obsidian13.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.features = value));
+    new import_obsidian13.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.spec = value));
+    new import_obsidian13.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.requirements = value));
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: "\u521B\u5EFA",
+        cancelText: "\u53D6\u6D88",
+        onConfirm: () => {
+          if (data.name) {
+            this.onSubmit(data);
+            this.close();
+          }
+        },
+        onCancel: () => this.close()
+      }
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
+// src/view/modals/DeleteFilterModal.ts
+var import_obsidian14 = require("obsidian");
+var DeleteFilterModal = class extends import_obsidian14.Modal {
+  constructor(app, filters, onSubmit, onCloseCallback) {
+    super(app);
+    this.filters = filters;
+    this.onSubmit = onSubmit;
+    this.onCloseCallback = onCloseCallback;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("avm-modal");
+    contentEl.createEl("h2", { text: "\u5220\u9664\u7B5B\u9009\u6761\u4EF6" });
+    this.filters.forEach((filter) => {
+      new import_obsidian14.Setting(contentEl).setName(filter.name).addButton((btn) => btn.setButtonText("\u5220\u9664").setWarning().onClick(() => {
+        this.doDelete(filter.id);
+      }));
+    });
+    new import_obsidian14.Setting(contentEl).addButton((btn) => btn.setButtonText("\u5173\u95ED").onClick(() => this.close()));
+  }
+  async doDelete(filterId) {
+    const filter = this.filters.find((f) => f.id === filterId);
+    if (!filter)
+      return;
+    this.filters = this.filters.filter((f) => f.id !== filterId);
+    await this.onSubmit(filterId);
+    if (this.filters.length === 0) {
+      this.close();
+    } else {
+      this.contentEl.empty();
+      this.onOpen();
+    }
+  }
+  onClose() {
+    this.contentEl.empty();
+    setTimeout(() => {
+      this.onCloseCallback();
+    }, 100);
+  }
+};
+
+// src/view/modals/ExportModal.ts
+var import_obsidian15 = require("obsidian");
+var ExportModal = class extends import_obsidian15.Modal {
+  constructor(app, service, projects, versions) {
+    super(app);
+    this.format = "csv";
+    this.importExportService = service;
+    this.projects = projects;
+    this.versions = versions;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("avm-modal");
+    contentEl.createEl("h2", { text: "\u5BFC\u51FA\u6570\u636E" });
+    new import_obsidian15.Setting(contentEl).setName("\u5BFC\u51FA\u683C\u5F0F").addDropdown((dropdown) => {
+      dropdown.addOption("csv", "CSV");
+      dropdown.addOption("xlsx", "Excel (XLSX)");
+      dropdown.setValue(this.format);
+      dropdown.onChange((value) => {
+        this.format = value === "xlsx" ? "xlsx" : "csv";
+      });
+    });
+    const statusEl = contentEl.createDiv({ cls: "avm-export-status" });
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: "\u5BFC\u51FA",
+        cancelText: "\u53D6\u6D88",
+        onConfirm: async () => {
+          statusEl.setText("\u5904\u7406\u4E2D...");
+          try {
+            if (this.format === "xlsx") {
+              const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
+              this.downloadFile(buffer, "projects.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            } else {
+              const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
+              this.downloadFile(csv, "projects.csv", "text/csv");
+            }
+            statusEl.setText("\u5BFC\u51FA\u6210\u529F");
+            setTimeout(() => this.close(), 800);
+          } catch (error) {
+            statusEl.setText(`\u5BFC\u51FA\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        },
+        onCancel: () => this.close()
+      }
+    );
+  }
+  downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
+// src/view/modals/ImportModal.ts
+var import_obsidian16 = require("obsidian");
+var ImportModal = class extends import_obsidian16.Modal {
+  constructor(app, service, appId, onComplete) {
+    super(app);
+    this.importExportService = service;
+    this.appId = appId;
+    this.onComplete = onComplete;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("avm-modal");
+    contentEl.createEl("h2", { text: "\u5BFC\u5165\u6570\u636E" });
+    const fileInput = contentEl.createEl("input", {
+      attr: { type: "file", accept: ".csv,.xlsx,.xls" }
+    });
+    const statusEl = contentEl.createDiv({ cls: "avm-import-status" });
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: "\u5BFC\u5165",
+        cancelText: "\u53D6\u6D88",
+        onConfirm: async () => {
+          var _a;
+          const file = (_a = fileInput.files) == null ? void 0 : _a[0];
+          if (!file) {
+            new import_obsidian16.Notice("\u8BF7\u9009\u62E9\u6587\u4EF6");
+            return;
+          }
+          statusEl.setText("\u5904\u7406\u4E2D...");
+          try {
+            let result;
+            if (file.name.endsWith(".csv")) {
+              const content = await file.text();
+              result = await this.importExportService.importFromCSV(content, this.appId);
+            } else {
+              const buffer = await file.arrayBuffer();
+              result = await this.importExportService.importFromExcel(buffer, this.appId);
+            }
+            new import_obsidian16.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF01\u6210\u529F: ${result.success} \u6761${result.errors.length > 0 ? `
+\u9519\u8BEF: ${result.errors.join("\n")}` : ""}`);
+            statusEl.setText("\u5BFC\u5165\u6210\u529F");
+            setTimeout(() => {
+              this.onComplete();
+              this.close();
+            }, 800);
+          } catch (error) {
+            statusEl.setText(`\u5BFC\u5165\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        },
+        onCancel: () => this.close()
+      }
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
+// src/view/modals/PlanModal.ts
+var import_obsidian17 = require("obsidian");
+var PlanModal = class extends import_obsidian17.Modal {
+  constructor(app, plan, onSubmit) {
+    super(app);
+    this.plan = plan;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+    const { contentEl } = this;
+    contentEl.addClass("avm-modal");
+    contentEl.createEl("h2", { text: this.plan ? "\u7F16\u8F91\u89C4\u5212" : "\u65B0\u5EFA\u89C4\u5212" });
+    const data = {
+      topic: (_b = (_a = this.plan) == null ? void 0 : _a.topic) != null ? _b : "",
+      manager: (_d = (_c = this.plan) == null ? void 0 : _c.manager) != null ? _d : "",
+      testDate: (_f = (_e = this.plan) == null ? void 0 : _e.testDate) != null ? _f : "",
+      releaseDate: (_h = (_g = this.plan) == null ? void 0 : _g.releaseDate) != null ? _h : "",
+      requirements: (_j = (_i = this.plan) == null ? void 0 : _i.requirements) != null ? _j : ""
+    };
+    new import_obsidian17.Setting(contentEl).setName("\u9879\u76EE\u4E3B\u9898 *").addText((text) => text.setPlaceholder("\u8F93\u5165\u9879\u76EE\u4E3B\u9898").setValue(data.topic).onChange((value) => data.topic = value));
+    new import_obsidian17.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => {
+      var _a2;
+      return text.setPlaceholder("\u9009\u586B").setValue((_a2 = data.manager) != null ? _a2 : "").onChange((value) => data.manager = value || void 0);
+    });
+    new import_obsidian17.Setting(contentEl).setName("\u63D0\u6D4B\u65F6\u95F4").addText((text) => {
+      var _a2;
+      return text.setPlaceholder("\u9009\u586B\uFF0C\u5982 2026-04-01").setValue((_a2 = data.testDate) != null ? _a2 : "").onChange((value) => data.testDate = parseDateInput(value) || void 0);
+    });
+    new import_obsidian17.Setting(contentEl).setName("\u53D1\u5E03\u65F6\u95F4").addText((text) => {
+      var _a2;
+      return text.setPlaceholder("\u9009\u586B\uFF0C\u5982 2026-05-01").setValue((_a2 = data.releaseDate) != null ? _a2 : "").onChange((value) => data.releaseDate = parseDateInput(value) || void 0);
+    });
+    new import_obsidian17.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => {
+      var _a2;
+      return text.setPlaceholder("\u9009\u586B").setValue((_a2 = data.requirements) != null ? _a2 : "").onChange((value) => data.requirements = value || void 0);
+    });
+    createActionButtons(
+      contentEl,
+      {
+        confirmText: this.plan ? "\u4FDD\u5B58" : "\u521B\u5EFA",
+        cancelText: "\u53D6\u6D88",
+        onConfirm: () => {
+          var _a2, _b2, _c2, _d2;
+          if (data.topic.trim()) {
+            this.onSubmit({
+              topic: data.topic.trim(),
+              manager: ((_a2 = data.manager) == null ? void 0 : _a2.trim()) || "",
+              testDate: ((_b2 = data.testDate) == null ? void 0 : _b2.trim()) || "",
+              releaseDate: ((_c2 = data.releaseDate) == null ? void 0 : _c2.trim()) || "",
+              requirements: ((_d2 = data.requirements) == null ? void 0 : _d2.trim()) || ""
+            });
+            this.close();
+          }
+        },
+        onCancel: () => this.close()
+      }
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
 // src/view/AppVersionManagerView.ts
 var VIEW_TYPE_APP_VERSION_MANAGER = "app-version-manager-view";
-var AppVersionManagerView = class extends import_obsidian8.ItemView {
+var AppVersionManagerView = class extends import_obsidian18.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.apps = [];
@@ -35655,8 +36003,12 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
   }
   async onOpen() {
     this.renderLoading();
-    await this.loadData();
-    this.render();
+    try {
+      await this.loadData();
+      this.render();
+    } catch (error) {
+      this.renderError(error instanceof Error ? error.message : String(error));
+    }
     this.registerEvents();
     this.startAutoRefresh();
   }
@@ -35666,6 +36018,14 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
     const loadingEl = this.containerEl.createDiv({ cls: "avm-loading" });
     loadingEl.createEl("span", { text: "\u52A0\u8F7D\u4E2D..." });
   }
+  renderError(message) {
+    this.containerEl.empty();
+    this.containerEl.addClass("app-version-manager");
+    const errorEl = this.containerEl.createDiv({ cls: "avm-error" });
+    errorEl.createEl("p", { text: `\u52A0\u8F7D\u5931\u8D25: ${message}` });
+    const retryBtn = errorEl.createEl("button", { text: "\u91CD\u8BD5" });
+    retryBtn.addEventListener("click", () => this.refresh());
+  }
   async loadData() {
     this.apps = await this.plugin.dataService.getAllApps();
     if (this.apps.length > 0) {
@@ -35673,7 +36033,9 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
         this.selectedAppId = this.plugin.settings.defaultAppId || this.apps[0].id;
       }
       this.versions = await this.plugin.dataService.getVersionsByAppId(this.selectedAppId);
-      this.projects = await this.plugin.dataService.getAllProjects();
+      const allProjects = await this.plugin.dataService.getAllProjects();
+      const versionIds = new Set(this.versions.map((v) => v.id));
+      this.projects = allProjects.filter((p) => versionIds.has(p.versionId));
       this.plans = await this.plugin.dataService.getAllPlans();
     }
   }
@@ -35705,10 +36067,14 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
   render() {
     this.containerEl.empty();
     this.containerEl.addClass("app-version-manager");
-    this.headerEl = this.containerEl.createDiv({ cls: "avm-header" });
-    this.renderHeader();
-    this.mainEl = this.containerEl.createDiv({ cls: "avm-main" });
-    this.renderMainView();
+    try {
+      this.headerEl = this.containerEl.createDiv({ cls: "avm-header" });
+      this.renderHeader();
+      this.mainEl = this.containerEl.createDiv({ cls: "avm-main" });
+      this.renderMainView();
+    } catch (error) {
+      this.renderError(error instanceof Error ? error.message : String(error));
+    }
   }
   renderHeader() {
     this.headerEl.empty();
@@ -35729,7 +36095,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
     });
     if (this.currentTab === "plans") {
       const planActionBar = this.headerEl.createDiv({ cls: "avm-plan-action-bar" });
-      new import_obsidian8.ButtonComponent(planActionBar).setIcon("plus").setButtonText("\u65B0\u5EFA\u89C4\u5212").onClick(() => this.showCreatePlanModal());
+      new import_obsidian18.ButtonComponent(planActionBar).setIcon("plus").setButtonText("\u65B0\u5EFA\u89C4\u5212").onClick(() => this.showCreatePlanModal());
       return;
     }
     const topBar = this.headerEl.createDiv({ cls: "avm-top-bar" });
@@ -35747,13 +36113,13 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
       await this.refresh();
     });
     const appActions = appSelector.createDiv({ cls: "avm-app-actions" });
-    new import_obsidian8.ButtonComponent(appActions).setIcon("plus").setTooltip("\u65B0\u5EFAAPP").onClick(() => this.showCreateAppModal());
-    new import_obsidian8.ButtonComponent(appActions).setIcon("pencil").setTooltip("\u91CD\u547D\u540DAPP").setDisabled(!this.selectedAppId).onClick(() => {
+    new import_obsidian18.ButtonComponent(appActions).setIcon("plus").setTooltip("\u65B0\u5EFAAPP").onClick(() => this.showCreateAppModal());
+    new import_obsidian18.ButtonComponent(appActions).setIcon("pencil").setTooltip("\u91CD\u547D\u540DAPP").setDisabled(!this.selectedAppId).onClick(() => {
       if (this.selectedAppId) {
         this.showRenameAppModal();
       }
     });
-    new import_obsidian8.ButtonComponent(appActions).setIcon("trash").setTooltip("\u5220\u9664APP").setDisabled(!this.selectedAppId).onClick(() => {
+    new import_obsidian18.ButtonComponent(appActions).setIcon("trash").setTooltip("\u5220\u9664APP").setDisabled(!this.selectedAppId).onClick(() => {
       if (this.selectedAppId) {
         this.confirmDeleteApp();
       }
@@ -35766,7 +36132,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
       // { type: 'gantt', label: '甘特图', icon: 'calendar' }
     ];
     viewTypes.forEach(({ type, label, icon }) => {
-      const btn = new import_obsidian8.ButtonComponent(viewSwitcher).setIcon(icon).setTooltip(label).onClick(() => {
+      const btn = new import_obsidian18.ButtonComponent(viewSwitcher).setIcon(icon).setTooltip(label).onClick(() => {
         this.currentView = type;
         this.render();
       });
@@ -35804,7 +36170,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
       this.renderMainView();
     });
     const filterActions = filterBar.createDiv({ cls: "avm-filter-actions" });
-    new import_obsidian8.ButtonComponent(filterActions).setIcon("save").setTooltip("\u4FDD\u5B58\u7B5B\u9009\u6761\u4EF6").onClick(() => this.showSaveFilterModal());
+    new import_obsidian18.ButtonComponent(filterActions).setIcon("save").setTooltip("\u4FDD\u5B58\u7B5B\u9009\u6761\u4EF6").onClick(() => this.showSaveFilterModal());
     if (this.savedFilters.length > 0) {
       const savedFilterSelect = filterActions.createEl("select", { cls: "avm-select avm-saved-filter" });
       savedFilterSelect.createEl("option", { value: "", text: "\u5DF2\u4FDD\u5B58\u7684\u7B5B\u9009" });
@@ -35817,9 +36183,9 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
           this.applySavedFilter(filterId);
         }
       });
-      new import_obsidian8.ButtonComponent(filterActions).setIcon("trash").setTooltip("\u5220\u9664\u7B5B\u9009").onClick(() => {
+      new import_obsidian18.ButtonComponent(filterActions).setIcon("trash").setTooltip("\u5220\u9664\u7B5B\u9009").onClick(() => {
         if (this.savedFilters.length === 0) {
-          new import_obsidian8.Notice("\u6CA1\u6709\u53EF\u5220\u9664\u7684\u7B5B\u9009\u6761\u4EF6");
+          new import_obsidian18.Notice("\u6CA1\u6709\u53EF\u5220\u9664\u7684\u7B5B\u9009\u6761\u4EF6");
           return;
         }
         new DeleteFilterModal(this.app, this.savedFilters, async (filterId) => {
@@ -35831,9 +36197,9 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
       });
     }
     const actionButtons = filterBar.createDiv({ cls: "avm-action-buttons" });
-    new import_obsidian8.ButtonComponent(actionButtons).setIcon("download").setTooltip("\u5BFC\u51FA\u6570\u636E").onClick(() => this.showExportModal());
-    new import_obsidian8.ButtonComponent(actionButtons).setIcon("upload").setTooltip("\u5BFC\u5165\u6570\u636E").onClick(() => this.showImportModal());
-    new import_obsidian8.ButtonComponent(actionButtons).setIcon("refresh-cw").setTooltip("\u5237\u65B0").onClick(() => this.refresh());
+    new import_obsidian18.ButtonComponent(actionButtons).setIcon("download").setTooltip("\u5BFC\u51FA\u6570\u636E").onClick(() => this.showExportModal());
+    new import_obsidian18.ButtonComponent(actionButtons).setIcon("upload").setTooltip("\u5BFC\u5165\u6570\u636E").onClick(() => this.showImportModal());
+    new import_obsidian18.ButtonComponent(actionButtons).setIcon("refresh-cw").setTooltip("\u5237\u65B0").onClick(() => this.refresh());
   }
   renderMainView() {
     this.mainEl.empty();
@@ -35841,7 +36207,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
       this.renderPlansView();
       return;
     }
-    const appFilteredProjects = this.getAppFilteredProjects();
+    const appFilteredProjects = this.getFilteredProjects({ versionId: "" });
     const filteredVersions = this.selectedAppId ? this.versions.filter((v) => v.appId === this.selectedAppId) : [];
     switch (this.currentView) {
       case "dual":
@@ -35883,31 +36249,12 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
         break;
     }
   }
-  getFilteredProjects() {
+  getFilteredProjects(options) {
+    var _a;
     let projects = this.projects;
-    if (this.selectedAppId) {
-      const appVersionIds = this.versions.filter((v) => v.appId === this.selectedAppId).map((v) => v.id);
-      projects = projects.filter((p) => appVersionIds.includes(p.versionId));
-    }
-    if (this.selectedVersionId) {
-      projects = projects.filter((p) => p.versionId === this.selectedVersionId);
-    }
-    if (this.currentFilter.progress) {
-      projects = projects.filter((p) => p.progress === this.currentFilter.progress);
-    }
-    if (this.currentFilter.keyword) {
-      const keyword = this.currentFilter.keyword.toLowerCase();
-      projects = projects.filter(
-        (p) => p.name.toLowerCase().includes(keyword) || p.manager.toLowerCase().includes(keyword) || p.features.toLowerCase().includes(keyword) || p.requirements.toLowerCase().includes(keyword)
-      );
-    }
-    return projects;
-  }
-  getAppFilteredProjects() {
-    let projects = this.projects;
-    if (this.selectedAppId) {
-      const appVersionIds = this.versions.filter((v) => v.appId === this.selectedAppId).map((v) => v.id);
-      projects = projects.filter((p) => appVersionIds.includes(p.versionId));
+    const versionFilter = (_a = options == null ? void 0 : options.versionId) != null ? _a : this.selectedVersionId;
+    if (versionFilter) {
+      projects = projects.filter((p) => p.versionId === versionFilter);
     }
     if (this.currentFilter.progress) {
       projects = projects.filter((p) => p.progress === this.currentFilter.progress);
@@ -35926,7 +36273,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
         await this.plugin.dataService.createApp(name);
         await this.refresh();
       } catch (error) {
-        new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -35939,7 +36286,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
         await this.plugin.dataService.updateApp(this.selectedAppId, newName, app.version);
         await this.refresh();
       } catch (error) {
-        new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -35959,7 +36306,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
           this.selectedAppId = this.apps.length > 1 ? ((_a = this.apps.find((a) => a.id !== this.selectedAppId)) == null ? void 0 : _a.id) || null : null;
           await this.refresh();
         } catch (error) {
-          new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
+          new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
         }
       },
       void 0,
@@ -35977,7 +36324,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
         });
         await this.refresh();
       } catch (error) {
-        new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -35989,7 +36336,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
         await this.plugin.dataService.createProject(data);
         await this.refresh();
       } catch (error) {
-        new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -36039,7 +36386,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
   }
   showImportModal() {
     if (!this.selectedAppId) {
-      new import_obsidian8.Notice("\u8BF7\u5148\u9009\u62E9\u4E00\u4E2AAPP");
+      new import_obsidian18.Notice("\u8BF7\u5148\u9009\u62E9\u4E00\u4E2AAPP");
       return;
     }
     new ImportModal(this.app, this.importExportService, this.selectedAppId, async () => {
@@ -36053,7 +36400,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
         await this.plugin.dataService.createPlan(data);
         await this.refresh();
       } catch (error) {
-        new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
@@ -36063,13 +36410,13 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
         await this.plugin.dataService.updatePlan(plan.id, data, plan.version);
         await this.refresh();
       } catch (error) {
-        new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
   }
   handleConvertPlan(plan) {
     if (!this.selectedAppId) {
-      new import_obsidian8.Notice("\u8BF7\u5148\u9009\u62E9 APP \u518D\u8F6C\u4E3A\u6B63\u5F0F\u9879\u76EE");
+      new import_obsidian18.Notice("\u8BF7\u5148\u9009\u62E9 APP \u518D\u8F6C\u4E3A\u6B63\u5F0F\u9879\u76EE");
       return;
     }
     const appVersions = this.versions.filter((v) => v.appId === this.selectedAppId);
@@ -36079,7 +36426,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
       appVersions,
       this.plugin.dataService,
       async () => {
-        new import_obsidian8.Notice("\u5DF2\u8F6C\u4E3A\u6B63\u5F0F\u9879\u76EE");
+        new import_obsidian18.Notice("\u5DF2\u8F6C\u4E3A\u6B63\u5F0F\u9879\u76EE");
         this.currentTab = "projects";
         await this.refresh();
         const allProjects = await this.plugin.dataService.getAllProjects();
@@ -36100,7 +36447,7 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
           await this.plugin.dataService.deletePlan(plan.id);
           await this.refresh();
         } catch (error) {
-          new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
+          new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
         }
       },
       void 0,
@@ -36133,9 +36480,9 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
       row.createEl("td", { text: plan.testDate || "-" });
       row.createEl("td", { text: plan.releaseDate || "-" });
       const actionsCell = row.createEl("td", { cls: "avm-cell-actions" });
-      new import_obsidian8.ButtonComponent(actionsCell).setIcon("pencil").setTooltip("\u7F16\u8F91").setClass("avm-btn-icon").onClick(() => this.showEditPlanModal(plan));
-      new import_obsidian8.ButtonComponent(actionsCell).setIcon("trash").setTooltip("\u5220\u9664").setClass("avm-btn-icon").setClass("avm-btn-danger").onClick(() => this.confirmDeletePlan(plan));
-      new import_obsidian8.ButtonComponent(actionsCell).setIcon("arrow-right-circle").setTooltip("\u8F6C\u4E3A\u6B63\u5F0F\u9879\u76EE").setClass("avm-btn-icon").onClick(() => this.handleConvertPlan(plan));
+      new import_obsidian18.ButtonComponent(actionsCell).setIcon("pencil").setTooltip("\u7F16\u8F91").setClass("avm-btn-icon").onClick(() => this.showEditPlanModal(plan));
+      new import_obsidian18.ButtonComponent(actionsCell).setIcon("trash").setTooltip("\u5220\u9664").setClass("avm-btn-icon").setClass("avm-btn-danger").onClick(() => this.confirmDeletePlan(plan));
+      new import_obsidian18.ButtonComponent(actionsCell).setIcon("arrow-right-circle").setTooltip("\u8F6C\u4E3A\u6B63\u5F0F\u9879\u76EE").setClass("avm-btn-icon").onClick(() => this.handleConvertPlan(plan));
     });
   }
   async onClose() {
@@ -36163,382 +36510,16 @@ var AppVersionManagerView = class extends import_obsidian8.ItemView {
     }
   }
 };
-var CreateAppModal = class extends import_obsidian8.Modal {
-  constructor(app, onSubmit) {
-    super(app);
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: "\u65B0\u5EFAAPP" });
-    let appName = "";
-    new import_obsidian8.Setting(contentEl).setName("APP\u540D\u79F0").addText((text) => text.setPlaceholder("\u8F93\u5165APP\u540D\u79F0").onChange((value) => appName = value));
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u521B\u5EFA",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          if (appName.trim()) {
-            this.onSubmit(appName.trim());
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var RenameAppModal = class extends import_obsidian8.Modal {
-  constructor(app, currentName, onSubmit) {
-    super(app);
-    this.currentName = currentName;
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: "\u91CD\u547D\u540DAPP" });
-    let newName = this.currentName;
-    new import_obsidian8.Setting(contentEl).setName("APP\u540D\u79F0").addText((text) => text.setValue(this.currentName).onChange((value) => newName = value));
-    createSaveButtons(
-      contentEl,
-      () => {
-        if (newName.trim() && newName !== this.currentName) {
-          this.onSubmit(newName.trim());
-          this.close();
-        }
-      },
-      () => this.close()
-    );
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var CreateVersionModal = class extends import_obsidian8.Modal {
-  constructor(app, onSubmit) {
-    super(app);
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: "\u65B0\u5EFA\u7248\u672C" });
-    const data = {
-      versionNumber: "",
-      bllVersion: "",
-      ippVersion: "",
-      webVersion: "",
-      updateContent: ""
-    };
-    new import_obsidian8.Setting(contentEl).setName("APP\u7248\u672C\u53F7 *").addText((text) => text.setPlaceholder("\u5982: 1.0.0").onChange((value) => data.versionNumber = value));
-    new import_obsidian8.Setting(contentEl).setName("BLL\u7248\u672C *").addText((text) => text.onChange((value) => data.bllVersion = value));
-    new import_obsidian8.Setting(contentEl).setName("IPP\u7248\u672C *").addText((text) => text.onChange((value) => data.ippVersion = value));
-    new import_obsidian8.Setting(contentEl).setName("Web\u7248\u672C *").addText((text) => text.onChange((value) => data.webVersion = value));
-    new import_obsidian8.Setting(contentEl).setName("\u66F4\u65B0\u5185\u5BB9").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.updateContent = value));
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u521B\u5EFA",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          if (data.versionNumber && data.bllVersion && data.ippVersion && data.webVersion) {
-            this.onSubmit(data);
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var CreateProjectModal = class extends import_obsidian8.Modal {
-  constructor(app, versionId, progressStages, onSubmit) {
-    super(app);
-    this.versionId = versionId;
-    this.progressStages = progressStages;
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: "\u65B0\u5EFA\u9879\u76EE" });
-    const firstProgress = getFirstProgress(this.progressStages);
-    const data = {
-      name: "",
-      versionId: this.versionId,
-      manager: "",
-      projectLink: "",
-      componentLink: "",
-      features: "",
-      spec: "",
-      requirements: "",
-      progress: firstProgress
-    };
-    new import_obsidian8.Setting(contentEl).setName("\u9879\u76EE\u540D\u79F0 *").addText((text) => text.setPlaceholder("\u8F93\u5165\u9879\u76EE\u540D\u79F0").onChange((value) => data.name = value));
-    new import_obsidian8.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => text.onChange((value) => data.manager = value));
-    new import_obsidian8.Setting(contentEl).setName("\u9879\u76EE\u94FE\u63A5").addText((text) => text.setPlaceholder("https://...").onChange((value) => data.projectLink = value));
-    new import_obsidian8.Setting(contentEl).setName("\u7EC4\u4EF6\u5E93\u94FE\u63A5").addText((text) => text.setPlaceholder("https://...").onChange((value) => data.componentLink = value));
-    new import_obsidian8.Setting(contentEl).setName("\u9879\u76EE\u8FDB\u5EA6").addDropdown((dropdown) => {
-      const progressOrder = getProgressOrder(this.progressStages);
-      progressOrder.forEach((progress) => {
-        dropdown.addOption(progress, progress);
-      });
-      dropdown.setValue(data.progress);
-      dropdown.onChange((value) => data.progress = value);
-    });
-    new import_obsidian8.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.features = value));
-    new import_obsidian8.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.spec = value));
-    new import_obsidian8.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.requirements = value));
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u521B\u5EFA",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          if (data.name) {
-            this.onSubmit(data);
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var DeleteFilterModal = class extends import_obsidian8.Modal {
-  constructor(app, filters, onSubmit, onCloseCallback) {
-    super(app);
-    this.filters = filters;
-    this.onSubmit = onSubmit;
-    this.onCloseCallback = onCloseCallback;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: "\u5220\u9664\u7B5B\u9009\u6761\u4EF6" });
-    this.filters.forEach((filter) => {
-      new import_obsidian8.Setting(contentEl).setName(filter.name).addButton((btn) => btn.setButtonText("\u5220\u9664").setWarning().onClick(() => {
-        this.doDelete(filter.id);
-      }));
-    });
-    new import_obsidian8.Setting(contentEl).addButton((btn) => btn.setButtonText("\u5173\u95ED").onClick(() => this.close()));
-  }
-  async doDelete(filterId) {
-    const filter = this.filters.find((f) => f.id === filterId);
-    if (!filter)
-      return;
-    this.filters = this.filters.filter((f) => f.id !== filterId);
-    await this.onSubmit(filterId);
-    if (this.filters.length === 0) {
-      this.close();
-    } else {
-      this.contentEl.empty();
-      this.onOpen();
-    }
-  }
-  onClose() {
-    this.contentEl.empty();
-    setTimeout(() => {
-      this.onCloseCallback();
-    }, 100);
-  }
-};
-var ExportModal = class extends import_obsidian8.Modal {
-  constructor(app, service, projects, versions) {
-    super(app);
-    this.format = "csv";
-    this.importExportService = service;
-    this.projects = projects;
-    this.versions = versions;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: "\u5BFC\u51FA\u6570\u636E" });
-    new import_obsidian8.Setting(contentEl).setName("\u5BFC\u51FA\u683C\u5F0F").addDropdown((dropdown) => {
-      dropdown.addOption("csv", "CSV");
-      dropdown.addOption("xlsx", "Excel (XLSX)");
-      dropdown.setValue(this.format);
-      dropdown.onChange((value) => {
-        this.format = value === "xlsx" ? "xlsx" : "csv";
-      });
-    });
-    const statusEl = contentEl.createDiv({ cls: "avm-export-status" });
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u5BFC\u51FA",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: async () => {
-          statusEl.setText("\u5904\u7406\u4E2D...");
-          try {
-            if (this.format === "xlsx") {
-              const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
-              this.downloadFile(buffer, "projects.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            } else {
-              const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
-              this.downloadFile(csv, "projects.csv", "text/csv");
-            }
-            statusEl.setText("\u5BFC\u51FA\u6210\u529F");
-            setTimeout(() => this.close(), 800);
-          } catch (error) {
-            statusEl.setText(`\u5BFC\u51FA\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  downloadFile(content, filename, mimeType) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var ImportModal = class extends import_obsidian8.Modal {
-  constructor(app, service, appId, onComplete) {
-    super(app);
-    this.importExportService = service;
-    this.appId = appId;
-    this.onComplete = onComplete;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: "\u5BFC\u5165\u6570\u636E" });
-    const fileInput = contentEl.createEl("input", {
-      attr: { type: "file", accept: ".csv,.xlsx,.xls" }
-    });
-    const statusEl = contentEl.createDiv({ cls: "avm-import-status" });
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u5BFC\u5165",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: async () => {
-          var _a;
-          const file = (_a = fileInput.files) == null ? void 0 : _a[0];
-          if (!file) {
-            new import_obsidian8.Notice("\u8BF7\u9009\u62E9\u6587\u4EF6");
-            return;
-          }
-          statusEl.setText("\u5904\u7406\u4E2D...");
-          try {
-            let result;
-            if (file.name.endsWith(".csv")) {
-              const content = await file.text();
-              result = await this.importExportService.importFromCSV(content, this.appId);
-            } else {
-              const buffer = await file.arrayBuffer();
-              result = await this.importExportService.importFromExcel(buffer, this.appId);
-            }
-            new import_obsidian8.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF01\u6210\u529F: ${result.success} \u6761${result.errors.length > 0 ? `
-\u9519\u8BEF: ${result.errors.join("\n")}` : ""}`);
-            statusEl.setText("\u5BFC\u5165\u6210\u529F");
-            setTimeout(() => {
-              this.onComplete();
-              this.close();
-            }, 800);
-          } catch (error) {
-            statusEl.setText(`\u5BFC\u5165\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var PlanModal = class extends import_obsidian8.Modal {
-  constructor(app, plan, onSubmit) {
-    super(app);
-    this.plan = plan;
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
-    const { contentEl } = this;
-    contentEl.addClass("avm-modal");
-    contentEl.createEl("h2", { text: this.plan ? "\u7F16\u8F91\u89C4\u5212" : "\u65B0\u5EFA\u89C4\u5212" });
-    const data = {
-      topic: (_b = (_a = this.plan) == null ? void 0 : _a.topic) != null ? _b : "",
-      manager: (_d = (_c = this.plan) == null ? void 0 : _c.manager) != null ? _d : "",
-      testDate: (_f = (_e = this.plan) == null ? void 0 : _e.testDate) != null ? _f : "",
-      releaseDate: (_h = (_g = this.plan) == null ? void 0 : _g.releaseDate) != null ? _h : "",
-      requirements: (_j = (_i = this.plan) == null ? void 0 : _i.requirements) != null ? _j : ""
-    };
-    new import_obsidian8.Setting(contentEl).setName("\u9879\u76EE\u4E3B\u9898 *").addText((text) => text.setPlaceholder("\u8F93\u5165\u9879\u76EE\u4E3B\u9898").setValue(data.topic).onChange((value) => data.topic = value));
-    new import_obsidian8.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => {
-      var _a2;
-      return text.setPlaceholder("\u9009\u586B").setValue((_a2 = data.manager) != null ? _a2 : "").onChange((value) => data.manager = value || void 0);
-    });
-    new import_obsidian8.Setting(contentEl).setName("\u63D0\u6D4B\u65F6\u95F4").addText((text) => {
-      var _a2;
-      return text.setPlaceholder("\u9009\u586B\uFF0C\u5982 2026-04-01").setValue((_a2 = data.testDate) != null ? _a2 : "").onChange((value) => data.testDate = parseDateInput(value) || void 0);
-    });
-    new import_obsidian8.Setting(contentEl).setName("\u53D1\u5E03\u65F6\u95F4").addText((text) => {
-      var _a2;
-      return text.setPlaceholder("\u9009\u586B\uFF0C\u5982 2026-05-01").setValue((_a2 = data.releaseDate) != null ? _a2 : "").onChange((value) => data.releaseDate = parseDateInput(value) || void 0);
-    });
-    new import_obsidian8.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => {
-      var _a2;
-      return text.setPlaceholder("\u9009\u586B").setValue((_a2 = data.requirements) != null ? _a2 : "").onChange((value) => data.requirements = value || void 0);
-    });
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: this.plan ? "\u4FDD\u5B58" : "\u521B\u5EFA",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          var _a2, _b2, _c2, _d2;
-          if (data.topic.trim()) {
-            this.onSubmit({
-              topic: data.topic.trim(),
-              manager: ((_a2 = data.manager) == null ? void 0 : _a2.trim()) || "",
-              testDate: ((_b2 = data.testDate) == null ? void 0 : _b2.trim()) || "",
-              releaseDate: ((_c2 = data.releaseDate) == null ? void 0 : _c2.trim()) || "",
-              requirements: ((_d2 = data.requirements) == null ? void 0 : _d2.trim()) || ""
-            });
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
 
 // src/services/DataService.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 var import_fs = require("fs");
 var import_fs2 = require("fs");
 var import_path = require("path");
+
+// src/utils/DataCache.ts
 var DataCache = class {
-  constructor(ttlMs = 5e3) {
+  constructor(ttlMs = 3e4) {
     this.cache = /* @__PURE__ */ new Map();
     this.timestamps = /* @__PURE__ */ new Map();
     this.ttl = ttlMs;
@@ -36569,11 +36550,158 @@ var DataCache = class {
     }
   }
 };
+
+// src/utils/frontmatter.ts
+function parseFrontmatter(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match)
+    return {};
+  const frontmatter = {};
+  const lines = match[1].split("\n");
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    if (line.startsWith("#") || line.trim() === "") {
+      continue;
+    }
+    const colonIndex = line.indexOf(":");
+    if (colonIndex > 0) {
+      const key = line.substring(0, colonIndex).trim();
+      let value = line.substring(colonIndex + 1).trim();
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+        continue;
+      }
+      if (value.startsWith('"') && value.endsWith('"')) {
+        value = value.slice(1, -1);
+      } else if (value.startsWith("'") && value.endsWith("'")) {
+        value = value.slice(1, -1);
+      } else if (value.startsWith("[") && value.endsWith("]")) {
+        value = value.slice(1, -1).split(",").map((v) => v.trim()).filter((v) => v);
+      } else if (value === "true") {
+        value = true;
+      } else if (value === "false") {
+        value = false;
+      } else if (value === "null" || value === "~") {
+        value = null;
+      } else if (value === "|") {
+        let multiline = "";
+        for (let i = li + 1; i < lines.length; i++) {
+          const nextLine = lines[i];
+          if (nextLine.startsWith("  ") || nextLine.startsWith("	")) {
+            multiline += nextLine.trim() + "\n";
+          } else if (nextLine.trim() === "") {
+            multiline += "\n";
+          } else {
+            break;
+          }
+        }
+        frontmatter[key] = multiline.trimEnd();
+        continue;
+      } else {
+        frontmatter[key] = value;
+        continue;
+      }
+      frontmatter[key] = value;
+    }
+  }
+  return frontmatter;
+}
+function createFrontmatter(data) {
+  let fm = "---\n";
+  for (const [key, value] of Object.entries(data)) {
+    if (Array.isArray(value)) {
+      fm += `${key}: [${value.join(", ")}]
+`;
+    } else if (typeof value === "string" && value.includes("\n")) {
+      fm += `${key}: |
+  ${value.replace(/\n/g, "\n  ")}
+`;
+    } else {
+      fm += `${key}: ${value}
+`;
+    }
+  }
+  fm += "---\n\n";
+  return fm;
+}
+function parseProgressHistory(raw) {
+  if (!Array.isArray(raw))
+    return [];
+  const history = [];
+  for (const item of raw) {
+    if (typeof item === "string") {
+      const at = item.lastIndexOf("@");
+      if (at > 0) {
+        const progress = item.slice(0, at);
+        const changedAt = item.slice(at + 1);
+        history.push({ progress, changedAt });
+      }
+    } else if (item && typeof item === "object") {
+      const progress = item.progress;
+      const changedAt = item.changedAt;
+      if (typeof progress === "string" && typeof changedAt === "string") {
+        history.push({ progress, changedAt });
+      }
+    }
+  }
+  return history;
+}
+function parseNumericField(value, fallback) {
+  if (typeof value === "number" && Number.isFinite(value))
+    return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed))
+      return parsed;
+  }
+  return fallback;
+}
+
+// src/utils/idUtils.ts
+function generateId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+function sanitizeFileName(name) {
+  const reserved = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+  const cleaned = name.replace(/[\\/:*?"<>|]/g, "_").replace(/\.\.+/g, "_").replace(/\s+/g, " ").trim().replace(/[. ]+$/g, "");
+  const safe = cleaned || "unnamed";
+  const withoutReserved = reserved.test(safe) ? `_${safe}` : safe;
+  return withoutReserved.slice(0, 120);
+}
+function compareVersions(a, b) {
+  var _a, _b;
+  const parse = (v) => {
+    const [main, prerelease] = v.split("-", 2);
+    const nums = main.split(".").map((part) => {
+      const n = Number(part);
+      return Number.isFinite(n) ? n : 0;
+    });
+    return { nums, prerelease: prerelease != null ? prerelease : "" };
+  };
+  const va = parse(a);
+  const vb = parse(b);
+  const maxLength = Math.max(va.nums.length, vb.nums.length);
+  for (let i = 0; i < maxLength; i++) {
+    const na = (_a = va.nums[i]) != null ? _a : 0;
+    const nb = (_b = vb.nums[i]) != null ? _b : 0;
+    if (na !== nb)
+      return na - nb;
+  }
+  if (va.prerelease && !vb.prerelease)
+    return -1;
+  if (!va.prerelease && vb.prerelease)
+    return 1;
+  return va.prerelease.localeCompare(vb.prerelease);
+}
+
+// src/services/DataService.ts
 var DataService = class {
   constructor(app, plugin) {
     this.app = app;
     this.plugin = plugin;
-    this.cache = new DataCache(5e3);
+    this.cache = new DataCache(3e4);
   }
   getDataPath() {
     return this.plugin.settings.dataPath || "app-version-manager";
@@ -36619,30 +36747,24 @@ var DataService = class {
   async modifyFile(file, content) {
     if ("path" in file && this.isAbsolutePath()) {
       await import_fs2.promises.writeFile(file.path, content, "utf-8");
-    } else if (file instanceof import_obsidian9.TFile) {
+    } else if (file instanceof import_obsidian19.TFile) {
       await this.app.vault.modify(file, content);
     }
   }
   async renameFile(file, newPath) {
     if ("path" in file && this.isAbsolutePath()) {
-      const newFullPath = this.isAbsolutePath() ? newPath : (0, import_obsidian9.normalizePath)(newPath);
+      const newFullPath = this.isAbsolutePath() ? newPath : (0, import_obsidian19.normalizePath)(newPath);
       await import_fs2.promises.rename(file.path, newFullPath);
-    } else if (file instanceof import_obsidian9.TFile) {
-      await this.app.vault.rename(file, (0, import_obsidian9.normalizePath)(newPath));
+    } else if (file instanceof import_obsidian19.TFile) {
+      await this.app.vault.rename(file, (0, import_obsidian19.normalizePath)(newPath));
     }
   }
   async deleteFile(file) {
     if ("path" in file && this.isAbsolutePath()) {
       await import_fs2.promises.unlink(file.path);
-    } else if (file instanceof import_obsidian9.TFile) {
+    } else if (file instanceof import_obsidian19.TFile) {
       await this.app.vault.delete(file);
     }
-  }
-  generateId() {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      return crypto.randomUUID();
-    }
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   }
   async initializeDataFolders() {
     await this.ensureFolder(this.getAppsFolder());
@@ -36679,7 +36801,7 @@ var DataService = class {
       } else {
         content = await this.app.vault.read(file);
       }
-      const frontmatter = this.parseFrontmatter(content);
+      const frontmatter = parseFrontmatter(content);
       if (!frontmatter)
         return null;
       return {
@@ -36687,7 +36809,7 @@ var DataService = class {
         name: (_b = frontmatter.name) != null ? _b : file.basename,
         createdAt: (_c = frontmatter.createdAt) != null ? _c : ctime.toString(),
         updatedAt: (_d = frontmatter.updatedAt) != null ? _d : mtime.toString(),
-        version: this.parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1)
       };
     } catch (error) {
       console.error("[AppVersionManager] Failed to parse app file:", file.path, error);
@@ -36705,7 +36827,7 @@ var DataService = class {
       } else {
         content = await this.app.vault.read(file);
       }
-      const frontmatter = this.parseFrontmatter(content);
+      const frontmatter = parseFrontmatter(content);
       if (!frontmatter)
         return null;
       return {
@@ -36717,98 +36839,12 @@ var DataService = class {
         requirements: (_f = frontmatter.requirements) != null ? _f : "",
         createdAt: (_g = frontmatter.createdAt) != null ? _g : ctime.toString(),
         updatedAt: (_h = frontmatter.updatedAt) != null ? _h : mtime.toString(),
-        version: this.parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1)
       };
     } catch (error) {
       console.error("[AppVersionManager] Failed to parse plan file:", file.path, error);
       return null;
     }
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  parseFrontmatter(content) {
-    const match = content.match(/^---\n([\s\S]*?)\n---/);
-    if (!match)
-      return {};
-    const frontmatter = {};
-    const lines = match[1].split("\n");
-    for (let li = 0; li < lines.length; li++) {
-      const line = lines[li];
-      if (line.startsWith("#") || line.trim() === "") {
-        continue;
-      }
-      const colonIndex = line.indexOf(":");
-      if (colonIndex > 0) {
-        const key = line.substring(0, colonIndex).trim();
-        let value = line.substring(colonIndex + 1).trim();
-        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
-          continue;
-        }
-        if (value.startsWith('"') && value.endsWith('"')) {
-          value = value.slice(1, -1);
-        } else if (value.startsWith("'") && value.endsWith("'")) {
-          value = value.slice(1, -1);
-        } else if (value.startsWith("[") && value.endsWith("]")) {
-          value = value.slice(1, -1).split(",").map((v) => v.trim()).filter((v) => v);
-        } else if (value === "true") {
-          value = true;
-        } else if (value === "false") {
-          value = false;
-        } else if (value === "null" || value === "~") {
-          value = null;
-        } else if (value === "|") {
-          let multiline = "";
-          for (let i = li + 1; i < lines.length; i++) {
-            const nextLine = lines[i];
-            if (nextLine.startsWith("  ") || nextLine.startsWith("	")) {
-              multiline += nextLine.trim() + "\n";
-            } else if (nextLine.trim() === "") {
-              multiline += "\n";
-            } else {
-              break;
-            }
-          }
-          frontmatter[key] = multiline.trimEnd();
-          continue;
-        } else {
-          frontmatter[key] = value;
-          continue;
-        }
-        frontmatter[key] = value;
-      }
-    }
-    return frontmatter;
-  }
-  parseNumericField(value, fallback) {
-    if (typeof value === "number" && Number.isFinite(value))
-      return value;
-    if (typeof value === "string" && value.trim() !== "") {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed))
-        return parsed;
-    }
-    return fallback;
-  }
-  parseProgressHistory(raw) {
-    if (!Array.isArray(raw))
-      return [];
-    const history = [];
-    for (const item of raw) {
-      if (typeof item === "string") {
-        const at = item.lastIndexOf("@");
-        if (at > 0) {
-          const progress = item.slice(0, at);
-          const changedAt = item.slice(at + 1);
-          history.push({ progress, changedAt });
-        }
-      } else if (item && typeof item === "object") {
-        const progress = item.progress;
-        const changedAt = item.changedAt;
-        if (typeof progress === "string" && typeof changedAt === "string") {
-          history.push({ progress, changedAt });
-        }
-      }
-    }
-    return history;
   }
   async getMarkdownFiles(folderPath) {
     if (this.isAbsolutePath()) {
@@ -36840,13 +36876,24 @@ var DataService = class {
       }
     } else {
       const folder = this.app.vault.getAbstractFileByPath(folderPath);
-      if (!(folder instanceof import_obsidian9.TFolder))
+      if (!(folder instanceof import_obsidian19.TFolder))
         return [];
-      return folder.children.filter((file) => file instanceof import_obsidian9.TFile && file.extension === "md");
+      return folder.children.filter((file) => file instanceof import_obsidian19.TFile && file.extension === "md");
     }
   }
   async findEntityFileById(folderPath, parser, id) {
     const files = await this.getMarkdownFiles(folderPath);
+    for (const file of files) {
+      const fileName = "name" in file ? file.name : `${file.basename}.${file.extension}`;
+      const nameWithoutExt = fileName.replace(/\.md$/, "");
+      const separatorIndex = nameWithoutExt.lastIndexOf("__");
+      if (separatorIndex >= 0) {
+        const idFromFile = nameWithoutExt.slice(separatorIndex + 2);
+        if (idFromFile === id) {
+          return file;
+        }
+      }
+    }
     for (const file of files) {
       const entity = await parser.call(this, file);
       if ((entity == null ? void 0 : entity.id) === id) {
@@ -36855,42 +36902,24 @@ var DataService = class {
     }
     return null;
   }
-  createFrontmatter(data) {
-    let fm = "---\n";
-    for (const [key, value] of Object.entries(data)) {
-      if (Array.isArray(value)) {
-        fm += `${key}: [${value.join(", ")}]
-`;
-      } else if (typeof value === "string" && value.includes("\n")) {
-        fm += `${key}: |
-  ${value.replace(/\n/g, "\n  ")}
-`;
-      } else {
-        fm += `${key}: ${value}
-`;
-      }
-    }
-    fm += "---\n\n";
-    return fm;
-  }
   async createApp(name) {
     await this.initializeDataFolders();
     const apps = await this.getAllApps();
     if (apps.some((a) => a.name === name)) {
       throw new Error("APP name already exists");
     }
-    const id = this.generateId();
+    const id = generateId();
     const now = Date.now().toString();
     const app = { id, name, createdAt: now, updatedAt: now, version: 1 };
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       id: app.id,
       name: app.name,
       createdAt: app.createdAt,
       updatedAt: app.updatedAt,
       version: app.version
     });
-    const fileName = this.sanitizeFileName(name);
-    const filePath = this.isAbsolutePath() ? (0, import_path.join)(this.getAppsFolder(), `${fileName}__${id}.md`) : (0, import_obsidian9.normalizePath)(`${this.getAppsFolder()}/${fileName}__${id}.md`);
+    const fileName = sanitizeFileName(name);
+    const filePath = this.isAbsolutePath() ? (0, import_path.join)(this.getAppsFolder(), `${fileName}__${id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getAppsFolder()}/${fileName}__${id}.md`);
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate("apps:all");
     return app;
@@ -36911,8 +36940,8 @@ var DataService = class {
     app.name = name;
     app.updatedAt = Date.now().toString();
     app.version = ((_a = app.version) != null ? _a : 1) + 1;
-    const oldFileName = this.sanitizeFileName(oldName);
-    const newFileName = this.sanitizeFileName(name);
+    const oldFileName = sanitizeFileName(oldName);
+    const newFileName = sanitizeFileName(name);
     let file = null;
     if (this.isAbsolutePath()) {
       const files = await this.getMarkdownFiles(this.getAppsFolder());
@@ -36924,13 +36953,13 @@ var DataService = class {
         }
       }
     } else {
-      const oldPath = (0, import_obsidian9.normalizePath)(`${this.getAppsFolder()}/${oldFileName}__${id}.md`);
-      const legacyOldPath = (0, import_obsidian9.normalizePath)(`${this.getAppsFolder()}/${oldFileName}.md`);
+      const oldPath = (0, import_obsidian19.normalizePath)(`${this.getAppsFolder()}/${oldFileName}__${id}.md`);
+      const legacyOldPath = (0, import_obsidian19.normalizePath)(`${this.getAppsFolder()}/${oldFileName}.md`);
       const fallbackFile = (_b = this.app.vault.getAbstractFileByPath(oldPath)) != null ? _b : this.app.vault.getAbstractFileByPath(legacyOldPath);
-      file = (_c = await this.findEntityFileById(this.getAppsFolder(), this.parseAppFile, id)) != null ? _c : fallbackFile instanceof import_obsidian9.TFile ? fallbackFile : null;
+      file = (_c = await this.findEntityFileById(this.getAppsFolder(), this.parseAppFile, id)) != null ? _c : fallbackFile instanceof import_obsidian19.TFile ? fallbackFile : null;
     }
     if (file) {
-      const frontmatter = this.createFrontmatter({
+      const frontmatter = createFrontmatter({
         id: app.id,
         name: app.name,
         createdAt: app.createdAt,
@@ -36939,7 +36968,7 @@ var DataService = class {
       });
       await this.modifyFile(file, frontmatter);
       if (oldFileName !== newFileName) {
-        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getAppsFolder(), `${newFileName}__${app.id}.md`) : (0, import_obsidian9.normalizePath)(`${this.getAppsFolder()}/${newFileName}__${app.id}.md`);
+        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getAppsFolder(), `${newFileName}__${app.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getAppsFolder()}/${newFileName}__${app.id}.md`);
         await this.renameFile(file, newPath);
       }
     }
@@ -36965,7 +36994,7 @@ var DataService = class {
         versionProjectUpdates.push({ projectId: project.id, versionId: "" });
       }
     }
-    const fileName = this.sanitizeFileName(app.name);
+    const fileName = sanitizeFileName(app.name);
     let appFile = null;
     if (this.isAbsolutePath()) {
       const files = await this.getMarkdownFiles(this.getAppsFolder());
@@ -36977,10 +37006,10 @@ var DataService = class {
         }
       }
     } else {
-      const filePath = (0, import_obsidian9.normalizePath)(`${this.getAppsFolder()}/${fileName}__${id}.md`);
-      const legacyFilePath = (0, import_obsidian9.normalizePath)(`${this.getAppsFolder()}/${fileName}.md`);
+      const filePath = (0, import_obsidian19.normalizePath)(`${this.getAppsFolder()}/${fileName}__${id}.md`);
+      const legacyFilePath = (0, import_obsidian19.normalizePath)(`${this.getAppsFolder()}/${fileName}.md`);
       const fallbackFile = (_a = this.app.vault.getAbstractFileByPath(filePath)) != null ? _a : this.app.vault.getAbstractFileByPath(legacyFilePath);
-      appFile = (_b = await this.findEntityFileById(this.getAppsFolder(), this.parseAppFile, id)) != null ? _b : fallbackFile instanceof import_obsidian9.TFile ? fallbackFile : null;
+      appFile = (_b = await this.findEntityFileById(this.getAppsFolder(), this.parseAppFile, id)) != null ? _b : fallbackFile instanceof import_obsidian19.TFile ? fallbackFile : null;
     }
     for (const update of versionProjectUpdates) {
       await this.updateProject(update.projectId, { versionId: update.versionId });
@@ -37008,34 +37037,9 @@ var DataService = class {
         versions.push(version2);
       }
     }
-    const result = versions.sort((a, b) => this.compareVersions(b.versionNumber, a.versionNumber));
+    const result = versions.sort((a, b) => compareVersions(b.versionNumber, a.versionNumber));
     this.cache.set(cacheKey, result);
     return result;
-  }
-  compareVersions(a, b) {
-    var _a, _b;
-    const parse = (v) => {
-      const [main, prerelease] = v.split("-", 2);
-      const nums = main.split(".").map((part) => {
-        const n = Number(part);
-        return Number.isFinite(n) ? n : 0;
-      });
-      return { nums, prerelease: prerelease != null ? prerelease : "" };
-    };
-    const va = parse(a);
-    const vb = parse(b);
-    const maxLength = Math.max(va.nums.length, vb.nums.length);
-    for (let i = 0; i < maxLength; i++) {
-      const na = (_a = va.nums[i]) != null ? _a : 0;
-      const nb = (_b = vb.nums[i]) != null ? _b : 0;
-      if (na !== nb)
-        return na - nb;
-    }
-    if (va.prerelease && !vb.prerelease)
-      return -1;
-    if (!va.prerelease && vb.prerelease)
-      return 1;
-    return va.prerelease.localeCompare(vb.prerelease);
   }
   async parseVersionFile(file) {
     var _a, _b, _c, _d, _e, _f, _g, _h;
@@ -37048,7 +37052,7 @@ var DataService = class {
       } else {
         content = await this.app.vault.read(file);
       }
-      const frontmatter = this.parseFrontmatter(content);
+      const frontmatter = parseFrontmatter(content);
       if (!frontmatter || !frontmatter.appId)
         return null;
       return {
@@ -37062,7 +37066,7 @@ var DataService = class {
         isArchived: frontmatter.isArchived === true,
         createdAt: (_g = frontmatter.createdAt) != null ? _g : ctime.toString(),
         updatedAt: (_h = frontmatter.updatedAt) != null ? _h : mtime.toString(),
-        version: this.parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1)
       };
     } catch (error) {
       console.error("[AppVersionManager] Failed to parse version file:", file.path, error);
@@ -37075,7 +37079,7 @@ var DataService = class {
     if (existingVersions.some((v) => v.versionNumber === data.versionNumber)) {
       throw new Error("Version number already exists for this APP");
     }
-    const id = this.generateId();
+    const id = generateId();
     const now = Date.now().toString();
     const version2 = {
       id,
@@ -37086,7 +37090,7 @@ var DataService = class {
       updatedAt: now,
       version: 1
     };
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       id: version2.id,
       appId: version2.appId,
       versionNumber: version2.versionNumber,
@@ -37100,10 +37104,10 @@ var DataService = class {
       version: version2.version
     });
     const app = (await this.getAllApps()).find((a) => a.id === data.appId);
-    const appName = app ? this.sanitizeFileName(app.name) : "unknown";
-    const versionNum = this.sanitizeFileName(data.versionNumber);
+    const appName = app ? sanitizeFileName(app.name) : "unknown";
+    const versionNum = sanitizeFileName(data.versionNumber);
     const fileName = `${appName}_${versionNum}__${id}`;
-    const filePath = this.isAbsolutePath() ? (0, import_path.join)(this.getVersionsFolder(), `${fileName}.md`) : (0, import_obsidian9.normalizePath)(`${this.getVersionsFolder()}/${fileName}.md`);
+    const filePath = this.isAbsolutePath() ? (0, import_path.join)(this.getVersionsFolder(), `${fileName}.md`) : (0, import_obsidian19.normalizePath)(`${this.getVersionsFolder()}/${fileName}.md`);
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate(`versions:${data.appId}`);
     return version2;
@@ -37126,12 +37130,12 @@ var DataService = class {
     Object.assign(version2, data, { updatedAt: Date.now().toString() });
     version2.version = ((_a = version2.version) != null ? _a : 1) + 1;
     const app = (await this.getAllApps()).find((a) => a.id === version2.appId);
-    const appName = app ? this.sanitizeFileName(app.name) : "unknown";
-    const versionNum = this.sanitizeFileName(version2.versionNumber);
+    const appName = app ? sanitizeFileName(app.name) : "unknown";
+    const versionNum = sanitizeFileName(version2.versionNumber);
     const fileName = `${appName}_${versionNum}__${version2.id}`;
     const file = await this.findEntityFileById(this.getVersionsFolder(), this.parseVersionFile, id);
     if (file) {
-      const frontmatter = this.createFrontmatter({
+      const frontmatter = createFrontmatter({
         id: version2.id,
         appId: version2.appId,
         versionNumber: version2.versionNumber,
@@ -37146,7 +37150,7 @@ var DataService = class {
       });
       await this.modifyFile(file, frontmatter);
       if (file.basename !== fileName) {
-        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getVersionsFolder(), `${fileName}.md`) : (0, import_obsidian9.normalizePath)(`${this.getVersionsFolder()}/${fileName}.md`);
+        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getVersionsFolder(), `${fileName}.md`) : (0, import_obsidian19.normalizePath)(`${this.getVersionsFolder()}/${fileName}.md`);
         await this.renameFile(file, newPath);
       }
     }
@@ -37172,6 +37176,10 @@ var DataService = class {
     return true;
   }
   async getAllVersions() {
+    const cacheKey = "versions:all";
+    const cached = this.cache.get(cacheKey);
+    if (cached)
+      return cached;
     await this.initializeDataFolders();
     const versions = [];
     const files = await this.getMarkdownFiles(this.getVersionsFolder());
@@ -37180,6 +37188,7 @@ var DataService = class {
       if (version2)
         versions.push(version2);
     }
+    this.cache.set(cacheKey, versions);
     return versions;
   }
   async archiveVersion(id, expectedVersion) {
@@ -37189,19 +37198,10 @@ var DataService = class {
     return this.updateVersion(id, { isArchived: false }, expectedVersion);
   }
   async getProjectsByVersionId(versionId) {
-    await this.initializeDataFolders();
-    const projects = [];
-    const files = await this.getMarkdownFiles(this.getProjectsFolder());
-    for (const file of files) {
-      const project = await this.parseProjectFile(file);
-      if (project && project.versionId === versionId) {
-        projects.push(project);
-      }
-    }
-    return projects.sort((a, b) => {
-      const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
-      return progressOrder.indexOf(a.progress) - progressOrder.indexOf(b.progress);
-    });
+    const allProjects = await this.getAllProjects();
+    const filtered = allProjects.filter((p) => p.versionId === versionId);
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    return filtered.sort((a, b) => progressOrder.indexOf(a.progress) - progressOrder.indexOf(b.progress));
   }
   async parseProjectFile(file) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u;
@@ -37214,7 +37214,7 @@ var DataService = class {
       } else {
         content = await this.app.vault.read(file);
       }
-      const frontmatter = this.parseFrontmatter(content);
+      const frontmatter = parseFrontmatter(content);
       if (!frontmatter)
         return null;
       return {
@@ -37228,7 +37228,7 @@ var DataService = class {
         spec: (_h = frontmatter.spec) != null ? _h : "",
         requirements: (_i = frontmatter.requirements) != null ? _i : "",
         progress: (_j = frontmatter.progress) != null ? _j : getFirstProgress(this.plugin.settings.progressStages),
-        progressHistory: this.parseProgressHistory(frontmatter.progressHistory),
+        progressHistory: parseProgressHistory(frontmatter.progressHistory),
         b1IntegrationTestTime: (_k = frontmatter.b1IntegrationTestTime) != null ? _k : "",
         b1SystemTestTime: (_l = frontmatter.b1SystemTestTime) != null ? _l : "",
         b2IntegrationTestTime: (_m = frontmatter.b2IntegrationTestTime) != null ? _m : "",
@@ -37240,7 +37240,7 @@ var DataService = class {
         actualReleaseTime: (_s = frontmatter.actualReleaseTime) != null ? _s : "",
         createdAt: (_t = frontmatter.createdAt) != null ? _t : ctime.toString(),
         updatedAt: (_u = frontmatter.updatedAt) != null ? _u : mtime.toString(),
-        version: this.parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1)
       };
     } catch (error) {
       console.error("[AppVersionManager] Failed to parse project file:", file.path, error);
@@ -37253,7 +37253,7 @@ var DataService = class {
     if (existingProjects.some((p) => p.name === data.name)) {
       throw new Error("Project name already exists");
     }
-    const id = this.generateId();
+    const id = generateId();
     const now = Date.now().toString();
     const project = {
       id,
@@ -37283,7 +37283,7 @@ var DataService = class {
       updatedAt: now,
       version: 1
     };
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       id: project.id,
       name: project.name,
       versionId: project.versionId,
@@ -37308,9 +37308,9 @@ var DataService = class {
       updatedAt: project.updatedAt,
       version: project.version
     });
-    const fileName = this.sanitizeFileName(data.name);
-    const projectFilePath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${fileName}__${id}.md`) : (0, import_obsidian9.normalizePath)(`${this.getProjectsFolder()}/${fileName}__${id}.md`);
-    const memoFilePath = this.isAbsolutePath() ? (0, import_path.join)(this.getMemosFolder(), `${fileName}.md`) : (0, import_obsidian9.normalizePath)(`${this.getMemosFolder()}/${fileName}.md`);
+    const fileName = sanitizeFileName(data.name);
+    const projectFilePath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${fileName}__${id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getProjectsFolder()}/${fileName}__${id}.md`);
+    const memoFilePath = this.isAbsolutePath() ? (0, import_path.join)(this.getMemosFolder(), `${fileName}.md`) : (0, import_obsidian19.normalizePath)(`${this.getMemosFolder()}/${fileName}.md`);
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, "");
     this.cache.invalidate("projects:all");
@@ -37340,7 +37340,7 @@ var DataService = class {
         { progress: data.progress, changedAt: Date.now().toString() }
       ];
     }
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       id: project.id,
       name: project.name,
       versionId: project.versionId,
@@ -37365,8 +37365,8 @@ var DataService = class {
       updatedAt: updatedProject.updatedAt,
       version: updatedProject.version
     });
-    const oldFileName = this.sanitizeFileName(oldName);
-    const newFileName = this.sanitizeFileName(updatedProject.name);
+    const oldFileName = sanitizeFileName(oldName);
+    const newFileName = sanitizeFileName(updatedProject.name);
     let file = null;
     if (this.isAbsolutePath()) {
       const files = await this.getMarkdownFiles(this.getProjectsFolder());
@@ -37378,14 +37378,14 @@ var DataService = class {
         }
       }
     } else {
-      const oldPath = (0, import_obsidian9.normalizePath)(`${this.getProjectsFolder()}/${oldFileName}.md`);
+      const oldPath = (0, import_obsidian19.normalizePath)(`${this.getProjectsFolder()}/${oldFileName}.md`);
       const fallbackFile = this.app.vault.getAbstractFileByPath(oldPath);
-      file = (_b = await this.findEntityFileById(this.getProjectsFolder(), this.parseProjectFile, id)) != null ? _b : fallbackFile instanceof import_obsidian9.TFile ? fallbackFile : null;
+      file = (_b = await this.findEntityFileById(this.getProjectsFolder(), this.parseProjectFile, id)) != null ? _b : fallbackFile instanceof import_obsidian19.TFile ? fallbackFile : null;
     }
     if (file) {
       await this.modifyFile(file, frontmatter);
       if (oldFileName !== newFileName) {
-        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${newFileName}__${project.id}.md`) : (0, import_obsidian9.normalizePath)(`${this.getProjectsFolder()}/${newFileName}__${project.id}.md`);
+        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${newFileName}__${project.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getProjectsFolder()}/${newFileName}__${project.id}.md`);
         await this.renameFile(file, newPath);
         if (this.isAbsolutePath()) {
           const oldMemoPath = (0, import_path.join)(this.getMemosFolder(), `${oldFileName}.md`);
@@ -37394,10 +37394,10 @@ var DataService = class {
             (0, import_fs.renameSync)(oldMemoPath, newMemoPath);
           }
         } else {
-          const oldMemoPath = (0, import_obsidian9.normalizePath)(`${this.getMemosFolder()}/${oldFileName}.md`);
-          const newMemoPath = (0, import_obsidian9.normalizePath)(`${this.getMemosFolder()}/${newFileName}.md`);
+          const oldMemoPath = (0, import_obsidian19.normalizePath)(`${this.getMemosFolder()}/${oldFileName}.md`);
+          const newMemoPath = (0, import_obsidian19.normalizePath)(`${this.getMemosFolder()}/${newFileName}.md`);
           const memoFile = this.app.vault.getAbstractFileByPath(oldMemoPath);
-          if (memoFile instanceof import_obsidian9.TFile) {
+          if (memoFile instanceof import_obsidian19.TFile) {
             await this.app.vault.rename(memoFile, newMemoPath);
           }
         }
@@ -37415,7 +37415,7 @@ var DataService = class {
     if (expectedVersion !== void 0 && project.version !== expectedVersion) {
       throw new ConcurrencyConflictError(`\u9879\u76EE: ${project.name}`, project.version, expectedVersion);
     }
-    const fileName = this.sanitizeFileName(project.name);
+    const fileName = sanitizeFileName(project.name);
     let file = null;
     let memoFile = null;
     if (this.isAbsolutePath()) {
@@ -37441,12 +37441,12 @@ var DataService = class {
         };
       }
     } else {
-      const filePath = (0, import_obsidian9.normalizePath)(`${this.getProjectsFolder()}/${fileName}.md`);
+      const filePath = (0, import_obsidian19.normalizePath)(`${this.getProjectsFolder()}/${fileName}.md`);
       const fallbackFile = this.app.vault.getAbstractFileByPath(filePath);
-      file = (_a = await this.findEntityFileById(this.getProjectsFolder(), this.parseProjectFile, id)) != null ? _a : fallbackFile instanceof import_obsidian9.TFile ? fallbackFile : null;
+      file = (_a = await this.findEntityFileById(this.getProjectsFolder(), this.parseProjectFile, id)) != null ? _a : fallbackFile instanceof import_obsidian19.TFile ? fallbackFile : null;
       const memoPath = this.getProjectMemoPath(project.name);
       const memoFallbackFile = this.app.vault.getAbstractFileByPath(memoPath);
-      memoFile = memoFallbackFile instanceof import_obsidian9.TFile ? memoFallbackFile : null;
+      memoFile = memoFallbackFile instanceof import_obsidian19.TFile ? memoFallbackFile : null;
     }
     if (file) {
       await this.deleteFile(file);
@@ -37473,13 +37473,6 @@ var DataService = class {
     this.cache.set(cacheKey, projects);
     return projects;
   }
-  sanitizeFileName(name) {
-    const reserved = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
-    const cleaned = name.replace(/[\\/:*?"<>|]/g, "_").replace(/\.\.+/g, "_").replace(/\s+/g, " ").trim().replace(/[. ]+$/g, "");
-    const safe = cleaned || "unnamed";
-    const withoutReserved = reserved.test(safe) ? `_${safe}` : safe;
-    return withoutReserved.slice(0, 120);
-  }
   async searchProjects(keyword) {
     const allProjects = await this.getAllProjects();
     const lowerKeyword = keyword.toLowerCase();
@@ -37500,9 +37493,9 @@ var DataService = class {
     return allApps.find((a) => a.id === id) || null;
   }
   getProjectMemoPath(projectName, projectId) {
-    const fileName = this.sanitizeFileName(projectName);
+    const fileName = sanitizeFileName(projectName);
     const targetPath = `${this.getMemosFolder()}/${fileName}.md`;
-    return this.isAbsolutePath() ? targetPath : (0, import_obsidian9.normalizePath)(targetPath);
+    return this.isAbsolutePath() ? targetPath : (0, import_obsidian19.normalizePath)(targetPath);
   }
   async ensureMemoFile(projectName) {
     await this.ensureFolder(this.getMemosFolder());
@@ -37524,9 +37517,9 @@ var DataService = class {
   }
   async upsertAppRecord(record) {
     await this.initializeDataFolders();
-    const fileName = this.sanitizeFileName(record.name);
-    const targetPath = this.isAbsolutePath() ? (0, import_path.join)(this.getAppsFolder(), `${fileName}__${record.id}.md`) : (0, import_obsidian9.normalizePath)(`${this.getAppsFolder()}/${fileName}__${record.id}.md`);
-    const frontmatter = this.createFrontmatter(record);
+    const fileName = sanitizeFileName(record.name);
+    const targetPath = this.isAbsolutePath() ? (0, import_path.join)(this.getAppsFolder(), `${fileName}__${record.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getAppsFolder()}/${fileName}__${record.id}.md`);
+    const frontmatter = createFrontmatter(record);
     const existingFile = await this.findEntityFileById(this.getAppsFolder(), this.parseAppFile, record.id);
     if (existingFile) {
       await this.modifyFile(existingFile, frontmatter);
@@ -37540,10 +37533,10 @@ var DataService = class {
   async upsertVersionRecord(record) {
     await this.initializeDataFolders();
     const app = await this.getAppById(record.appId);
-    const appName = this.sanitizeFileName((app == null ? void 0 : app.name) || "unknown");
-    const versionName = this.sanitizeFileName(record.versionNumber);
-    const targetPath = this.isAbsolutePath() ? (0, import_path.join)(this.getVersionsFolder(), `${appName}_${versionName}__${record.id}.md`) : (0, import_obsidian9.normalizePath)(`${this.getVersionsFolder()}/${appName}_${versionName}__${record.id}.md`);
-    const frontmatter = this.createFrontmatter(record);
+    const appName = sanitizeFileName((app == null ? void 0 : app.name) || "unknown");
+    const versionName = sanitizeFileName(record.versionNumber);
+    const targetPath = this.isAbsolutePath() ? (0, import_path.join)(this.getVersionsFolder(), `${appName}_${versionName}__${record.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getVersionsFolder()}/${appName}_${versionName}__${record.id}.md`);
+    const frontmatter = createFrontmatter(record);
     const existingFile = await this.findEntityFileById(this.getVersionsFolder(), this.parseVersionFile, record.id);
     if (existingFile) {
       await this.modifyFile(existingFile, frontmatter);
@@ -37556,9 +37549,9 @@ var DataService = class {
   }
   async upsertProjectRecord(record) {
     await this.initializeDataFolders();
-    const fileName = this.sanitizeFileName(record.name);
-    const targetPath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${fileName}__${record.id}.md`) : (0, import_obsidian9.normalizePath)(`${this.getProjectsFolder()}/${fileName}__${record.id}.md`);
-    const frontmatter = this.createFrontmatter({
+    const fileName = sanitizeFileName(record.name);
+    const targetPath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${fileName}__${record.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getProjectsFolder()}/${fileName}__${record.id}.md`);
+    const frontmatter = createFrontmatter({
       ...record,
       progressHistory: record.progressHistory.map((h) => `${h.progress}@${h.changedAt}`)
     });
@@ -37605,7 +37598,7 @@ var DataService = class {
     if (data.topic && plans.some((p) => p.topic === data.topic)) {
       throw new Error("Plan topic already exists");
     }
-    const id = this.generateId();
+    const id = generateId();
     const now = Date.now().toString();
     const plan = {
       id,
@@ -37618,7 +37611,7 @@ var DataService = class {
       updatedAt: now,
       version: 1
     };
-    const frontmatter = this.createFrontmatter({
+    const frontmatter = createFrontmatter({
       id: plan.id,
       topic: plan.topic,
       manager: plan.manager,
@@ -37629,8 +37622,8 @@ var DataService = class {
       updatedAt: plan.updatedAt,
       version: plan.version
     });
-    const fileName = this.sanitizeFileName(plan.topic);
-    const filePath = this.isAbsolutePath() ? (0, import_path.join)(this.getPlansFolder(), `${fileName}__${id}.md`) : (0, import_obsidian9.normalizePath)(`${this.getPlansFolder()}/${fileName}__${id}.md`);
+    const fileName = sanitizeFileName(plan.topic);
+    const filePath = this.isAbsolutePath() ? (0, import_path.join)(this.getPlansFolder(), `${fileName}__${id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getPlansFolder()}/${fileName}__${id}.md`);
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate("plans:all");
     return plan;
@@ -37652,8 +37645,8 @@ var DataService = class {
     const oldTopic = plan.topic;
     Object.assign(plan, data, { updatedAt: Date.now().toString() });
     plan.version = ((_a = plan.version) != null ? _a : 1) + 1;
-    const oldFileName = this.sanitizeFileName(oldTopic);
-    const newFileName = this.sanitizeFileName(plan.topic);
+    const oldFileName = sanitizeFileName(oldTopic);
+    const newFileName = sanitizeFileName(plan.topic);
     let file = null;
     if (this.isAbsolutePath()) {
       const files = await this.getMarkdownFiles(this.getPlansFolder());
@@ -37665,13 +37658,13 @@ var DataService = class {
         }
       }
     } else {
-      const oldPath = (0, import_obsidian9.normalizePath)(`${this.getPlansFolder()}/${oldFileName}__${id}.md`);
-      const legacyOldPath = (0, import_obsidian9.normalizePath)(`${this.getPlansFolder()}/${oldFileName}.md`);
+      const oldPath = (0, import_obsidian19.normalizePath)(`${this.getPlansFolder()}/${oldFileName}__${id}.md`);
+      const legacyOldPath = (0, import_obsidian19.normalizePath)(`${this.getPlansFolder()}/${oldFileName}.md`);
       const fallbackFile = (_b = this.app.vault.getAbstractFileByPath(oldPath)) != null ? _b : this.app.vault.getAbstractFileByPath(legacyOldPath);
-      file = (_c = await this.findEntityFileById(this.getPlansFolder(), this.parsePlanFile, id)) != null ? _c : fallbackFile instanceof import_obsidian9.TFile ? fallbackFile : null;
+      file = (_c = await this.findEntityFileById(this.getPlansFolder(), this.parsePlanFile, id)) != null ? _c : fallbackFile instanceof import_obsidian19.TFile ? fallbackFile : null;
     }
     if (file) {
-      const frontmatter = this.createFrontmatter({
+      const frontmatter = createFrontmatter({
         id: plan.id,
         topic: plan.topic,
         manager: plan.manager,
@@ -37684,7 +37677,7 @@ var DataService = class {
       });
       await this.modifyFile(file, frontmatter);
       if (oldFileName !== newFileName) {
-        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getPlansFolder(), `${newFileName}__${plan.id}.md`) : (0, import_obsidian9.normalizePath)(`${this.getPlansFolder()}/${newFileName}__${plan.id}.md`);
+        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getPlansFolder(), `${newFileName}__${plan.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getPlansFolder()}/${newFileName}__${plan.id}.md`);
         await this.renameFile(file, newPath);
       }
     }
@@ -37697,7 +37690,7 @@ var DataService = class {
     const plan = plans.find((p) => p.id === id);
     if (!plan)
       return false;
-    const fileName = this.sanitizeFileName(plan.topic);
+    const fileName = sanitizeFileName(plan.topic);
     let file = null;
     if (this.isAbsolutePath()) {
       const files = await this.getMarkdownFiles(this.getPlansFolder());
@@ -37709,10 +37702,10 @@ var DataService = class {
         }
       }
     } else {
-      const filePath = (0, import_obsidian9.normalizePath)(`${this.getPlansFolder()}/${fileName}__${id}.md`);
-      const legacyFilePath = (0, import_obsidian9.normalizePath)(`${this.getPlansFolder()}/${fileName}.md`);
+      const filePath = (0, import_obsidian19.normalizePath)(`${this.getPlansFolder()}/${fileName}__${id}.md`);
+      const legacyFilePath = (0, import_obsidian19.normalizePath)(`${this.getPlansFolder()}/${fileName}.md`);
       const fallbackFile = (_a = this.app.vault.getAbstractFileByPath(filePath)) != null ? _a : this.app.vault.getAbstractFileByPath(legacyFilePath);
-      file = (_b = await this.findEntityFileById(this.getPlansFolder(), this.parsePlanFile, id)) != null ? _b : fallbackFile instanceof import_obsidian9.TFile ? fallbackFile : null;
+      file = (_b = await this.findEntityFileById(this.getPlansFolder(), this.parsePlanFile, id)) != null ? _b : fallbackFile instanceof import_obsidian19.TFile ? fallbackFile : null;
     }
     if (file) {
       await this.deleteFile(file);
@@ -37723,7 +37716,7 @@ var DataService = class {
 };
 
 // src/services/BackupService.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian20 = require("obsidian");
 var DEFAULT_BACKUP_FOLDER = "app-version-manager/backups";
 var BackupService = class {
   constructor(app, plugin) {
@@ -37733,7 +37726,7 @@ var BackupService = class {
   }
   getBackupFolder() {
     const customPath = this.plugin.settings.backupPath;
-    return customPath ? (0, import_obsidian10.normalizePath)(customPath) : DEFAULT_BACKUP_FOLDER;
+    return customPath ? (0, import_obsidian20.normalizePath)(customPath) : DEFAULT_BACKUP_FOLDER;
   }
   async ensureBackupFolder() {
     const backupFolder = this.getBackupFolder();
@@ -37781,7 +37774,7 @@ var BackupService = class {
     const backupFolder = this.getBackupFolder();
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const backupFileName = `backup-${timestamp}.json`;
-    const backupPath = (0, import_obsidian10.normalizePath)(`${backupFolder}/${backupFileName}`);
+    const backupPath = (0, import_obsidian20.normalizePath)(`${backupFolder}/${backupFileName}`);
     const apps = await this.plugin.dataService.getAllApps();
     const versions = await this.plugin.dataService.getAllVersions();
     const projects = await this.plugin.dataService.getAllProjects();
@@ -37800,9 +37793,9 @@ var BackupService = class {
   async cleanOldBackups() {
     const backupFolder = this.getBackupFolder();
     const folder = this.app.vault.getAbstractFileByPath(backupFolder);
-    if (!(folder instanceof import_obsidian10.TFolder))
+    if (!(folder instanceof import_obsidian20.TFolder))
       return;
-    const backupFiles = folder.children.filter((f) => f instanceof import_obsidian10.TFile && f.extension === "json" && f.name.startsWith("backup-")).sort((a, b) => b.name.localeCompare(a.name));
+    const backupFiles = folder.children.filter((f) => f instanceof import_obsidian20.TFile && f.extension === "json" && f.name.startsWith("backup-")).sort((a, b) => b.name.localeCompare(a.name));
     const maxBackups = 10;
     if (backupFiles.length > maxBackups) {
       for (let i = maxBackups; i < backupFiles.length; i++) {
@@ -37849,7 +37842,7 @@ var BackupService = class {
     };
     try {
       const file = this.app.vault.getAbstractFileByPath(backupPath);
-      if (!(file instanceof import_obsidian10.TFile))
+      if (!(file instanceof import_obsidian20.TFile))
         return false;
       const content = await this.app.vault.read(file);
       const backupData = JSON.parse(content);
@@ -37880,7 +37873,7 @@ var BackupService = class {
   async getBackupList() {
     const backupFolder = this.getBackupFolder();
     const folder = this.app.vault.getAbstractFileByPath(backupFolder);
-    if (!(folder instanceof import_obsidian10.TFolder))
+    if (!(folder instanceof import_obsidian20.TFolder))
       return [];
     return folder.children.filter((f) => f.extension === "json" && f.name.startsWith("backup-")).map((f) => ({
       name: f.name,
@@ -37890,62 +37883,8 @@ var BackupService = class {
   }
 };
 
-// src/main.ts
-var STYLE_ID = "app-version-manager-styles";
-var AppVersionManagerPlugin = class extends import_obsidian11.Plugin {
-  constructor() {
-    super(...arguments);
-    this.saveSettingsQueue = Promise.resolve();
-  }
-  async onload() {
-    await this.loadSettings();
-    this.injectStyles();
-    this.dataService = new DataService(this.app, this);
-    this.backupService = new BackupService(this.app, this);
-    this.registerView(
-      VIEW_TYPE_APP_VERSION_MANAGER,
-      (leaf) => new AppVersionManagerView(leaf, this)
-    );
-    this.addRibbonIcon("layers", "APP Version Manager", () => {
-      this.activateView();
-    });
-    this.addCommand({
-      id: "open-app-version-manager",
-      name: "Open APP Version Manager",
-      callback: () => this.activateView(),
-      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "v" }]
-    });
-    this.addCommand({
-      id: "create-new-version",
-      name: "Create New Version",
-      callback: () => {
-        this.app.workspace.trigger("app-version-manager:create-version");
-      },
-      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "n" }]
-    });
-    this.addCommand({
-      id: "create-new-project",
-      name: "Create New Project",
-      callback: () => {
-        this.app.workspace.trigger("app-version-manager:create-project");
-      },
-      hotkeys: [{ modifiers: ["Mod", "Alt"], key: "n" }]
-    });
-    this.addSettingTab(new AppVersionManagerSettingTab(this.app, this));
-    this.app.workspace.onLayoutReady(() => {
-      this.backupService.scheduleBackup();
-    });
-  }
-  onunload() {
-    var _a, _b;
-    (_b = (_a = this.app.workspace).unregisterViewType) == null ? void 0 : _b.call(_a, VIEW_TYPE_APP_VERSION_MANAGER);
-    this.backupService.clearBackupSchedule();
-    this.removeStyles();
-  }
-  injectStyles() {
-    const styleEl = document.createElement("style");
-    styleEl.id = STYLE_ID;
-    styleEl.textContent = `
+// src/styles.ts
+var STYLES = `
 .app-version-manager {
   display: flex;
   flex-direction: column;
@@ -37995,6 +37934,39 @@ var AppVersionManagerPlugin = class extends import_obsidian11.Plugin {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.avm-filter-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.avm-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.avm-filter-item select,
+.avm-filter-item input {
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 12px;
+}
+
+.avm-filter-item select:focus,
+.avm-filter-item input:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+.avm-filter-item input {
+  min-width: 120px;
 }
 
 .avm-search-input {
@@ -38294,6 +38266,7 @@ var AppVersionManagerPlugin = class extends import_obsidian11.Plugin {
   font-size: 13px;
 }
 
+/* Kanban View */
 .avm-kanban {
   display: flex;
   height: 100%;
@@ -38409,6 +38382,7 @@ var AppVersionManagerPlugin = class extends import_obsidian11.Plugin {
   margin-top: 6px;
 }
 
+/* Table View */
 .avm-table-view {
   height: 100%;
   overflow: auto;
@@ -38493,6 +38467,25 @@ var AppVersionManagerPlugin = class extends import_obsidian11.Plugin {
   background: rgba(239, 68, 68, 0.2);
 }
 
+/* Icon button */
+.avm-btn-icon {
+  padding: 4px 6px !important;
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avm-btn-icon:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-normal);
+}
+
+/* Modal */
 .avm-modal {
   padding: 20px;
 }
@@ -38514,6 +38507,107 @@ var AppVersionManagerPlugin = class extends import_obsidian11.Plugin {
   resize: vertical;
 }
 
+.avm-modal-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* Tab Bar */
+.avm-tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.avm-tab {
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.avm-tab:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.avm-tab.avm-tab-active {
+  color: var(--interactive-accent);
+  background: var(--background-secondary);
+  border-color: var(--background-modifier-border);
+}
+
+/* Loading state */
+.avm-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+/* Error state */
+.avm-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.avm-error button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  cursor: pointer;
+}
+
+/* Import/Export status */
+.avm-export-status,
+.avm-import-status {
+  margin-top: 12px;
+  padding: 8px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Plan action bar */
+.avm-plan-action-bar {
+  display: flex;
+  gap: 4px;
+}
+
+/* Plans table wrapper */
+.avm-plans-wrapper {
+  padding: 12px;
+  height: 100%;
+  overflow: auto;
+}
+
+.avm-plans-table {
+  min-width: 600px;
+}
+
+.avm-plan-error {
+  color: #ef4444;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+/* Dark theme */
 .theme-dark .avm-kanban-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -38523,6 +38617,7 @@ var AppVersionManagerPlugin = class extends import_obsidian11.Plugin {
   background: rgba(239, 68, 68, 0.1);
 }
 
+/* Scrollbar */
 .app-version-manager ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -38541,7 +38636,15 @@ var AppVersionManagerPlugin = class extends import_obsidian11.Plugin {
   background: var(--text-muted);
 }
 
-/* Gantt View */
+.theme-dark .app-version-manager ::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+}
+
+.theme-dark .app-version-manager ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Gantt View (disabled \u2014 preserved for future use) */
 .avm-gantt {
   display: flex;
   flex-direction: column;
@@ -38751,6 +38854,63 @@ var AppVersionManagerPlugin = class extends import_obsidian11.Plugin {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 `;
+
+// src/main.ts
+var STYLE_ID = "app-version-manager-styles";
+var AppVersionManagerPlugin = class extends import_obsidian21.Plugin {
+  constructor() {
+    super(...arguments);
+    this.saveSettingsQueue = Promise.resolve();
+  }
+  async onload() {
+    await this.loadSettings();
+    this.injectStyles();
+    this.dataService = new DataService(this.app, this);
+    this.backupService = new BackupService(this.app, this);
+    this.registerView(
+      VIEW_TYPE_APP_VERSION_MANAGER,
+      (leaf) => new AppVersionManagerView(leaf, this)
+    );
+    this.addRibbonIcon("layers", "APP Version Manager", () => {
+      this.activateView();
+    });
+    this.addCommand({
+      id: "open-app-version-manager",
+      name: "Open APP Version Manager",
+      callback: () => this.activateView(),
+      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "v" }]
+    });
+    this.addCommand({
+      id: "create-new-version",
+      name: "Create New Version",
+      callback: () => {
+        this.app.workspace.trigger("app-version-manager:create-version");
+      },
+      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "n" }]
+    });
+    this.addCommand({
+      id: "create-new-project",
+      name: "Create New Project",
+      callback: () => {
+        this.app.workspace.trigger("app-version-manager:create-project");
+      },
+      hotkeys: [{ modifiers: ["Mod", "Alt"], key: "n" }]
+    });
+    this.addSettingTab(new AppVersionManagerSettingTab(this.app, this));
+    this.app.workspace.onLayoutReady(() => {
+      this.backupService.scheduleBackup();
+    });
+  }
+  onunload() {
+    var _a, _b;
+    (_b = (_a = this.app.workspace).unregisterViewType) == null ? void 0 : _b.call(_a, VIEW_TYPE_APP_VERSION_MANAGER);
+    this.backupService.clearBackupSchedule();
+    this.removeStyles();
+  }
+  injectStyles() {
+    const styleEl = document.createElement("style");
+    styleEl.id = STYLE_ID;
+    styleEl.textContent = STYLES;
     document.head.appendChild(styleEl);
   }
   removeStyles() {
@@ -38792,7 +38952,7 @@ var AppVersionManagerPlugin = class extends import_obsidian11.Plugin {
     }
   }
 };
-var AppVersionManagerSettingTab = class extends import_obsidian11.PluginSettingTab {
+var AppVersionManagerSettingTab = class extends import_obsidian21.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -38800,7 +38960,7 @@ var AppVersionManagerSettingTab = class extends import_obsidian11.PluginSettingT
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian11.Setting(containerEl).setName("\u6570\u636E\u5B58\u50A8\u8DEF\u5F84").setDesc("\u8BBE\u7F6E\u63D2\u4EF6\u6570\u636E\u5B58\u50A8\u7684\u6839\u76EE\u5F55\u8DEF\u5F84\u3002\u652F\u6301\u76F8\u5BF9\u8DEF\u5F84\uFF08\u76F8\u5BF9\u4E8Evault\u6839\u76EE\u5F55\uFF09\u6216\u7EDD\u5BF9\u8DEF\u5F84").addText((text) => text.setPlaceholder("app-version-manager \u6216 C:\\MyData\\app-versions").setValue(this.plugin.settings.dataPath).onChange(async (value) => {
+    new import_obsidian21.Setting(containerEl).setName("\u6570\u636E\u5B58\u50A8\u8DEF\u5F84").setDesc("\u8BBE\u7F6E\u63D2\u4EF6\u6570\u636E\u5B58\u50A8\u7684\u6839\u76EE\u5F55\u8DEF\u5F84\u3002\u652F\u6301\u76F8\u5BF9\u8DEF\u5F84\uFF08\u76F8\u5BF9\u4E8Evault\u6839\u76EE\u5F55\uFF09\u6216\u7EDD\u5BF9\u8DEF\u5F84").addText((text) => text.setPlaceholder("app-version-manager \u6216 C:\\MyData\\app-versions").setValue(this.plugin.settings.dataPath).onChange(async (value) => {
       const newPath = value.trim() || "app-version-manager";
       if (newPath !== this.plugin.settings.dataPath) {
         this.plugin.settings.dataPath = newPath;
@@ -38808,10 +38968,10 @@ var AppVersionManagerSettingTab = class extends import_obsidian11.PluginSettingT
         this.plugin.dataService = new DataService(this.app, this.plugin);
       }
     }));
-    new import_obsidian11.Setting(containerEl).setName("\u6253\u5F00\u6570\u636E\u76EE\u5F55").setDesc("\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u6253\u5F00\u6570\u636E\u5B58\u50A8\u76EE\u5F55").addButton((btn) => btn.setButtonText("\u6253\u5F00\u6570\u636E\u76EE\u5F55").onClick(() => {
+    new import_obsidian21.Setting(containerEl).setName("\u6253\u5F00\u6570\u636E\u76EE\u5F55").setDesc("\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u6253\u5F00\u6570\u636E\u5B58\u50A8\u76EE\u5F55").addButton((btn) => btn.setButtonText("\u6253\u5F00\u6570\u636E\u76EE\u5F55").onClick(() => {
       const dataPath = this.plugin.settings.dataPath;
       if (this.plugin.dataService.isAbsolutePath()) {
-        new import_obsidian11.Notice(`\u6570\u636E\u5B58\u50A8\u8DEF\u5F84: ${dataPath}
+        new import_obsidian21.Notice(`\u6570\u636E\u5B58\u50A8\u8DEF\u5F84: ${dataPath}
 
 \u8BF7\u624B\u52A8\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u6253\u5F00\u6B64\u8DEF\u5F84\u3002`);
       } else {
@@ -38821,14 +38981,14 @@ var AppVersionManagerSettingTab = class extends import_obsidian11.PluginSettingT
           if (typeof appWithShowInFolder.showInFolder === "function") {
             appWithShowInFolder.showInFolder(dataFolder.path);
           } else {
-            new import_obsidian11.Notice("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u6253\u5F00\u7CFB\u7EDF\u6587\u4EF6\u7BA1\u7406\u5668");
+            new import_obsidian21.Notice("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u6253\u5F00\u7CFB\u7EDF\u6587\u4EF6\u7BA1\u7406\u5668");
           }
         } else {
-          new import_obsidian11.Notice("\u6570\u636E\u76EE\u5F55\u5C1A\u672A\u521B\u5EFA\uFF0C\u8BF7\u5148\u521B\u5EFA\u4E00\u4E9B\u6570\u636E\u540E\u518D\u8BD5");
+          new import_obsidian21.Notice("\u6570\u636E\u76EE\u5F55\u5C1A\u672A\u521B\u5EFA\uFF0C\u8BF7\u5148\u521B\u5EFA\u4E00\u4E9B\u6570\u636E\u540E\u518D\u8BD5");
         }
       }
     }));
-    new import_obsidian11.Setting(containerEl).setName("Auto Backup").setDesc("Enable automatic weekly backup").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoBackup).onChange(async (value) => {
+    new import_obsidian21.Setting(containerEl).setName("Auto Backup").setDesc("Enable automatic weekly backup").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoBackup).onChange(async (value) => {
       this.plugin.settings.autoBackup = value;
       await this.plugin.saveSettings();
       if (value) {
@@ -38837,36 +38997,36 @@ var AppVersionManagerSettingTab = class extends import_obsidian11.PluginSettingT
         this.plugin.backupService.clearBackupSchedule();
       }
     }));
-    new import_obsidian11.Setting(containerEl).setName("\u5907\u4EFD\u8DEF\u5F84").setDesc("\u5907\u4EFD\u6587\u4EF6\u5B58\u50A8\u8DEF\u5F84\uFF0C\u4E0D\u586B\u5219\u9ED8\u8BA4\u4E3A\u7B14\u8BB0\u6839\u76EE\u5F55\u4E0B\u7684 app-version-manager/backups \u6587\u4EF6\u5939").addText((text) => text.setPlaceholder("app-version-manager/backups \u6216\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\u8DEF\u5F84").setValue(this.plugin.settings.backupPath).onChange(async (value) => {
+    new import_obsidian21.Setting(containerEl).setName("\u5907\u4EFD\u8DEF\u5F84").setDesc("\u5907\u4EFD\u6587\u4EF6\u5B58\u50A8\u8DEF\u5F84\uFF0C\u4E0D\u586B\u5219\u9ED8\u8BA4\u4E3A\u7B14\u8BB0\u6839\u76EE\u5F55\u4E0B\u7684 app-version-manager/backups \u6587\u4EF6\u5939").addText((text) => text.setPlaceholder("app-version-manager/backups \u6216\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\u8DEF\u5F84").setValue(this.plugin.settings.backupPath).onChange(async (value) => {
       this.plugin.settings.backupPath = value.trim();
       await this.plugin.saveSettings();
     }));
-    new import_obsidian11.Setting(containerEl).setName("\u624B\u52A8\u5907\u4EFD").setDesc("\u7ACB\u5373\u521B\u5EFA\u4E00\u4E2A\u5907\u4EFD\u6587\u4EF6").addButton((btn) => btn.setButtonText("\u7ACB\u5373\u5907\u4EFD").onClick(async () => {
+    new import_obsidian21.Setting(containerEl).setName("\u624B\u52A8\u5907\u4EFD").setDesc("\u7ACB\u5373\u521B\u5EFA\u4E00\u4E2A\u5907\u4EFD\u6587\u4EF6").addButton((btn) => btn.setButtonText("\u7ACB\u5373\u5907\u4EFD").onClick(async () => {
       try {
         const backupPath = await this.plugin.backupService.performBackup();
-        new import_obsidian11.Notice(`\u5907\u4EFD\u6210\u529F\uFF01
+        new import_obsidian21.Notice(`\u5907\u4EFD\u6210\u529F\uFF01
 \u5907\u4EFD\u6587\u4EF6\uFF1A${backupPath}`);
       } catch (error) {
-        new import_obsidian11.Notice(`\u5907\u4EFD\u5931\u8D25\uFF1A${error instanceof Error ? error.message : String(error)}`);
+        new import_obsidian21.Notice(`\u5907\u4EFD\u5931\u8D25\uFF1A${error instanceof Error ? error.message : String(error)}`);
       }
     }));
-    new import_obsidian11.Setting(containerEl).setName("Backup Day").setDesc("Day of week for backup (0=Sunday, 5=Friday)").addSlider((slider) => slider.setLimits(0, 6, 1).setValue(this.plugin.settings.backupDay).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian21.Setting(containerEl).setName("Backup Day").setDesc("Day of week for backup (0=Sunday, 5=Friday)").addSlider((slider) => slider.setLimits(0, 6, 1).setValue(this.plugin.settings.backupDay).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.backupDay = value;
       await this.plugin.saveSettings();
       this.plugin.backupService.scheduleBackup();
     }));
-    new import_obsidian11.Setting(containerEl).setName("Backup Hour").setDesc("Hour of day for backup (0-23)").addSlider((slider) => slider.setLimits(0, 23, 1).setValue(this.plugin.settings.backupHour).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian21.Setting(containerEl).setName("Backup Hour").setDesc("Hour of day for backup (0-23)").addSlider((slider) => slider.setLimits(0, 23, 1).setValue(this.plugin.settings.backupHour).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.backupHour = value;
       await this.plugin.saveSettings();
       this.plugin.backupService.scheduleBackup();
     }));
     containerEl.createEl("h3", { text: "\u5EF6\u671F\u9884\u8B66\u8BBE\u7F6E" });
-    new import_obsidian11.Setting(containerEl).setName("\u9884\u8B66\u5929\u6570").setDesc("\u9879\u76EE\u5728\u622A\u6B62\u65E5\u671F\u524D\u591A\u5C11\u5929\u5185\u663E\u793A\u9884\u8B66\uFF081-14\u5929\uFF09").addSlider((slider) => slider.setLimits(1, 14, 1).setValue(this.plugin.settings.overdueWarningDays).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian21.Setting(containerEl).setName("\u9884\u8B66\u5929\u6570").setDesc("\u9879\u76EE\u5728\u622A\u6B62\u65E5\u671F\u524D\u591A\u5C11\u5929\u5185\u663E\u793A\u9884\u8B66\uFF081-14\u5929\uFF09").addSlider((slider) => slider.setLimits(1, 14, 1).setValue(this.plugin.settings.overdueWarningDays).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.overdueWarningDays = value;
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h3", { text: "\u7518\u7279\u56FE\u8BBE\u7F6E" });
-    new import_obsidian11.Setting(containerEl).setName("\u81EA\u52A8\u5237\u65B0\u95F4\u9694").setDesc("\u7518\u7279\u56FE\u81EA\u52A8\u5237\u65B0\u6570\u636E\u7684\u65F6\u95F4\u95F4\u9694\uFF080=\u5173\u95ED\uFF09").addDropdown((dropdown) => {
+    new import_obsidian21.Setting(containerEl).setName("\u81EA\u52A8\u5237\u65B0\u95F4\u9694").setDesc("\u7518\u7279\u56FE\u81EA\u52A8\u5237\u65B0\u6570\u636E\u7684\u65F6\u95F4\u95F4\u9694\uFF080=\u5173\u95ED\uFF09").addDropdown((dropdown) => {
       dropdown.addOption("0", "\u5173\u95ED");
       dropdown.addOption("1", "1\u5206\u949F");
       dropdown.addOption("2", "2\u5206\u949F");
@@ -38884,7 +39044,7 @@ var AppVersionManagerSettingTab = class extends import_obsidian11.PluginSettingT
     progressDesc.style.fontSize = "13px";
     progressDesc.setText("\u81EA\u5B9A\u4E49\u9879\u76EE\u8FDB\u5EA6\u7684\u5404\u4E2A\u9636\u6BB5\u540D\u79F0\u548C\u989C\u8272\u3002\u9636\u6BB5\u7684\u987A\u5E8F\u5373\u4E3A\u9879\u76EE\u6D41\u7A0B\u7684\u987A\u5E8F\u3002");
     this.renderProgressStagesSettings(containerEl);
-    new import_obsidian11.Setting(containerEl).setName("\u6DFB\u52A0\u65B0\u9636\u6BB5").addButton((btn) => btn.setButtonText("\u6DFB\u52A0\u9636\u6BB5").onClick(async () => {
+    new import_obsidian21.Setting(containerEl).setName("\u6DFB\u52A0\u65B0\u9636\u6BB5").addButton((btn) => btn.setButtonText("\u6DFB\u52A0\u9636\u6BB5").onClick(async () => {
       const stages = this.plugin.settings.progressStages;
       const newColor = this.generateRandomColor();
       stages.push({ name: `\u65B0\u9636\u6BB5${stages.length + 1}`, color: newColor });
@@ -38892,7 +39052,7 @@ var AppVersionManagerSettingTab = class extends import_obsidian11.PluginSettingT
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian11.Setting(containerEl).setName("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u9636\u6BB5").setDesc("\u6062\u590D\u9ED8\u8BA4\u7684\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E").addButton((btn) => btn.setButtonText("\u91CD\u7F6E").setWarning().onClick(async () => {
+    new import_obsidian21.Setting(containerEl).setName("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u9636\u6BB5").setDesc("\u6062\u590D\u9ED8\u8BA4\u7684\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E").addButton((btn) => btn.setButtonText("\u91CD\u7F6E").setWarning().onClick(async () => {
       this.plugin.settings.progressStages = JSON.parse(JSON.stringify(DEFAULT_PROGRESS_STAGES));
       await this.plugin.saveSettings();
       this.display();
@@ -38901,7 +39061,7 @@ var AppVersionManagerSettingTab = class extends import_obsidian11.PluginSettingT
   renderProgressStagesSettings(containerEl) {
     const stages = this.plugin.settings.progressStages;
     stages.forEach((stage, index) => {
-      const setting = new import_obsidian11.Setting(containerEl).setName(`\u9636\u6BB5 ${index + 1}`).setClass("avm-progress-stage-setting");
+      const setting = new import_obsidian21.Setting(containerEl).setName(`\u9636\u6BB5 ${index + 1}`).setClass("avm-progress-stage-setting");
       setting.addText((text) => text.setValue(stage.name).setPlaceholder("\u9636\u6BB5\u540D\u79F0").onChange(async (value) => {
         stages[index].name = value;
         this.plugin.settings.progressStages = stages;
@@ -38937,7 +39097,7 @@ var AppVersionManagerSettingTab = class extends import_obsidian11.PluginSettingT
           await this.plugin.saveSettings();
           this.display();
         } else {
-          new import_obsidian11.Notice("\u81F3\u5C11\u9700\u8981\u4FDD\u7559\u4E00\u4E2A\u9636\u6BB5");
+          new import_obsidian21.Notice("\u81F3\u5C11\u9700\u8981\u4FDD\u7559\u4E00\u4E2A\u9636\u6BB5");
         }
       }));
     });

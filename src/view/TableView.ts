@@ -2,9 +2,11 @@ import { Menu, Modal, App as ObsidianApp, Setting, TFile, normalizePath, Notice 
 import AppVersionManagerPlugin from '../main';
 import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, TEST_STAGES, parseDateInput, getLastProgress, getNextStageInfo } from '../types';
 import { ConfirmModal } from './ConfirmModal';
-import { createSaveButtons, createActionButtons } from './ModalUtils';
+import { createActionButtons } from './ModalUtils';
 import { TestPlanModal } from './TestPlanModal';
+import { EditProjectModal } from './EditProjectModal';
 import { sortProjectsByPriority, isProjectHighlighted, checkOverdue } from '../utils/projectSorting';
+import { openExternalLink, openProjectNote } from '../utils/linkUtils';
 
 interface TableColumn {
   key: string;
@@ -253,7 +255,7 @@ export class TableView {
             link.addEventListener('click', (e) => {
               e.preventDefault();
               e.stopPropagation();
-              this.openExternalLink(project.projectLink);
+              openExternalLink(project.projectLink);
             });
           }
 
@@ -262,7 +264,7 @@ export class TableView {
             link.addEventListener('click', (e) => {
               e.preventDefault();
               e.stopPropagation();
-              this.openExternalLink(project.componentLink);
+              openExternalLink(project.componentLink);
             });
           }
           
@@ -278,51 +280,11 @@ export class TableView {
       this.showRowContextMenu(project, e);
     });
 
-    row.addEventListener('dblclick', (e) => {
+    row.addEventListener('dblclick', async (e) => {
       e.preventDefault();
-      this.openProjectNote(project);
+      const memoPath = await this.plugin.dataService.ensureMemoFile(project.name);
+      await openProjectNote(this.plugin.app, memoPath, this.plugin.dataService.isAbsolutePath());
     });
-  }
-
-  private async openProjectNote(project: Project) {
-    const memoPath = await this.plugin.dataService.ensureMemoFile(project.name);
-
-    let file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
-
-    if (!file && this.plugin.dataService.isAbsolutePath()) {
-      const adapter = (this.plugin.app.vault.adapter as any);
-      const basePath = typeof adapter?.getBasePath === 'function' ? adapter.getBasePath() : undefined;
-      if (basePath) {
-        const normalizedMemoPath = normalizePath(memoPath.replace(/\\/g, '/'));
-        const normalizedBase = normalizePath(basePath.replace(/\\/g, '/'));
-        if (normalizedMemoPath.startsWith(normalizedBase)) {
-          const relativePath = normalizedMemoPath.slice(normalizedBase.length).replace(/^\/+/, '');
-          file = this.plugin.app.vault.getAbstractFileByPath(relativePath);
-        }
-      }
-    }
-
-    if (file instanceof TFile) {
-      const leaf = this.plugin.app.workspace.getLeaf(false);
-      await leaf.openFile(file);
-    } else {
-      const encodedPath = encodeURIComponent(memoPath).replace(/%5C/g, '/');
-      window.open(`file://${encodedPath}`, '_blank');
-    }
-  }
-  
-  private openExternalLink(rawUrl: string) {
-    const normalized = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
-    try {
-      const url = new URL(normalized);
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-        new Notice('仅允许打开 http/https 链接');
-        return;
-      }
-      window.open(url.toString(), '_blank', 'noopener,noreferrer');
-    } catch {
-      new Notice('链接格式无效');
-    }
   }
 
   private checkOverdue(project: Project): boolean {
@@ -393,7 +355,7 @@ export class TableView {
   }
   
   private showEditProjectModal(project: Project) {
-    new TableEditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
@@ -412,129 +374,6 @@ export class TableView {
         new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
-  }
-}
-
-class TableEditProjectModal extends Modal {
-  project: Project;
-  apps: App[];
-  versions: Version[];
-  progressStages: { name: string; color: string }[];
-  onSubmit: (data: Partial<Project>) => void;
-  
-  constructor(
-    app: ObsidianApp, 
-    project: Project, 
-    apps: App[], 
-    versions: Version[], 
-    progressStages: { name: string; color: string }[],
-    onSubmit: (data: Partial<Project>) => void
-  ) {
-    super(app);
-    this.project = project;
-    this.apps = apps;
-    this.versions = versions;
-    this.progressStages = progressStages;
-    this.onSubmit = onSubmit;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '编辑项目' });
-    
-    const data = {
-      name: this.project.name,
-      versionId: this.project.versionId,
-      manager: this.project.manager,
-      projectLink: this.project.projectLink,
-      componentLink: this.project.componentLink,
-      features: this.project.features,
-      spec: this.project.spec,
-      requirements: this.project.requirements,
-      progress: this.project.progress
-    };
-    
-    new Setting(contentEl)
-      .setName('项目名称 *')
-      .addText(text => text
-        .setValue(data.name)
-        .onChange(value => data.name = value));
-    
-    new Setting(contentEl)
-      .setName('所属版本')
-      .addDropdown(dropdown => {
-        this.versions.forEach(version => {
-          dropdown.addOption(version.id, version.versionNumber);
-        });
-        if (data.versionId) {
-          dropdown.setValue(data.versionId);
-        }
-        dropdown.onChange(value => data.versionId = value);
-      });
-    
-    new Setting(contentEl)
-      .setName('项目经理')
-      .addText(text => text
-        .setValue(data.manager)
-        .onChange(value => data.manager = value));
-    
-    new Setting(contentEl)
-      .setName('项目链接')
-      .addText(text => text
-        .setValue(data.projectLink)
-        .onChange(value => data.projectLink = value));
-    
-    new Setting(contentEl)
-      .setName('组件库链接')
-      .addText(text => text
-        .setValue(data.componentLink)
-        .onChange(value => data.componentLink = value));
-    
-    new Setting(contentEl)
-      .setName('项目进度')
-      .addDropdown(dropdown => {
-        const progressOrder = getProgressOrder(this.progressStages);
-        progressOrder.forEach(progress => {
-          dropdown.addOption(progress, progress);
-        });
-        dropdown.setValue(data.progress);
-        dropdown.onChange(value => data.progress = value as ProjectProgress);
-      });
-
-    new Setting(contentEl)
-      .setName('特性')
-      .addTextArea(text => text
-        .setValue(data.features)
-        .onChange(value => data.features = value));
-
-    new Setting(contentEl)
-      .setName('配置组件/规格')
-      .addTextArea(text => text
-        .setValue(data.spec)
-        .onChange(value => data.spec = value));
-
-    new Setting(contentEl)
-      .setName('项目需求')
-      .addTextArea(text => text
-        .setValue(data.requirements)
-        .onChange(value => data.requirements = value));
-    
-    createSaveButtons(
-      contentEl,
-      () => {
-        if (data.name && data.versionId) {
-          this.onSubmit(data);
-          this.close();
-        }
-      },
-      () => this.close()
-    );
-  }
-  
-  onClose() {
-    this.contentEl.empty();
   }
 }
 

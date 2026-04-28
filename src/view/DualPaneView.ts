@@ -4,7 +4,9 @@ import { Version, Project, ProjectProgress, getProgressOrder, getProgressColors,
 import { ConfirmModal } from './ConfirmModal';
 import { createSaveButtons, createActionButtons } from './ModalUtils';
 import { TestPlanModal } from './TestPlanModal';
+import { EditProjectModal } from './EditProjectModal';
 import { sortProjectsByPriority, isProjectHighlighted, checkOverdue, calculateOverdueStats } from '../utils/projectSorting';
+import { openExternalLink, openProjectNote } from '../utils/linkUtils';
 
 export class DualPaneView {
   containerEl: HTMLElement;
@@ -292,7 +294,7 @@ export class DualPaneView {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this.openExternalLink(project.projectLink);
+        openExternalLink(project.projectLink);
       });
     }
 
@@ -301,7 +303,7 @@ export class DualPaneView {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this.openExternalLink(project.componentLink);
+        openExternalLink(project.componentLink);
       });
     }
     
@@ -317,38 +319,11 @@ export class DualPaneView {
       this.showProjectContextMenu(project, e);
     });
 
-    item.addEventListener('dblclick', (e) => {
+    item.addEventListener('dblclick', async (e) => {
       e.preventDefault();
-      this.openProjectNote(project);
+      const memoPath = await this.plugin.dataService.ensureMemoFile(project.name);
+      await openProjectNote(this.plugin.app, memoPath, this.plugin.dataService.isAbsolutePath());
     });
-  }
-
-  private async openProjectNote(project: Project) {
-    const memoPath = await this.plugin.dataService.ensureMemoFile(project.name);
-    
-    // 无论是否为绝对路径，都尝试在 Obsidian 中打开
-    const file = this.plugin.app.vault.getAbstractFileByPath(memoPath);
-    if (file instanceof TFile) {
-      const leaf = this.plugin.app.workspace.getLeaf(false);
-      await leaf.openFile(file);
-    } else {
-      // 如果文件不在 vault 内，使用外部打开
-      window.open(`file://${memoPath}`, '_blank');
-    }
-  }
-  
-  private openExternalLink(rawUrl: string) {
-    const normalized = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
-    try {
-      const url = new URL(normalized);
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-        new Notice('仅允许打开 http/https 链接');
-        return;
-      }
-      window.open(url.toString(), '_blank', 'noopener,noreferrer');
-    } catch {
-      new Notice('链接格式无效');
-    }
   }
 
   private checkOverdue(project: Project): boolean {
@@ -475,128 +450,6 @@ class EditVersionModal extends Modal {
       contentEl,
       () => {
         if (data.versionNumber && data.bllVersion && data.ippVersion && data.webVersion) {
-          this.onSubmit(data);
-          this.close();
-        }
-      },
-      () => this.close()
-    );
-  }
-  
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-class EditProjectModal extends Modal {
-  project: Project;
-  onSubmit: (data: Partial<Project>) => void;
-  apps: App[];
-  versions: Version[];
-  progressStages: { name: string; color: string }[];
-  
-  constructor(
-    app: ObsidianApp, 
-    project: Project, 
-    apps: App[], 
-    versions: Version[], 
-    progressStages: { name: string; color: string }[],
-    onSubmit: (data: Partial<Project>) => void
-  ) {
-    super(app);
-    this.project = project;
-    this.apps = apps;
-    this.versions = versions;
-    this.progressStages = progressStages;
-    this.onSubmit = onSubmit;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '编辑项目' });
-    
-    const data = {
-      name: this.project.name,
-      versionId: this.project.versionId,
-      manager: this.project.manager,
-      projectLink: this.project.projectLink,
-      componentLink: this.project.componentLink,
-      features: this.project.features,
-      spec: this.project.spec,
-      requirements: this.project.requirements,
-      progress: this.project.progress
-    };
-    
-    new Setting(contentEl)
-      .setName('项目名称 *')
-      .addText(text => text
-        .setValue(data.name)
-        .onChange(value => data.name = value));
-    
-    new Setting(contentEl)
-      .setName('所属版本')
-      .addDropdown(dropdown => {
-        this.versions.forEach(version => {
-          dropdown.addOption(version.id, version.versionNumber);
-        });
-        if (data.versionId) {
-          dropdown.setValue(data.versionId);
-        }
-        dropdown.onChange(value => data.versionId = value);
-      });
-    
-    new Setting(contentEl)
-      .setName('项目经理')
-      .addText(text => text
-        .setValue(data.manager)
-        .onChange(value => data.manager = value));
-    
-    new Setting(contentEl)
-      .setName('项目链接')
-      .addText(text => text
-        .setValue(data.projectLink)
-        .onChange(value => data.projectLink = value));
-    
-    new Setting(contentEl)
-      .setName('组件库链接')
-      .addText(text => text
-        .setValue(data.componentLink)
-        .onChange(value => data.componentLink = value));
-    
-    new Setting(contentEl)
-      .setName('项目进度')
-      .addDropdown(dropdown => {
-        const progressOrder = getProgressOrder(this.progressStages);
-        progressOrder.forEach(progress => {
-          dropdown.addOption(progress, progress);
-        });
-        dropdown.setValue(data.progress);
-        dropdown.onChange(value => data.progress = value as ProjectProgress);
-      });
-
-    new Setting(contentEl)
-      .setName('特性')
-      .addTextArea(text => text
-        .setValue(data.features)
-        .onChange(value => data.features = value));
-
-    new Setting(contentEl)
-      .setName('配置组件/规格')
-      .addTextArea(text => text
-        .setValue(data.spec)
-        .onChange(value => data.spec = value));
-
-    new Setting(contentEl)
-      .setName('项目需求')
-      .addTextArea(text => text
-        .setValue(data.requirements)
-        .onChange(value => data.requirements = value));
-    
-    createSaveButtons(
-      contentEl,
-      () => {
-        if (data.name && data.versionId) {
           this.onSubmit(data);
           this.close();
         }

@@ -2,7 +2,8 @@ import { Menu, Modal, App as ObsidianApp, Setting, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, getNextStageInfo, getLastProgress } from '../types';
 import { ConfirmModal } from './ConfirmModal';
-import { createSaveButtons, createActionButtons } from './ModalUtils';
+import { createActionButtons } from './ModalUtils';
+import { EditProjectModal } from './EditProjectModal';
 import { sortProjectsByPriority, isProjectHighlighted, checkOverdue } from '../utils/projectSorting';
 
 export class KanbanView {
@@ -198,150 +199,27 @@ export class KanbanView {
   }
   
   private showEditProjectModal(project: Project) {
-    new KanbanEditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();
       } catch (error) {
-        new Notice(error?.message || String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
+    }, {
+      versionLabelFn: (v, app) => app ? `${app.name} - ${v.versionNumber}` : v.versionNumber
     }).open();
   }
-  
+
   private showProgressChangeModal(project: Project) {
     new ProgressChangeModal(this.plugin.app, project, this.plugin.settings.progressStages, async (newProgress) => {
       try {
         await this.plugin.dataService.updateProject(project.id, { progress: newProgress }, project.version);
         this.onRefresh();
       } catch (error) {
-        new Notice(error?.message || String(error));
+        new Notice(error instanceof Error ? error.message : String(error));
       }
     }).open();
-  }
-}
-
-class KanbanEditProjectModal extends Modal {
-  project: Project;
-  apps: App[];
-  versions: Version[];
-  progressStages: { name: string; color: string }[];
-  onSubmit: (data: Partial<Project>) => void;
-  
-  constructor(
-    app: ObsidianApp, 
-    project: Project, 
-    apps: App[], 
-    versions: Version[], 
-    progressStages: { name: string; color: string }[],
-    onSubmit: (data: Partial<Project>) => void
-  ) {
-    super(app);
-    this.project = project;
-    this.apps = apps;
-    this.versions = versions;
-    this.progressStages = progressStages;
-    this.onSubmit = onSubmit;
-  }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('avm-modal');
-    
-    contentEl.createEl('h2', { text: '编辑项目' });
-    
-    const data = {
-      name: this.project.name,
-      versionId: this.project.versionId,
-      manager: this.project.manager,
-      projectLink: this.project.projectLink,
-      componentLink: this.project.componentLink,
-      features: this.project.features,
-      spec: this.project.spec,
-      requirements: this.project.requirements,
-      progress: this.project.progress
-    };
-    
-    new Setting(contentEl)
-      .setName('项目名称 *')
-      .addText(text => text
-        .setValue(data.name)
-        .onChange(value => data.name = value));
-    
-    new Setting(contentEl)
-      .setName('所属版本')
-      .addDropdown(dropdown => {
-        this.versions.forEach(version => {
-          const app = this.apps.find(a => a.id === version.appId);
-          const label = app ? `${app.name} - ${version.versionNumber}` : version.versionNumber;
-          dropdown.addOption(version.id, label);
-        });
-        if (data.versionId) {
-          dropdown.setValue(data.versionId);
-        }
-        dropdown.onChange(value => data.versionId = value);
-      });
-    
-    new Setting(contentEl)
-      .setName('项目经理')
-      .addText(text => text
-        .setValue(data.manager)
-        .onChange(value => data.manager = value));
-    
-    new Setting(contentEl)
-      .setName('项目链接')
-      .addText(text => text
-        .setValue(data.projectLink)
-        .onChange(value => data.projectLink = value));
-    
-    new Setting(contentEl)
-      .setName('组件库链接')
-      .addText(text => text
-        .setValue(data.componentLink)
-        .onChange(value => data.componentLink = value));
-    
-    new Setting(contentEl)
-      .setName('项目进度')
-      .addDropdown(dropdown => {
-        const progressOrder = getProgressOrder(this.progressStages);
-        progressOrder.forEach(progress => {
-          dropdown.addOption(progress, progress);
-        });
-        dropdown.setValue(data.progress);
-        dropdown.onChange(value => data.progress = value as ProjectProgress);
-      });
-
-    new Setting(contentEl)
-      .setName('特性')
-      .addTextArea(text => text
-        .setValue(data.features)
-        .onChange(value => data.features = value));
-
-    new Setting(contentEl)
-      .setName('配置组件/规格')
-      .addTextArea(text => text
-        .setValue(data.spec)
-        .onChange(value => data.spec = value));
-
-    new Setting(contentEl)
-      .setName('项目需求')
-      .addTextArea(text => text
-        .setValue(data.requirements)
-        .onChange(value => data.requirements = value));
-
-    createSaveButtons(
-      contentEl,
-      () => {
-        if (data.name && data.versionId) {
-          this.onSubmit(data);
-          this.close();
-        }
-      },
-      () => this.close()
-    );
-  }
-  
-  onClose() {
-    this.contentEl.empty();
   }
 }
 
