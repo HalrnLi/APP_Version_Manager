@@ -2,12 +2,18 @@ import { Menu, App as ObsidianApp } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { Project, Version, ProjectProgress, getProgressOrder, App, TEST_STAGES, getNextStageInfo } from '../types';
 
-interface GanttBar {
+interface TestDateMarker {
+  date: Date;
+  label: string;
+  color: string;
+  index: number;
+}
+
+interface ProjectBar {
   project: Project;
-  stage: string;
-  stageLabel: string;
   startDate: Date;
-  endDate: Date | null;
+  endDate: Date;
+  markers: TestDateMarker[];
   color: string;
 }
 
@@ -51,7 +57,7 @@ export class GanttView {
     this.timelineStart.setDate(now.getDate() - 3);
 
     this.timelineEnd = new Date(now);
-    this.timelineEnd.setDate(now.getDate() + 60);
+    this.timelineEnd.setDate(now.getDate() + 15);
   }
 
   private getProjectVersion(versionId: string): Version | undefined {
@@ -167,9 +173,28 @@ export class GanttView {
     });
   }
 
+  private hasTestDateInRange(project: Project): boolean {
+    for (const stage of TEST_STAGES) {
+      const timeStr = (project as unknown as Record<string, string>)[stage.key];
+      if (!timeStr) continue;
+
+      const [year, month, day] = timeStr.split('-').map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) continue;
+      const testDate = new Date(year, month - 1, day);
+      if (isNaN(testDate.getTime())) continue;
+      testDate.setHours(0, 0, 0, 0);
+
+      if (testDate >= this.timelineStart && testDate <= this.timelineEnd) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private sortProjectsByNextStage(): Project[] {
     return [...this.projects]
       .filter(p => p.progress !== '已发布')
+      .filter(p => this.hasTestDateInRange(p))
       .sort((a, b) => {
         const nextA = getNextStageInfo(a);
         const nextB = getNextStageInfo(b);
@@ -203,12 +228,12 @@ export class GanttView {
       cellsContainer.createDiv({ cls: 'avm-gantt-time-cell' });
     }
 
-    // 获取该项目的所有测试阶段时间
-    const bars = this.getProjectGanttBars(project);
+    // 获取该项目的单一甘特条（包含所有测试日期标记）
+    const bar = this.getProjectBar(project);
 
-    bars.forEach(bar => {
-      this.renderBar(cellsContainer, bar, days);
-    });
+    if (bar) {
+      this.renderProjectBar(cellsContainer, bar, days);
+    }
   }
 
   // 阶段颜色数组，相邻阶段颜色不同
@@ -223,55 +248,64 @@ export class GanttView {
     '#34d399', // 浅翠绿 - B4系统
   ];
 
-  private getProjectGanttBars(project: Project): GanttBar[] {
-    const bars: GanttBar[] = [];
+  private getProjectBar(project: Project): ProjectBar | null {
+    const markers: TestDateMarker[] = [];
+    let earliestDate: Date | null = null;
+    let latestDate: Date | null = null;
 
     TEST_STAGES.forEach((stage, index) => {
       const timeStr = (project as unknown as Record<string, string>)[stage.key];
       if (!timeStr) return;
 
-      // 手动解析日期字符串
       const [year, month, day] = timeStr.split('-').map(Number);
       if (isNaN(year) || isNaN(month) || isNaN(day)) return;
-      const startDate = new Date(year, month - 1, day);
-      if (isNaN(startDate.getTime())) return;
-      startDate.setHours(0, 0, 0, 0);
+      const testDate = new Date(year, month - 1, day);
+      if (isNaN(testDate.getTime())) return;
+      testDate.setHours(0, 0, 0, 0);
 
-      // 确定结束日期
-      let endDate: Date | null = null;
-      for (let j = index + 1; j < TEST_STAGES.length; j++) {
-        const nextTimeStr = (project as unknown as Record<string, string>)[TEST_STAGES[j].key];
-        if (nextTimeStr) {
-          const [y, m, d] = nextTimeStr.split('-').map(Number);
-          if (isNaN(y) || isNaN(m) || isNaN(d)) continue;
-          endDate = new Date(y, m - 1, d);
-          if (isNaN(endDate.getTime())) continue;
-          endDate.setHours(0, 0, 0, 0);
-          break;
-        }
+      // 只记录在可见范围内的测试日期
+      if (testDate >= this.timelineStart && testDate <= this.timelineEnd) {
+        markers.push({
+          date: testDate,
+          label: stage.label,
+          color: this.stageColors[index] || '#64748b',
+          index: this.getIndexFromDate(testDate)
+        });
       }
 
-      if (!endDate) {
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 7);
+      // 跟踪最早和最晚日期（用于确定条形图范围，不限于可见范围）
+      if (!earliestDate || testDate < earliestDate) {
+        earliestDate = testDate;
       }
-
-      bars.push({
-        project,
-        stage: stage.key,
-        stageLabel: stage.label,
-        startDate,
-        endDate,
-        color: this.stageColors[index] || '#64748b'
-      });
+      if (!latestDate || testDate > latestDate) {
+        latestDate = testDate;
+      }
     });
 
-    return bars;
+    if (markers.length === 0) {
+      return null;
+    }
+
+    // 默认持续7天如果只有一个日期
+    const effectiveEarliest = earliestDate!;
+    const effectiveLatest = latestDate!;
+    if (effectiveEarliest.getTime() === effectiveLatest.getTime()) {
+      latestDate = new Date(effectiveEarliest);
+      latestDate.setDate(latestDate.getDate() + 7);
+    }
+
+    return {
+      project,
+      startDate: effectiveEarliest,
+      endDate: latestDate!,
+      markers,
+      color: '#6366f1'
+    };
   }
 
-  private renderBar(container: HTMLElement, bar: GanttBar, totalDays: number) {
+  private renderProjectBar(container: HTMLElement, bar: ProjectBar, totalDays: number) {
     const startIndex = this.getIndexFromDate(bar.startDate);
-    const endIndex = this.getIndexFromDate(bar.endDate!);
+    const endIndex = this.getIndexFromDate(bar.endDate);
 
     // 只渲染可见范围内的部分
     const visibleStartIndex = Math.max(0, startIndex);
@@ -284,26 +318,41 @@ export class GanttView {
 
     const spanCells = visibleEndIndex - visibleStartIndex + 1;
 
-    // 创建时间条，绝对定位
-    const barEl = container.createDiv({ cls: 'avm-gantt-bar' });
+    // 创建单一时间条
+    const barEl = container.createDiv({ cls: 'avm-gantt-project-bar' });
     barEl.style.left = `${visibleStartIndex * this.cellWidth}px`;
     barEl.style.width = `${spanCells * this.cellWidth - 4}px`;
     barEl.style.backgroundColor = bar.color;
+    barEl.style.height = '28px';
+    barEl.style.top = '10px';
+    barEl.style.borderRadius = '4px';
 
-    // 标签
-    barEl.createDiv({ cls: 'avm-gantt-bar-label', text: bar.stageLabel });
+    // 在条形上渲染每个测试日期的菱形标记
+    bar.markers.forEach(marker => {
+      const markerIndex = this.getIndexFromDate(marker.date);
+      // 只渲染在可见范围内的标记
+      if (markerIndex >= visibleStartIndex && markerIndex <= visibleEndIndex) {
+        const markerEl = barEl.createDiv({ cls: 'avm-gantt-marker' });
+        const relativePos = (markerIndex - visibleStartIndex) / spanCells;
+        markerEl.style.left = `${relativePos * 100}%`;
+        markerEl.style.transform = 'translateX(-50%) translateY(-50%) rotate(45deg)';
+        markerEl.style.backgroundColor = marker.color;
+        markerEl.setAttribute('title', `${bar.project.name} - ${marker.label}\n${this.formatDate(marker.date)}`);
+      }
+    });
 
     // tooltip
-    barEl.setAttribute('title', `${bar.project.name} - ${bar.stageLabel}\n${this.formatDate(bar.startDate)} ~ ${this.formatDate(bar.endDate!)}`);
+    const markerDates = bar.markers.map(m => `${m.label}: ${this.formatDate(m.date)}`).join('\n');
+    barEl.setAttribute('title', `${bar.project.name}\n${markerDates}`);
 
     // 右键菜单
     barEl.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      this.showBarContextMenu(bar, e);
+      this.showProjectBarContextMenu(bar, e);
     });
   }
 
-  private showBarContextMenu(bar: GanttBar, event: MouseEvent) {
+  private showProjectBarContextMenu(bar: ProjectBar, event: MouseEvent) {
     const menu = new Menu();
 
     menu.addItem(item => item

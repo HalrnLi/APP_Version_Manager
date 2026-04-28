@@ -704,7 +704,7 @@ export default class AppVersionManagerPlugin extends Plugin {
 
 .avm-gantt-timeline-container {
   flex: 1;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -841,6 +841,30 @@ export default class AppVersionManagerPlugin extends Plugin {
 
 .theme-dark .avm-gantt-day-cell.avm-gantt-today {
   background: rgba(99, 102, 241, 0.3);
+}
+
+.avm-gantt-project-bar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  overflow: visible;
+}
+
+.avm-gantt-project-bar:hover {
+  opacity: 0.85;
+}
+
+.avm-gantt-marker {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  top: 50%;
+  border-radius: 2px;
+  transform: translateX(-50%) translateY(-50%) rotate(45deg);
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 `;
     document.head.appendChild(styleEl);

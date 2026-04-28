@@ -35290,7 +35290,7 @@ var GanttView = class {
     this.timelineStart = new Date(now);
     this.timelineStart.setDate(now.getDate() - 3);
     this.timelineEnd = new Date(now);
-    this.timelineEnd.setDate(now.getDate() + 60);
+    this.timelineEnd.setDate(now.getDate() + 15);
   }
   getProjectVersion(versionId) {
     return this.versions.find((v) => v.id === versionId);
@@ -35368,8 +35368,26 @@ var GanttView = class {
       this.renderProjectRow(project, sidebar, timelineContainer);
     });
   }
+  hasTestDateInRange(project) {
+    for (const stage of TEST_STAGES) {
+      const timeStr = project[stage.key];
+      if (!timeStr)
+        continue;
+      const [year, month, day] = timeStr.split("-").map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day))
+        continue;
+      const testDate = new Date(year, month - 1, day);
+      if (isNaN(testDate.getTime()))
+        continue;
+      testDate.setHours(0, 0, 0, 0);
+      if (testDate >= this.timelineStart && testDate <= this.timelineEnd) {
+        return true;
+      }
+    }
+    return false;
+  }
   sortProjectsByNextStage() {
-    return [...this.projects].filter((p) => p.progress !== "\u5DF2\u53D1\u5E03").sort((a, b) => {
+    return [...this.projects].filter((p) => p.progress !== "\u5DF2\u53D1\u5E03").filter((p) => this.hasTestDateInRange(p)).sort((a, b) => {
       const nextA = getNextStageInfo(a);
       const nextB = getNextStageInfo(b);
       if (!nextA.time && !nextB.time)
@@ -35394,13 +35412,15 @@ var GanttView = class {
     for (let i = 0; i < days2; i++) {
       cellsContainer.createDiv({ cls: "avm-gantt-time-cell" });
     }
-    const bars = this.getProjectGanttBars(project);
-    bars.forEach((bar) => {
-      this.renderBar(cellsContainer, bar, days2);
-    });
+    const bar = this.getProjectBar(project);
+    if (bar) {
+      this.renderProjectBar(cellsContainer, bar, days2);
+    }
   }
-  getProjectGanttBars(project) {
-    const bars = [];
+  getProjectBar(project) {
+    const markers = [];
+    let earliestDate = null;
+    let latestDate = null;
     TEST_STAGES.forEach((stage, index) => {
       const timeStr = project[stage.key];
       if (!timeStr)
@@ -35408,40 +35428,43 @@ var GanttView = class {
       const [year, month, day] = timeStr.split("-").map(Number);
       if (isNaN(year) || isNaN(month) || isNaN(day))
         return;
-      const startDate = new Date(year, month - 1, day);
-      if (isNaN(startDate.getTime()))
+      const testDate = new Date(year, month - 1, day);
+      if (isNaN(testDate.getTime()))
         return;
-      startDate.setHours(0, 0, 0, 0);
-      let endDate = null;
-      for (let j = index + 1; j < TEST_STAGES.length; j++) {
-        const nextTimeStr = project[TEST_STAGES[j].key];
-        if (nextTimeStr) {
-          const [y, m, d] = nextTimeStr.split("-").map(Number);
-          if (isNaN(y) || isNaN(m) || isNaN(d))
-            continue;
-          endDate = new Date(y, m - 1, d);
-          if (isNaN(endDate.getTime()))
-            continue;
-          endDate.setHours(0, 0, 0, 0);
-          break;
-        }
+      testDate.setHours(0, 0, 0, 0);
+      if (testDate >= this.timelineStart && testDate <= this.timelineEnd) {
+        markers.push({
+          date: testDate,
+          label: stage.label,
+          color: this.stageColors[index] || "#64748b",
+          index: this.getIndexFromDate(testDate)
+        });
       }
-      if (!endDate) {
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 7);
+      if (!earliestDate || testDate < earliestDate) {
+        earliestDate = testDate;
       }
-      bars.push({
-        project,
-        stage: stage.key,
-        stageLabel: stage.label,
-        startDate,
-        endDate,
-        color: this.stageColors[index] || "#64748b"
-      });
+      if (!latestDate || testDate > latestDate) {
+        latestDate = testDate;
+      }
     });
-    return bars;
+    if (markers.length === 0) {
+      return null;
+    }
+    const effectiveEarliest = earliestDate;
+    const effectiveLatest = latestDate;
+    if (effectiveEarliest.getTime() === effectiveLatest.getTime()) {
+      latestDate = new Date(effectiveEarliest);
+      latestDate.setDate(latestDate.getDate() + 7);
+    }
+    return {
+      project,
+      startDate: effectiveEarliest,
+      endDate: latestDate,
+      markers,
+      color: "#6366f1"
+    };
   }
-  renderBar(container, bar, totalDays) {
+  renderProjectBar(container, bar, totalDays) {
     const startIndex = this.getIndexFromDate(bar.startDate);
     const endIndex = this.getIndexFromDate(bar.endDate);
     const visibleStartIndex = Math.max(0, startIndex);
@@ -35450,19 +35473,34 @@ var GanttView = class {
       return;
     }
     const spanCells = visibleEndIndex - visibleStartIndex + 1;
-    const barEl = container.createDiv({ cls: "avm-gantt-bar" });
+    const barEl = container.createDiv({ cls: "avm-gantt-project-bar" });
     barEl.style.left = `${visibleStartIndex * this.cellWidth}px`;
     barEl.style.width = `${spanCells * this.cellWidth - 4}px`;
     barEl.style.backgroundColor = bar.color;
-    barEl.createDiv({ cls: "avm-gantt-bar-label", text: bar.stageLabel });
-    barEl.setAttribute("title", `${bar.project.name} - ${bar.stageLabel}
-${this.formatDate(bar.startDate)} ~ ${this.formatDate(bar.endDate)}`);
+    barEl.style.height = "28px";
+    barEl.style.top = "10px";
+    barEl.style.borderRadius = "4px";
+    bar.markers.forEach((marker) => {
+      const markerIndex = this.getIndexFromDate(marker.date);
+      if (markerIndex >= visibleStartIndex && markerIndex <= visibleEndIndex) {
+        const markerEl = barEl.createDiv({ cls: "avm-gantt-marker" });
+        const relativePos = (markerIndex - visibleStartIndex) / spanCells;
+        markerEl.style.left = `${relativePos * 100}%`;
+        markerEl.style.transform = "translateX(-50%) translateY(-50%) rotate(45deg)";
+        markerEl.style.backgroundColor = marker.color;
+        markerEl.setAttribute("title", `${bar.project.name} - ${marker.label}
+${this.formatDate(marker.date)}`);
+      }
+    });
+    const markerDates = bar.markers.map((m) => `${m.label}: ${this.formatDate(m.date)}`).join("\n");
+    barEl.setAttribute("title", `${bar.project.name}
+${markerDates}`);
     barEl.addEventListener("contextmenu", (e) => {
       e.preventDefault();
-      this.showBarContextMenu(bar, e);
+      this.showProjectBarContextMenu(bar, e);
     });
   }
-  showBarContextMenu(bar, event) {
+  showProjectBarContextMenu(bar, event) {
     const menu = new import_obsidian7.Menu();
     menu.addItem((item) => item.setTitle(bar.project.name).setIcon("document").onClick(() => {
     }));
@@ -38815,7 +38853,7 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
 
 .avm-gantt-timeline-container {
   flex: 1;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -38952,6 +38990,30 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
 
 .theme-dark .avm-gantt-day-cell.avm-gantt-today {
   background: rgba(99, 102, 241, 0.3);
+}
+
+.avm-gantt-project-bar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  overflow: visible;
+}
+
+.avm-gantt-project-bar:hover {
+  opacity: 0.85;
+}
+
+.avm-gantt-marker {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  top: 50%;
+  border-radius: 2px;
+  transform: translateX(-50%) translateY(-50%) rotate(45deg);
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 `;
     document.head.appendChild(styleEl);
