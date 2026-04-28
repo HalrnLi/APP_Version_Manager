@@ -10,6 +10,12 @@ interface TableColumn {
   key: string;
   label: string;
   width: string;
+  sortable?: boolean;
+}
+
+interface SortState {
+  column: string | null;
+  direction: 'asc' | 'desc';
 }
 
 export class TableView {
@@ -19,6 +25,7 @@ export class TableView {
   versions: Version[];
   apps: App[];
   onRefresh: () => void;
+  private sortState: SortState = { column: null, direction: 'asc' };
   
   constructor(
     containerEl: HTMLElement,
@@ -39,7 +46,84 @@ export class TableView {
   }
   
   private applySorting(projects: Project[]): Project[] {
-    return sortProjectsByPriority(projects, this.plugin.settings.progressStages);
+    if (!this.sortState.column) {
+      return sortProjectsByPriority(projects, this.plugin.settings.progressStages);
+    }
+
+    const { column, direction } = this.sortState;
+    const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
+    const sign = direction === 'desc' ? -1 : 1;
+
+    const sorted = [...projects].sort((a, b) => {
+      let cmp = 0;
+
+      switch (column) {
+        case 'versionNumber': {
+          const versionA = this.versions.find(v => v.id === a.versionId);
+          const versionB = this.versions.find(v => v.id === b.versionId);
+          const aStr = versionA?.versionNumber || '';
+          const bStr = versionB?.versionNumber || '';
+          if (aStr === '' && bStr === '') break;
+          if (aStr === '') return 1;
+          if (bStr === '') return -1;
+          cmp = aStr.localeCompare(bStr);
+          break;
+        }
+        case 'manager': {
+          const aStr = a.manager || '';
+          const bStr = b.manager || '';
+          if (aStr === '' && bStr === '') break;
+          if (aStr === '') return 1;
+          if (bStr === '') return -1;
+          cmp = aStr.localeCompare(bStr);
+          break;
+        }
+        case 'features': {
+          const aStr = a.features || '';
+          const bStr = b.features || '';
+          if (aStr === '' && bStr === '') break;
+          if (aStr === '') return 1;
+          if (bStr === '') return -1;
+          cmp = aStr.localeCompare(bStr);
+          break;
+        }
+        case 'progress': {
+          const aIdx = progressOrder.indexOf(a.progress);
+          const bIdx = progressOrder.indexOf(b.progress);
+          cmp = aIdx - bIdx;
+          break;
+        }
+        case 'nextStageTime': {
+          const infoA = getNextStageInfo(a);
+          const infoB = getNextStageInfo(b);
+          const timeA = infoA.time ? new Date(infoA.time).getTime() : null;
+          const timeB = infoB.time ? new Date(infoB.time).getTime() : null;
+          if (timeA === null && timeB === null) break;
+          if (timeA === null) return 1;
+          if (timeB === null) return -1;
+          cmp = timeA - timeB;
+          break;
+        }
+        default:
+          return 0;
+      }
+
+      return cmp * sign;
+    });
+
+    return sorted;
+  }
+
+  private toggleSort(column: string) {
+    if (this.sortState.column === column) {
+      this.sortState = {
+        column,
+        direction: this.sortState.direction === 'asc' ? 'desc' : 'asc'
+      };
+    } else {
+      this.sortState = { column, direction: 'asc' };
+    }
+    this.render();
   }
   
   private render() {
@@ -52,21 +136,35 @@ export class TableView {
     const thead = table.createEl('thead');
     const headerRow = thead.createEl('tr');
     
-    const columns = [
+    const columns: TableColumn[] = [
       { key: 'name', label: '项目名称', width: '150px' },
-      { key: 'versionNumber', label: '版本号', width: '100px' },
-      { key: 'manager', label: '项目经理', width: '100px' },
-      { key: 'features', label: '特性', width: '150px' },
+      { key: 'versionNumber', label: '版本号', width: '100px', sortable: true },
+      { key: 'manager', label: '项目经理', width: '100px', sortable: true },
+      { key: 'features', label: '特性', width: '150px', sortable: true },
       { key: 'spec', label: '配置组件/规格', width: '150px' },
-      { key: 'progress', label: '进度', width: '120px' },
+      { key: 'progress', label: '进度', width: '120px', sortable: true },
       { key: 'nextStage', label: '下一阶段', width: '120px' },
-      { key: 'nextStageTime', label: '下一阶段时间', width: '120px' },
+      { key: 'nextStageTime', label: '下一阶段时间', width: '120px', sortable: true },
       { key: 'links', label: '链接', width: '120px' }
     ];
-    
+
     columns.forEach(col => {
-      const th = headerRow.createEl('th', { text: col.label });
+      const th = headerRow.createEl('th');
       th.style.width = col.width;
+
+      const labelSpan = th.createSpan({ text: col.label });
+
+      if (col.sortable) {
+        th.style.cursor = 'pointer';
+        th.addEventListener('click', () => this.toggleSort(col.key));
+
+        const iconSpan = th.createSpan({ cls: 'avm-sort-icon' });
+        if (this.sortState.column === col.key) {
+          iconSpan.textContent = this.sortState.direction === 'asc' ? ' ↑' : ' ↓';
+        } else {
+          iconSpan.textContent = '';
+        }
+      }
     });
     
     const tbody = table.createEl('tbody');
