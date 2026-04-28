@@ -2,15 +2,6 @@ import { Menu, App as ObsidianApp } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
 import { Project, Version, ProjectProgress, getProgressOrder, App, TEST_STAGES, getNextStageInfo } from '../types';
 
-interface GanttBar {
-  project: Project;
-  stage: string;
-  stageLabel: string;
-  startDate: Date;
-  endDate: Date | null;
-  color: string;
-}
-
 interface TestDateMarker {
   date: Date;
   label: string;
@@ -304,86 +295,6 @@ export class GanttView {
     };
   }
 
-  private getProjectGanttBars(project: Project): GanttBar[] {
-    const bars: GanttBar[] = [];
-
-    TEST_STAGES.forEach((stage, index) => {
-      const timeStr = (project as unknown as Record<string, string>)[stage.key];
-      if (!timeStr) return;
-
-      // 手动解析日期字符串
-      const [year, month, day] = timeStr.split('-').map(Number);
-      if (isNaN(year) || isNaN(month) || isNaN(day)) return;
-      const startDate = new Date(year, month - 1, day);
-      if (isNaN(startDate.getTime())) return;
-      startDate.setHours(0, 0, 0, 0);
-
-      // 确定结束日期
-      let endDate: Date | null = null;
-      for (let j = index + 1; j < TEST_STAGES.length; j++) {
-        const nextTimeStr = (project as unknown as Record<string, string>)[TEST_STAGES[j].key];
-        if (nextTimeStr) {
-          const [y, m, d] = nextTimeStr.split('-').map(Number);
-          if (isNaN(y) || isNaN(m) || isNaN(d)) continue;
-          endDate = new Date(y, m - 1, d);
-          if (isNaN(endDate.getTime())) continue;
-          endDate.setHours(0, 0, 0, 0);
-          break;
-        }
-      }
-
-      if (!endDate) {
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 7);
-      }
-
-      bars.push({
-        project,
-        stage: stage.key,
-        stageLabel: stage.label,
-        startDate,
-        endDate,
-        color: this.stageColors[index] || '#64748b'
-      });
-    });
-
-    return bars;
-  }
-
-  private renderBar(container: HTMLElement, bar: GanttBar, totalDays: number) {
-    const startIndex = this.getIndexFromDate(bar.startDate);
-    const endIndex = this.getIndexFromDate(bar.endDate!);
-
-    // 只渲染可见范围内的部分
-    const visibleStartIndex = Math.max(0, startIndex);
-    const visibleEndIndex = Math.min(totalDays - 1, endIndex);
-
-    // 如果完全不可见，跳过渲染
-    if (visibleStartIndex > visibleEndIndex) {
-      return;
-    }
-
-    const spanCells = visibleEndIndex - visibleStartIndex + 1;
-
-    // 创建时间条，绝对定位
-    const barEl = container.createDiv({ cls: 'avm-gantt-bar' });
-    barEl.style.left = `${visibleStartIndex * this.cellWidth}px`;
-    barEl.style.width = `${spanCells * this.cellWidth - 4}px`;
-    barEl.style.backgroundColor = bar.color;
-
-    // 标签
-    barEl.createDiv({ cls: 'avm-gantt-bar-label', text: bar.stageLabel });
-
-    // tooltip
-    barEl.setAttribute('title', `${bar.project.name} - ${bar.stageLabel}\n${this.formatDate(bar.startDate)} ~ ${this.formatDate(bar.endDate!)}`);
-
-    // 右键菜单
-    barEl.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      this.showBarContextMenu(bar, e);
-    });
-  }
-
   private renderProjectBar(container: HTMLElement, bar: ProjectBar, totalDays: number) {
     const startIndex = this.getIndexFromDate(bar.startDate);
     const endIndex = this.getIndexFromDate(bar.endDate);
@@ -416,7 +327,7 @@ export class GanttView {
         const markerEl = barEl.createDiv({ cls: 'avm-gantt-marker' });
         const relativePos = (markerIndex - visibleStartIndex) / spanCells;
         markerEl.style.left = `${relativePos * 100}%`;
-        markerEl.style.transform = 'translateX(-50%) translateY(-50%)';
+        markerEl.style.transform = 'translateX(-50%) translateY(-50%) rotate(45deg)';
         markerEl.style.backgroundColor = marker.color;
         markerEl.setAttribute('title', `${bar.project.name} - ${marker.label}\n${this.formatDate(marker.date)}`);
       }
@@ -434,26 +345,6 @@ export class GanttView {
   }
 
   private showProjectBarContextMenu(bar: ProjectBar, event: MouseEvent) {
-    const menu = new Menu();
-
-    menu.addItem(item => item
-      .setTitle(bar.project.name)
-      .setIcon('document')
-      .onClick(() => { }));
-
-    menu.addSeparator();
-
-    menu.addItem(item => item
-      .setTitle('编辑项目')
-      .setIcon('pencil')
-      .onClick(() => {
-        // TODO: 触发编辑项目
-      }));
-
-    menu.showAtMouseEvent(event);
-  }
-
-  private showBarContextMenu(bar: GanttBar, event: MouseEvent) {
     const menu = new Menu();
 
     menu.addItem(item => item

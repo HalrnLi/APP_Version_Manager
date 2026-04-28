@@ -35458,69 +35458,6 @@ var GanttView = class {
       color: "#6366f1"
     };
   }
-  getProjectGanttBars(project) {
-    const bars = [];
-    TEST_STAGES.forEach((stage, index) => {
-      const timeStr = project[stage.key];
-      if (!timeStr)
-        return;
-      const [year, month, day] = timeStr.split("-").map(Number);
-      if (isNaN(year) || isNaN(month) || isNaN(day))
-        return;
-      const startDate = new Date(year, month - 1, day);
-      if (isNaN(startDate.getTime()))
-        return;
-      startDate.setHours(0, 0, 0, 0);
-      let endDate = null;
-      for (let j = index + 1; j < TEST_STAGES.length; j++) {
-        const nextTimeStr = project[TEST_STAGES[j].key];
-        if (nextTimeStr) {
-          const [y, m, d] = nextTimeStr.split("-").map(Number);
-          if (isNaN(y) || isNaN(m) || isNaN(d))
-            continue;
-          endDate = new Date(y, m - 1, d);
-          if (isNaN(endDate.getTime()))
-            continue;
-          endDate.setHours(0, 0, 0, 0);
-          break;
-        }
-      }
-      if (!endDate) {
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 7);
-      }
-      bars.push({
-        project,
-        stage: stage.key,
-        stageLabel: stage.label,
-        startDate,
-        endDate,
-        color: this.stageColors[index] || "#64748b"
-      });
-    });
-    return bars;
-  }
-  renderBar(container, bar, totalDays) {
-    const startIndex = this.getIndexFromDate(bar.startDate);
-    const endIndex = this.getIndexFromDate(bar.endDate);
-    const visibleStartIndex = Math.max(0, startIndex);
-    const visibleEndIndex = Math.min(totalDays - 1, endIndex);
-    if (visibleStartIndex > visibleEndIndex) {
-      return;
-    }
-    const spanCells = visibleEndIndex - visibleStartIndex + 1;
-    const barEl = container.createDiv({ cls: "avm-gantt-bar" });
-    barEl.style.left = `${visibleStartIndex * this.cellWidth}px`;
-    barEl.style.width = `${spanCells * this.cellWidth - 4}px`;
-    barEl.style.backgroundColor = bar.color;
-    barEl.createDiv({ cls: "avm-gantt-bar-label", text: bar.stageLabel });
-    barEl.setAttribute("title", `${bar.project.name} - ${bar.stageLabel}
-${this.formatDate(bar.startDate)} ~ ${this.formatDate(bar.endDate)}`);
-    barEl.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      this.showBarContextMenu(bar, e);
-    });
-  }
   renderProjectBar(container, bar, totalDays) {
     const startIndex = this.getIndexFromDate(bar.startDate);
     const endIndex = this.getIndexFromDate(bar.endDate);
@@ -35543,7 +35480,7 @@ ${this.formatDate(bar.startDate)} ~ ${this.formatDate(bar.endDate)}`);
         const markerEl = barEl.createDiv({ cls: "avm-gantt-marker" });
         const relativePos = (markerIndex - visibleStartIndex) / spanCells;
         markerEl.style.left = `${relativePos * 100}%`;
-        markerEl.style.transform = "translateX(-50%) translateY(-50%)";
+        markerEl.style.transform = "translateX(-50%) translateY(-50%) rotate(45deg)";
         markerEl.style.backgroundColor = marker.color;
         markerEl.setAttribute("title", `${bar.project.name} - ${marker.label}
 ${this.formatDate(marker.date)}`);
@@ -35558,15 +35495,6 @@ ${markerDates}`);
     });
   }
   showProjectBarContextMenu(bar, event) {
-    const menu = new import_obsidian7.Menu();
-    menu.addItem((item) => item.setTitle(bar.project.name).setIcon("document").onClick(() => {
-    }));
-    menu.addSeparator();
-    menu.addItem((item) => item.setTitle("\u7F16\u8F91\u9879\u76EE").setIcon("pencil").onClick(() => {
-    }));
-    menu.showAtMouseEvent(event);
-  }
-  showBarContextMenu(bar, event) {
     const menu = new import_obsidian7.Menu();
     menu.addItem((item) => item.setTitle(bar.project.name).setIcon("document").onClick(() => {
     }));
