@@ -221,9 +221,9 @@ export class GanttView {
       sidebarRow.createDiv({ cls: 'avm-gantt-project-version', text: version.versionNumber });
     }
 
-    // 右侧时间轴行
+    // 右侧时间轴行 - 高度40px与sidebar header对齐
     const row = timelineContainer.createDiv({ cls: 'avm-gantt-row' });
-    row.style.height = '50px';
+    row.style.height = '40px';
 
     // 时间轴格子区域 - 设置固定宽度确保对齐
     const cellsContainer = row.createDiv({ cls: 'avm-gantt-cells' });
@@ -232,6 +232,7 @@ export class GanttView {
     for (let i = 0; i < days; i++) {
       const cell = cellsContainer.createDiv({ cls: 'avm-gantt-time-cell' });
       cell.style.width = `${this.cellWidth}px`;
+      cell.style.height = '40px';
       cell.style.minWidth = `${this.cellWidth}px`;
     }
 
@@ -331,7 +332,7 @@ export class GanttView {
     barEl.style.width = `${spanCells * this.cellWidth}px`;
     barEl.style.backgroundColor = bar.color;
     barEl.style.height = '28px';
-    barEl.style.top = '11px'; // 垂直居中对齐: (50px row - 28px bar) / 2 = 11px
+    barEl.style.top = '6px'; // 垂直居中对齐: (40px row - 28px bar) / 2 = 6px
     barEl.style.borderRadius = '4px';
 
     // 在条形上渲染每个测试日期的菱形标记

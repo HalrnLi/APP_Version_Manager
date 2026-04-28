@@ -767,9 +767,9 @@ export default class AppVersionManagerPlugin extends Plugin {
 .avm-gantt-row {
   display: flex;
   border-bottom: 1px solid var(--background-modifier-border);
-  height: 50px;
-  min-height: 50px;
-  align-items: center;
+  height: 40px;
+  min-height: 40px;
+  align-items: stretch;
 }
 
 .avm-gantt-row:hover {
@@ -779,8 +779,8 @@ export default class AppVersionManagerPlugin extends Plugin {
 .avm-gantt-sidebar-row {
   width: 280px;
   min-width: 280px;
-  height: 50px;
-  min-height: 50px;
+  height: 40px;
+  min-height: 40px;
   padding: 0 12px;
   border-right: 1px solid var(--background-modifier-border);
   display: flex;
@@ -812,7 +812,7 @@ export default class AppVersionManagerPlugin extends Plugin {
 .avm-gantt-time-cell {
   width: 40px;
   min-width: 40px;
-  height: 50px;
+  height: 40px;
   border-right: 1px solid var(--background-modifier-border);
   box-sizing: border-box;
 }
