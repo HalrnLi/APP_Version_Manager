@@ -699,11 +699,13 @@ export default class AppVersionManagerPlugin extends Plugin {
   background: var(--background-secondary);
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .avm-gantt-timeline-container {
   flex: 1;
   overflow-x: auto;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }

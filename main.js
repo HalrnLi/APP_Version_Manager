@@ -35326,6 +35326,12 @@ var GanttView = class {
     const timelineContainer = this.chartContainer.createDiv({ cls: "avm-gantt-timeline-container" });
     this.renderTimelineHeader(sidebar, timelineContainer);
     this.renderProjectRows(sidebar, timelineContainer);
+    sidebar.addEventListener("scroll", () => {
+      timelineContainer.scrollTop = sidebar.scrollTop;
+    });
+    timelineContainer.addEventListener("scroll", () => {
+      sidebar.scrollTop = timelineContainer.scrollTop;
+    });
   }
   renderTimelineHeader(sidebar, timelineContainer) {
     const days2 = this.getTimelineDays();
@@ -38804,11 +38810,13 @@ var AppVersionManagerPlugin = class extends import_obsidian12.Plugin {
   background: var(--background-secondary);
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .avm-gantt-timeline-container {
   flex: 1;
   overflow-x: auto;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }

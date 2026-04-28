@@ -104,6 +104,14 @@ export class GanttView {
 
     // 渲染项目行
     this.renderProjectRows(sidebar, timelineContainer);
+
+    // 同步左右两侧垂直滚动
+    sidebar.addEventListener('scroll', () => {
+      timelineContainer.scrollTop = sidebar.scrollTop;
+    });
+    timelineContainer.addEventListener('scroll', () => {
+      sidebar.scrollTop = timelineContainer.scrollTop;
+    });
   }
 
   private renderTimelineHeader(sidebar: HTMLElement, timelineContainer: HTMLElement) {
