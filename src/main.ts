@@ -3,6 +3,7 @@ import { AppVersionManagerView, VIEW_TYPE_APP_VERSION_MANAGER } from './view/App
 import { PluginSettings, DEFAULT_SETTINGS, ProgressStage, DEFAULT_PROGRESS_STAGES } from './types';
 import { DataService } from './services/DataService';
 import { BackupService } from './services/BackupService';
+import { TodoService } from './services/TodoService';
 import { STYLES } from './styles';
 
 const STYLE_ID = 'app-version-manager-styles';
@@ -11,6 +12,7 @@ export default class AppVersionManagerPlugin extends Plugin {
   settings: PluginSettings;
   dataService: DataService;
   backupService: BackupService;
+  todoService: TodoService;
   private saveSettingsQueue: Promise<void> = Promise.resolve();
 
   async onload() {
@@ -20,6 +22,7 @@ export default class AppVersionManagerPlugin extends Plugin {
     
     this.dataService = new DataService(this.app, this);
     this.backupService = new BackupService(this.app, this);
+    this.todoService = new TodoService(this);
 
     this.registerView(
       VIEW_TYPE_APP_VERSION_MANAGER,

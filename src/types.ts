@@ -99,6 +99,26 @@ export interface Plan {
   version: number;
 }
 
+export interface Todo {
+  id: string;
+  content: string;
+  link: string;
+  dueDate: string;
+  completed: boolean;
+  testStageRef?: string;
+  projectId: string;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+}
+
+export interface CreateTodoInput {
+  content: string;
+  link?: string;
+  dueDate?: string;
+  testStageRef?: string;
+}
+
 export interface SavedFilter {
   id: string;
   name: string;

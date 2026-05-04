@@ -19,6 +19,8 @@ export class DualPaneView {
   onCreateVersion: () => void;
   onCreateProject: () => void;
   onRefresh: () => void;
+  getTodoStats: (projectId: string) => Promise<{ total: number; completed: number; overdue: number }>;
+  onOpenTodos: (projectId: string, projectName: string) => void;
   
   constructor(
     containerEl: HTMLElement,
@@ -30,7 +32,9 @@ export class DualPaneView {
     onVersionSelect: (versionId: string | null) => void,
     onCreateVersion: () => void,
     onCreateProject: () => void,
-    onRefresh: () => void
+    onRefresh: () => void,
+    getTodoStats: (projectId: string) => Promise<{ total: number; completed: number; overdue: number }>,
+    onOpenTodos: (projectId: string, projectName: string) => void
   ) {
     this.containerEl = containerEl;
     this.plugin = plugin;
@@ -42,6 +46,8 @@ export class DualPaneView {
     this.onCreateVersion = onCreateVersion;
     this.onCreateProject = onCreateProject;
     this.onRefresh = onRefresh;
+    this.getTodoStats = getTodoStats;
+    this.onOpenTodos = onOpenTodos;
     
     this.render();
   }
@@ -264,6 +270,19 @@ export class DualPaneView {
     });
     progressBadge.style.backgroundColor = progressColors[project.progress] || '#64748b';
 
+    // Add todo badge
+    const todoBadge = header.createDiv({ cls: 'avm-todo-badge', text: '📋' });
+    todoBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.onOpenTodos(project.id, project.name);
+    });
+    this.getTodoStats(project.id).then(stats => {
+      if (stats.total > 0) {
+        todoBadge.setText(`${stats.completed}/${stats.total}`);
+        if (stats.overdue > 0) todoBadge.addClass('has-overdue');
+      }
+    }).catch(console.error);
+
     if (project.features) {
       const featuresEl = item.createDiv({ cls: 'avm-project-features' });
       featuresEl.createEl('strong', { text: '特性:' });
@@ -342,7 +361,12 @@ export class DualPaneView {
       .setTitle('提测计划')
       .setIcon('calendar')
       .onClick(() => this.showTestPlanModal(project)));
-    
+
+    menu.addItem(item => item
+      .setTitle('待办事项')
+      .setIcon('checkmark')
+      .onClick(() => this.onOpenTodos(project.id, project.name)));
+
     menu.addSeparator();
     
     menu.addItem(item => item

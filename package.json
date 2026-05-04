@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-    "deploy": "npm run build && cp main.js ~/.obsidian/plugins/APP_Version_Manager/main.js",
+    "deploy": "npm run build && for dir in $(find ~ -maxdepth 6 -path \"*/.obsidian/plugins/APP_Version_Manager\" -type d 2>/dev/null); do cp main.js \"$dir/main.js\" && cp manifest.json \"$dir/manifest.json\" && echo \"deployed to $dir\"; done",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [
@@ -21,9 +23,11 @@
     "@types/node": "^16.11.6",
     "builtin-modules": "^3.3.0",
     "esbuild": "^0.17.3",
+    "jsdom": "^29.1.1",
     "obsidian": "latest",
     "tslib": "2.4.0",
-    "typescript": "4.7.4"
+    "typescript": "4.7.4",
+    "vitest": "^1.6.1"
   },
   "dependencies": {
     "xlsx": "^0.18.5"

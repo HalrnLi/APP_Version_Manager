@@ -951,6 +951,9 @@ export class DataService {
       await this.deleteFile(file);
     }
     
+    // Delete associated todos
+    await this.plugin.todoService.deleteByProjectId(id);
+    
     if (memoFile) {
       await this.deleteFile(memoFile);
     }

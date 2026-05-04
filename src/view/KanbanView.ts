@@ -13,6 +13,8 @@ export class KanbanView {
   versions: Version[];
   apps: App[];
   onRefresh: () => void;
+  getTodoStats: (projectId: string) => Promise<{ total: number; completed: number; overdue: number }>;
+  onOpenTodos: (projectId: string, projectName: string) => void;
   
   constructor(
     containerEl: HTMLElement,
@@ -20,7 +22,9 @@ export class KanbanView {
     projects: Project[],
     versions: Version[],
     apps: App[],
-    onRefresh: () => void = () => {}
+    onRefresh: () => void = () => {},
+    getTodoStats: (projectId: string) => Promise<{ total: number; completed: number; overdue: number }>,
+    onOpenTodos: (projectId: string, projectName: string) => void
   ) {
     this.containerEl = containerEl;
     this.plugin = plugin;
@@ -28,6 +32,8 @@ export class KanbanView {
     this.versions = versions;
     this.apps = apps;
     this.onRefresh = onRefresh;
+    this.getTodoStats = getTodoStats;
+    this.onOpenTodos = onOpenTodos;
     
     this.render();
   }
@@ -119,6 +125,19 @@ export class KanbanView {
     const header = card.createDiv({ cls: 'avm-card-header' });
     header.createDiv({ cls: 'avm-card-title', text: project.name });
     
+    // Add todo badge
+    const todoBadge = header.createDiv({ cls: 'avm-todo-badge', text: '📋' });
+    todoBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.onOpenTodos(project.id, project.name);
+    });
+    this.getTodoStats(project.id).then(stats => {
+      if (stats.total > 0) {
+        todoBadge.setText(`${stats.completed}/${stats.total}`);
+        if (stats.overdue > 0) todoBadge.addClass('has-overdue');
+      }
+    }).catch(console.error);
+    
     if (project.manager) {
       card.createDiv({ cls: 'avm-card-meta', text: `👤 ${project.manager}` });
     }
@@ -175,7 +194,12 @@ export class KanbanView {
       .setTitle('更改进度')
       .setIcon('arrow-right')
       .onClick(() => this.showProgressChangeModal(project)));
-    
+
+    menu.addItem(item => item
+      .setTitle('待办事项')
+      .setIcon('checkmark')
+      .onClick(() => this.onOpenTodos(project.id, project.name)));
+
     menu.addSeparator();
     
     menu.addItem(item => item

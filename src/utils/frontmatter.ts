@@ -28,7 +28,32 @@ export function parseFrontmatter(content: string): Record<string, any> | null {
       } else if (value.startsWith("'") && value.endsWith("'")) {
         value = value.slice(1, -1);
       } else if (value.startsWith('[') && value.endsWith(']')) {
-        value = value.slice(1, -1).split(',').map((v: string) => v.trim()).filter((v: string) => v);
+        const inner = value.slice(1, -1).trim();
+        if (inner === '') {
+          value = [];
+        } else {
+          // JSON object array: split by comma at depth 0
+          if (inner.startsWith('{') && inner.endsWith('}')) {
+            // JSON object array: each element is a JSON string
+            const items: string[] = [];
+            let depth = 0;
+            let start = 0;
+            for (let i = 0; i < inner.length; i++) {
+              if (inner[i] === '{') depth++;
+              else if (inner[i] === '}') depth--;
+              else if (inner[i] === ',' && depth === 0) {
+                items.push(inner.substring(start, i).trim());
+                start = i + 1;
+              }
+            }
+            items.push(inner.substring(start).trim());
+            value = items.map(v => {
+              try { return JSON.parse(v); } catch { return v; }
+            }).filter((v: any) => v);
+          } else {
+            value = inner.split(',').map((v: string) => v.trim()).filter((v: string) => v);
+          }
+        }
       } else if (value === 'true') {
         value = true;
       } else if (value === 'false') {
@@ -67,7 +92,13 @@ export function createFrontmatter(data: Record<string, any>): string {
   let fm = '---\n';
   for (const [key, value] of Object.entries(data)) {
     if (Array.isArray(value)) {
-      fm += `${key}: [${value.join(', ')}]\n`;
+      if (value.length > 0 && typeof value[0] === 'object') {
+        // Array of objects: JSON-encode each element
+        const items = value.map((v: any) => JSON.stringify(v));
+        fm += `${key}: [${items.join(', ')}]\n`;
+      } else {
+        fm += `${key}: [${value.join(', ')}]\n`;
+      }
     } else if (typeof value === 'string' && value.includes('\n')) {
       fm += `${key}: |\n  ${value.replace(/\n/g, '\n  ')}\n`;
     } else {

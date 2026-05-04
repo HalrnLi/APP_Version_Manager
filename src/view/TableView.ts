@@ -27,6 +27,8 @@ export class TableView {
   versions: Version[];
   apps: App[];
   onRefresh: () => void;
+  getTodoStats: (projectId: string) => Promise<{ total: number; completed: number; overdue: number }>;
+  onOpenTodos: (projectId: string, projectName: string) => void;
   private sortState: SortState = { column: null, direction: 'asc' };
   
   constructor(
@@ -35,7 +37,9 @@ export class TableView {
     projects: Project[],
     versions: Version[],
     apps: App[],
-    onRefresh: () => void = () => {}
+    onRefresh: () => void = () => {},
+    getTodoStats: (projectId: string) => Promise<{ total: number; completed: number; overdue: number }>,
+    onOpenTodos: (projectId: string, projectName: string) => void
   ) {
     this.containerEl = containerEl;
     this.plugin = plugin;
@@ -43,6 +47,8 @@ export class TableView {
     this.versions = versions;
     this.apps = apps;
     this.onRefresh = onRefresh;
+    this.getTodoStats = getTodoStats;
+    this.onOpenTodos = onOpenTodos;
     
     this.render();
   }
@@ -145,6 +151,7 @@ export class TableView {
       { key: 'features', label: '特性', width: '150px', sortable: true },
       { key: 'spec', label: '配置组件/规格', width: '150px' },
       { key: 'progress', label: '进度', width: '120px', sortable: true },
+      { key: 'todos', label: '待办', width: '100px' },
       { key: 'nextStage', label: '下一阶段', width: '120px' },
       { key: 'nextStageTime', label: '下一阶段时间', width: '120px', sortable: true },
       { key: 'links', label: '链接', width: '120px' }
@@ -237,6 +244,20 @@ export class TableView {
             e.stopPropagation();
             this.handleProgressClick(project);
           });
+          break;
+
+        case 'todos':
+          const todoBadge = td.createDiv({ cls: 'avm-todo-badge', text: '📋' });
+          todoBadge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.onOpenTodos(project.id, project.name);
+          });
+          this.getTodoStats(project.id).then(stats => {
+            if (stats.total > 0) {
+              todoBadge.setText(`${stats.completed}/${stats.total}`);
+              if (stats.overdue > 0) todoBadge.addClass('has-overdue');
+            }
+          }).catch(console.error);
           break;
           
         case 'nextStage':

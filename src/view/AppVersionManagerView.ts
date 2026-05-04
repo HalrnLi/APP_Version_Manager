@@ -5,6 +5,7 @@ import { DualPaneView } from './DualPaneView';
 import { KanbanView } from './KanbanView';
 import { TableView } from './TableView';
 // import { GanttView } from './GanttView';
+import { TodoSidePanel } from './TodoSidePanel';
 import { ConfirmModal } from './ConfirmModal';
 import { ConvertPlanModal } from './ConvertPlanModal';
 import { ImportExportService } from '../services/ImportExportService';
@@ -28,6 +29,7 @@ export class AppVersionManagerView extends ItemView {
   savedFilters: SavedFilter[] = [];
   currentFilter: { progress: ProjectProgress | null; keyword: string } = { progress: null, keyword: '' };
   importExportService: ImportExportService;
+  todoSidePanel: TodoSidePanel;
   
   private viewContainerEl: HTMLElement;
   private headerEl: HTMLElement;
@@ -39,6 +41,7 @@ export class AppVersionManagerView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.importExportService = new ImportExportService(this.app, this.plugin);
+    this.todoSidePanel = new TodoSidePanel(this.containerEl, this.plugin);
     this.loadSavedFilters();
   }
 
@@ -123,6 +126,27 @@ export class AppVersionManagerView extends ItemView {
     if (this.selectedVersionId) {
       this.showCreateProjectModal();
     }
+  }
+
+  async getTodoStats(projectId: string): Promise<{ total: number; completed: number; overdue: number }> {
+    try {
+      const todos = await this.plugin.todoService.getByProjectId(projectId);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+
+      const completed = todos.filter(t => t.completed).length;
+      const overdue = todos.filter(t => !t.completed && t.dueDate && t.dueDate < todayStr).length;
+
+      return { total: todos.length, completed, overdue };
+    } catch (error) {
+      console.error('Failed to get todo stats:', error);
+      return { total: 0, completed: 0, overdue: 0 };
+    }
+  }
+
+  onOpenTodos(projectId: string, projectName: string): void {
+    this.todoSidePanel.open(projectId, projectName);
   }
 
   async refresh() {
@@ -357,7 +381,9 @@ export class AppVersionManagerView extends ItemView {
           },
           () => this.showCreateVersionModal(),
           () => this.showCreateProjectModal(),
-          () => this.refresh()
+          () => this.refresh(),
+          (projectId) => this.getTodoStats(projectId),
+          (projectId, projectName) => this.onOpenTodos(projectId, projectName)
         );
         break;
       case 'kanban':
@@ -367,7 +393,9 @@ export class AppVersionManagerView extends ItemView {
           appFilteredProjects,
           filteredVersions,
           this.apps,
-          () => this.refresh()
+          () => this.refresh(),
+          (projectId) => this.getTodoStats(projectId),
+          (projectId, projectName) => this.onOpenTodos(projectId, projectName)
         );
         break;
       case 'table':
@@ -377,7 +405,9 @@ export class AppVersionManagerView extends ItemView {
           appFilteredProjects,
           filteredVersions,
           this.apps,
-          () => this.refresh()
+          () => this.refresh(),
+          (projectId) => this.getTodoStats(projectId),
+          (projectId, projectName) => this.onOpenTodos(projectId, projectName)
         );
         break;
       /* // 甘特图视图已禁用
