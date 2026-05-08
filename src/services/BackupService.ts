@@ -160,10 +160,60 @@ export class BackupService {
     try {
       const file = this.app.vault.getAbstractFileByPath(backupPath);
       if (!(file instanceof TFile)) return false;
-      
+
       const content = await this.app.vault.read(file);
+      return await this.restoreFromContent(content, rollback);
+    } catch (error) {
+      console.error('[AppVersionManager] Restore failed, rolling back changes.', error);
+      try {
+        await rollback();
+      } catch (rollbackError) {
+        console.error('[AppVersionManager] Rollback after restore failure also failed.', rollbackError);
+      }
+      return false;
+    }
+  }
+
+  async restoreFromContent(content: string, rollback?: () => Promise<void>): Promise<boolean> {
+    const beforeApps = rollback ? [] : await this.plugin.dataService.getAllApps();
+    const beforeVersions = rollback ? [] : await this.plugin.dataService.getAllVersions();
+    const beforeProjects = rollback ? [] : await this.plugin.dataService.getAllProjects();
+
+    const doRollback = rollback || (async () => {
+      for (const app of beforeApps) {
+        await this.plugin.dataService.upsertAppRecord(app);
+      }
+      for (const version of beforeVersions) {
+        await this.plugin.dataService.upsertVersionRecord(version);
+      }
+      for (const project of beforeProjects) {
+        await this.plugin.dataService.upsertProjectRecord(project);
+      }
+
+      const appIds = new Set(beforeApps.map(a => a.id));
+      const versionIds = new Set(beforeVersions.map(v => v.id));
+      const projectIds = new Set(beforeProjects.map(p => p.id));
+
+      for (const project of await this.plugin.dataService.getAllProjects()) {
+        if (!projectIds.has(project.id)) {
+          await this.plugin.dataService.deleteProject(project.id);
+        }
+      }
+      for (const version of await this.plugin.dataService.getAllVersions()) {
+        if (!versionIds.has(version.id)) {
+          await this.plugin.dataService.deleteVersion(version.id);
+        }
+      }
+      for (const app of await this.plugin.dataService.getAllApps()) {
+        if (!appIds.has(app.id)) {
+          await this.plugin.dataService.deleteApp(app.id);
+        }
+      }
+    });
+
+    try {
       const backupData = JSON.parse(content);
-      
+
       const { apps, versions, projects } = backupData as {
         apps: App[];
         versions: Version[];
@@ -172,24 +222,24 @@ export class BackupService {
       if (!Array.isArray(apps) || !Array.isArray(versions) || !Array.isArray(projects)) {
         throw new Error('Invalid backup payload');
       }
-      
+
       for (const app of apps) {
         await this.plugin.dataService.upsertAppRecord(app);
       }
-      
+
       for (const version of versions) {
         await this.plugin.dataService.upsertVersionRecord(version);
       }
-      
+
       for (const project of projects) {
         await this.plugin.dataService.upsertProjectRecord(project);
       }
-      
+
       return true;
     } catch (error) {
-      console.error('[AppVersionManager] Restore failed, rolling back changes.', error);
+      console.error('[AppVersionManager] Restore from content failed, rolling back changes.', error);
       try {
-        await rollback();
+        await doRollback();
       } catch (rollbackError) {
         console.error('[AppVersionManager] Rollback after restore failure also failed.', rollbackError);
       }

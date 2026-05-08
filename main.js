@@ -33848,7 +33848,7 @@ __export(main_exports, {
   default: () => AppVersionManagerPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian21 = require("obsidian");
+var import_obsidian22 = require("obsidian");
 
 // src/view/AppVersionManagerView.ts
 var import_obsidian18 = require("obsidian");
@@ -34365,7 +34365,7 @@ async function openProjectNote(app, memoPath, isAbsolutePath) {
 
 // src/view/DualPaneView.ts
 var DualPaneView = class {
-  constructor(containerEl, plugin, apps, versions, projects, selectedVersionId, onVersionSelect, onCreateVersion, onCreateProject, onRefresh) {
+  constructor(containerEl, plugin, apps, versions, projects, selectedVersionId, onVersionSelect, onCreateVersion, onCreateProject, onRefresh, getTodoStats, onOpenTodos) {
     this.containerEl = containerEl;
     this.plugin = plugin;
     this.apps = apps;
@@ -34376,6 +34376,8 @@ var DualPaneView = class {
     this.onCreateVersion = onCreateVersion;
     this.onCreateProject = onCreateProject;
     this.onRefresh = onRefresh;
+    this.getTodoStats = getTodoStats;
+    this.onOpenTodos = onOpenTodos;
     this.render();
   }
   render() {
@@ -34535,6 +34537,18 @@ var DualPaneView = class {
       text: project.progress
     });
     progressBadge.style.backgroundColor = progressColors[project.progress] || "#64748b";
+    const todoBadge = header.createDiv({ cls: "avm-todo-badge", text: "\u{1F4CB}" });
+    todoBadge.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.onOpenTodos(project.id, project.name);
+    });
+    this.getTodoStats(project.id).then((stats) => {
+      if (stats.total > 0) {
+        todoBadge.setText(`${stats.completed}/${stats.total}`);
+        if (stats.overdue > 0)
+          todoBadge.addClass("has-overdue");
+      }
+    }).catch(console.error);
     if (project.features) {
       const featuresEl = item.createDiv({ cls: "avm-project-features" });
       featuresEl.createEl("strong", { text: "\u7279\u6027:" });
@@ -34592,6 +34606,7 @@ var DualPaneView = class {
     const menu = new import_obsidian6.Menu();
     menu.addItem((item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project)));
     menu.addItem((item) => item.setTitle("\u63D0\u6D4B\u8BA1\u5212").setIcon("calendar").onClick(() => this.showTestPlanModal(project)));
+    menu.addItem((item) => item.setTitle("\u5F85\u529E\u4E8B\u9879").setIcon("checkmark").onClick(() => this.onOpenTodos(project.id, project.name)));
     menu.addSeparator();
     menu.addItem((item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
       new ConfirmModal(
@@ -34675,13 +34690,15 @@ var EditVersionModal = class extends import_obsidian6.Modal {
 var import_obsidian7 = require("obsidian");
 var KanbanView = class {
   constructor(containerEl, plugin, projects, versions, apps, onRefresh = () => {
-  }) {
+  }, getTodoStats, onOpenTodos) {
     this.containerEl = containerEl;
     this.plugin = plugin;
     this.projects = projects;
     this.versions = versions;
     this.apps = apps;
     this.onRefresh = onRefresh;
+    this.getTodoStats = getTodoStats;
+    this.onOpenTodos = onOpenTodos;
     this.render();
   }
   render() {
@@ -34744,6 +34761,18 @@ var KanbanView = class {
     }
     const header = card.createDiv({ cls: "avm-card-header" });
     header.createDiv({ cls: "avm-card-title", text: project.name });
+    const todoBadge = header.createDiv({ cls: "avm-todo-badge", text: "\u{1F4CB}" });
+    todoBadge.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.onOpenTodos(project.id, project.name);
+    });
+    this.getTodoStats(project.id).then((stats) => {
+      if (stats.total > 0) {
+        todoBadge.setText(`${stats.completed}/${stats.total}`);
+        if (stats.overdue > 0)
+          todoBadge.addClass("has-overdue");
+      }
+    }).catch(console.error);
     if (project.manager) {
       card.createDiv({ cls: "avm-card-meta", text: `\u{1F464} ${project.manager}` });
     }
@@ -34783,6 +34812,7 @@ var KanbanView = class {
     const menu = new import_obsidian7.Menu();
     menu.addItem((item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project)));
     menu.addItem((item) => item.setTitle("\u66F4\u6539\u8FDB\u5EA6").setIcon("arrow-right").onClick(() => this.showProgressChangeModal(project)));
+    menu.addItem((item) => item.setTitle("\u5F85\u529E\u4E8B\u9879").setIcon("checkmark").onClick(() => this.onOpenTodos(project.id, project.name)));
     menu.addSeparator();
     menu.addItem((item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
       new ConfirmModal(
@@ -34864,7 +34894,7 @@ var ProgressChangeModal = class extends import_obsidian7.Modal {
 var import_obsidian8 = require("obsidian");
 var TableView = class {
   constructor(containerEl, plugin, projects, versions, apps, onRefresh = () => {
-  }) {
+  }, getTodoStats, onOpenTodos) {
     this.sortState = { column: null, direction: "asc" };
     this.containerEl = containerEl;
     this.plugin = plugin;
@@ -34872,6 +34902,8 @@ var TableView = class {
     this.versions = versions;
     this.apps = apps;
     this.onRefresh = onRefresh;
+    this.getTodoStats = getTodoStats;
+    this.onOpenTodos = onOpenTodos;
     this.render();
   }
   applySorting(projects) {
@@ -34976,7 +35008,8 @@ var TableView = class {
       { key: "progress", label: "\u8FDB\u5EA6", width: "120px", sortable: true },
       { key: "nextStage", label: "\u4E0B\u4E00\u9636\u6BB5", width: "120px" },
       { key: "nextStageTime", label: "\u4E0B\u4E00\u9636\u6BB5\u65F6\u95F4", width: "120px", sortable: true },
-      { key: "links", label: "\u94FE\u63A5", width: "120px" }
+      { key: "links", label: "\u94FE\u63A5", width: "120px" },
+      { key: "todos", label: "\u5F85\u529E", width: "100px" }
     ];
     columns.forEach((col) => {
       const th = headerRow.createEl("th");
@@ -35045,6 +35078,20 @@ var TableView = class {
             e.stopPropagation();
             this.handleProgressClick(project);
           });
+          break;
+        case "todos":
+          const todoBadge = td.createDiv({ cls: "avm-todo-badge", text: "\u{1F4CB}" });
+          todoBadge.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.onOpenTodos(project.id, project.name);
+          });
+          this.getTodoStats(project.id).then((stats) => {
+            if (stats.total > 0) {
+              todoBadge.setText(`${stats.completed}/${stats.total}`);
+              if (stats.overdue > 0)
+                todoBadge.addClass("has-overdue");
+            }
+          }).catch(console.error);
           break;
         case "nextStage":
           td.createDiv({ text: nextStageInfo.stage });
@@ -35200,6 +35247,213 @@ var ProgressConfirmModal = class extends import_obsidian8.Modal {
   }
   onClose() {
     this.contentEl.empty();
+  }
+};
+
+// src/view/TodoSidePanel.ts
+var TodoSidePanel = class {
+  constructor(containerEl, plugin, onRefresh) {
+    this.overlayEl = null;
+    this.panelEl = null;
+    this.currentProjectId = null;
+    this.currentProjectName = "";
+    this.containerEl = containerEl;
+    this.plugin = plugin;
+    this.onRefresh = onRefresh;
+  }
+  open(projectId, projectName) {
+    this.currentProjectId = projectId;
+    this.currentProjectName = projectName;
+    this.render();
+    requestAnimationFrame(() => {
+      var _a, _b;
+      (_a = this.overlayEl) == null ? void 0 : _a.classList.add("open");
+      (_b = this.panelEl) == null ? void 0 : _b.classList.add("open");
+    });
+  }
+  close() {
+    var _a, _b;
+    (_a = this.overlayEl) == null ? void 0 : _a.classList.remove("open");
+    (_b = this.panelEl) == null ? void 0 : _b.classList.remove("open");
+    this.currentProjectId = null;
+    this.currentProjectName = "";
+  }
+  destroy() {
+    var _a, _b;
+    (_a = this.overlayEl) == null ? void 0 : _a.remove();
+    (_b = this.panelEl) == null ? void 0 : _b.remove();
+    this.overlayEl = null;
+    this.panelEl = null;
+  }
+  async render() {
+    this.destroy();
+    this.overlayEl = this.containerEl.createDiv({ cls: "avm-todo-overlay" });
+    this.overlayEl.addEventListener("click", () => this.close());
+    this.panelEl = this.containerEl.createDiv({ cls: "avm-todo-panel" });
+    this.panelEl.addEventListener("click", (e) => e.stopPropagation());
+    const header = this.panelEl.createDiv({ cls: "avm-todo-panel-header" });
+    header.createDiv({ cls: "avm-todo-panel-title", text: `\u{1F4CB} ${this.currentProjectName}` });
+    const closeBtn = header.createEl("button", { cls: "avm-todo-panel-close", text: "\u2715" });
+    closeBtn.addEventListener("click", () => this.close());
+    const listEl = this.panelEl.createDiv({ cls: "avm-todo-list" });
+    await this.renderTodoList(listEl);
+    const footer = this.panelEl.createDiv({ cls: "avm-todo-footer" });
+    const inputRow = footer.createDiv({ cls: "avm-todo-input-row" });
+    const input = inputRow.createEl("input", {
+      cls: "avm-todo-input",
+      attr: { placeholder: "\u6DFB\u52A0\u65B0\u5F85\u529E...", type: "text" }
+    });
+    const addBtn = inputRow.createEl("button", { cls: "avm-todo-add-btn", text: "\u6DFB\u52A0" });
+    const extraRow = footer.createDiv({ cls: "avm-todo-extra-row" });
+    const linkInput = extraRow.createEl("input", {
+      cls: "avm-todo-input-link",
+      attr: { placeholder: "\u94FE\u63A5 (\u53EF\u9009)", type: "url" }
+    });
+    const dateInput = extraRow.createEl("input", {
+      cls: "avm-todo-input-date",
+      attr: { type: "date" }
+    });
+    const today = new Date();
+    dateInput.value = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
+    const addTodo = async () => {
+      var _a;
+      const content = input.value.trim();
+      if (!content || !this.currentProjectId)
+        return;
+      try {
+        await this.plugin.todoService.create(this.currentProjectId, {
+          content,
+          link: linkInput.value.trim() || void 0,
+          dueDate: dateInput.value || void 0
+        });
+        (_a = this.onRefresh) == null ? void 0 : _a.call(this);
+        input.value = "";
+        linkInput.value = "";
+        await this.renderTodoList(listEl);
+      } catch (error) {
+        console.error("Failed to create todo:", error);
+      }
+    };
+    addBtn.addEventListener("click", addTodo);
+    const handleEnter = (e) => {
+      if (e.key === "Enter")
+        addTodo();
+    };
+    input.addEventListener("keydown", handleEnter);
+    linkInput.addEventListener("keydown", handleEnter);
+    dateInput.addEventListener("keydown", handleEnter);
+  }
+  async renderTodoList(listEl) {
+    if (!this.currentProjectId)
+      return;
+    const todos = await this.plugin.todoService.getByProjectId(this.currentProjectId);
+    listEl.empty();
+    if (todos.length === 0) {
+      listEl.createDiv({ cls: "avm-todo-empty", text: "\u6682\u65E0\u5F85\u529E" });
+      return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
+    const sorted = [...todos].sort((a, b) => {
+      if (a.completed !== b.completed)
+        return a.completed ? 1 : -1;
+      if (!a.dueDate && !b.dueDate)
+        return 0;
+      if (!a.dueDate)
+        return 1;
+      if (!b.dueDate)
+        return -1;
+      return a.dueDate.localeCompare(b.dueDate);
+    });
+    for (const todo of sorted) {
+      const isOverdue = !todo.completed && todo.dueDate && todo.dueDate < todayStr;
+      const item = listEl.createDiv({ cls: "avm-todo-item" });
+      if (isOverdue)
+        item.addClass("overdue");
+      if (todo.completed)
+        item.addClass("completed");
+      const checkbox = item.createEl("input", {
+        cls: "avm-todo-checkbox",
+        attr: { type: "checkbox" }
+      });
+      checkbox.checked = todo.completed;
+      checkbox.addEventListener("change", async () => {
+        var _a;
+        try {
+          await this.plugin.todoService.update(this.currentProjectId, {
+            ...todo,
+            completed: checkbox.checked
+          }, todo.version);
+          (_a = this.onRefresh) == null ? void 0 : _a.call(this);
+          await this.renderTodoList(listEl);
+        } catch (error) {
+          console.error("Failed to update todo:", error);
+          checkbox.checked = !checkbox.checked;
+        }
+      });
+      const content = item.createDiv({ cls: "avm-todo-content", text: todo.content });
+      content.addEventListener("click", () => {
+        const newContent = prompt("\u7F16\u8F91\u5F85\u529E\u5185\u5BB9:", todo.content);
+        if (newContent && newContent.trim() && newContent !== todo.content) {
+          this.plugin.todoService.update(this.currentProjectId, {
+            ...todo,
+            content: newContent.trim()
+          }, todo.version).then(() => {
+            var _a;
+            (_a = this.onRefresh) == null ? void 0 : _a.call(this);
+            this.renderTodoList(listEl);
+          }).catch(console.error);
+        }
+      });
+      if (todo.dueDate) {
+        const dueEl = item.createDiv({ cls: "avm-todo-due", text: todo.dueDate });
+        if (isOverdue)
+          dueEl.addClass("overdue");
+        dueEl.addEventListener("click", () => {
+          const newDate = prompt("\u7F16\u8F91\u622A\u6B62\u65E5\u671F (YYYY-MM-DD):", todo.dueDate);
+          if (newDate !== null) {
+            const parsed = parseDateInput(newDate);
+            this.plugin.todoService.update(this.currentProjectId, {
+              ...todo,
+              dueDate: parsed || ""
+            }, todo.version).then(() => {
+              var _a;
+              (_a = this.onRefresh) == null ? void 0 : _a.call(this);
+              this.renderTodoList(listEl);
+            }).catch(console.error);
+          }
+        });
+      }
+      if (todo.link) {
+        const normalized = /^https?:\/\//i.test(todo.link) ? todo.link : `https://${todo.link}`;
+        const linkEl = item.createEl("a", {
+          cls: "avm-todo-link",
+          text: "\u{1F517}",
+          attr: { href: normalized, target: "_blank", rel: "noopener noreferrer" }
+        });
+      }
+      const deleteBtn = item.createEl("button", { cls: "avm-todo-delete", text: "\u{1F5D1}\uFE0F" });
+      deleteBtn.addEventListener("click", () => {
+        new ConfirmModal(
+          this.plugin.app,
+          "\u5220\u9664\u5F85\u529E",
+          "\u786E\u5B9A\u5220\u9664\u8FD9\u4E2A\u5F85\u529E\u5417\uFF1F",
+          async () => {
+            var _a;
+            try {
+              await this.plugin.todoService.delete(this.currentProjectId, todo.id);
+              (_a = this.onRefresh) == null ? void 0 : _a.call(this);
+              await this.renderTodoList(listEl);
+            } catch (error) {
+              console.error("Failed to delete todo:", error);
+            }
+          },
+          void 0,
+          true
+        ).open();
+      });
+    }
   }
 };
 
@@ -35851,9 +36105,10 @@ var ExportModal = class extends import_obsidian15.Modal {
 // src/view/modals/ImportModal.ts
 var import_obsidian16 = require("obsidian");
 var ImportModal = class extends import_obsidian16.Modal {
-  constructor(app, service, appId, onComplete) {
+  constructor(app, importService, backupService, appId, onComplete) {
     super(app);
-    this.importExportService = service;
+    this.importExportService = importService;
+    this.backupService = backupService;
     this.appId = appId;
     this.onComplete = onComplete;
   }
@@ -35862,9 +36117,12 @@ var ImportModal = class extends import_obsidian16.Modal {
     contentEl.addClass("avm-modal");
     contentEl.createEl("h2", { text: "\u5BFC\u5165\u6570\u636E" });
     const fileInput = contentEl.createEl("input", {
-      attr: { type: "file", accept: ".csv,.xlsx,.xls" }
+      attr: { type: "file", accept: ".csv,.xlsx,.xls,.json" }
     });
     const statusEl = contentEl.createDiv({ cls: "avm-import-status" });
+    const hintEl = contentEl.createEl("p", { text: "\u652F\u6301 CSV\u3001Excel (.xlsx/.xls) \u548C\u5907\u4EFD\u6587\u4EF6 (.json)" });
+    hintEl.style.color = "var(--text-muted)";
+    hintEl.style.fontSize = "12px";
     createActionButtons(
       contentEl,
       {
@@ -35879,21 +36137,47 @@ var ImportModal = class extends import_obsidian16.Modal {
           }
           statusEl.setText("\u5904\u7406\u4E2D...");
           try {
-            let result;
-            if (file.name.endsWith(".csv")) {
+            if (file.name.endsWith(".json")) {
+              if (!this.backupService) {
+                throw new Error("\u5907\u4EFD\u6062\u590D\u529F\u80FD\u4E0D\u53EF\u7528");
+              }
+              if (!confirm("\u8FD9\u662F\u5907\u4EFD\u6587\u4EF6\uFF0C\u786E\u5B9A\u8981\u6062\u590D\u5417\uFF1F\u5F53\u524D\u6570\u636E\u5C06\u88AB\u8986\u76D6\u3002")) {
+                statusEl.setText("\u5DF2\u53D6\u6D88");
+                return;
+              }
               const content = await file.text();
-              result = await this.importExportService.importFromCSV(content, this.appId);
+              const success = await this.backupService.restoreFromContent(content);
+              if (success) {
+                new import_obsidian16.Notice("\u6062\u590D\u6210\u529F");
+                statusEl.setText("\u6062\u590D\u6210\u529F");
+                setTimeout(() => {
+                  this.onComplete();
+                  this.close();
+                }, 800);
+              } else {
+                throw new Error("\u6062\u590D\u5931\u8D25");
+              }
+            } else if (file.name.endsWith(".csv")) {
+              const content = await file.text();
+              const result = await this.importExportService.importFromCSV(content, this.appId);
+              new import_obsidian16.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF01\u6210\u529F: ${result.success} \u6761${result.errors.length > 0 ? `
+\u9519\u8BEF: ${result.errors.join("\n")}` : ""}`);
+              statusEl.setText("\u5BFC\u5165\u6210\u529F");
+              setTimeout(() => {
+                this.onComplete();
+                this.close();
+              }, 800);
             } else {
               const buffer = await file.arrayBuffer();
-              result = await this.importExportService.importFromExcel(buffer, this.appId);
-            }
-            new import_obsidian16.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF01\u6210\u529F: ${result.success} \u6761${result.errors.length > 0 ? `
+              const result = await this.importExportService.importFromExcel(buffer, this.appId);
+              new import_obsidian16.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF01\u6210\u529F: ${result.success} \u6761${result.errors.length > 0 ? `
 \u9519\u8BEF: ${result.errors.join("\n")}` : ""}`);
-            statusEl.setText("\u5BFC\u5165\u6210\u529F");
-            setTimeout(() => {
-              this.onComplete();
-              this.close();
-            }, 800);
+              statusEl.setText("\u5BFC\u5165\u6210\u529F");
+              setTimeout(() => {
+                this.onComplete();
+                this.close();
+              }, 800);
+            }
           } catch (error) {
             statusEl.setText(`\u5BFC\u5165\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
           }
@@ -35990,6 +36274,7 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
     this.autoRefreshTimer = null;
     this.plugin = plugin;
     this.importExportService = new ImportExportService(this.app, this.plugin);
+    this.todoSidePanel = new TodoSidePanel(this.containerEl, this.plugin, () => this.refresh());
     this.loadSavedFilters();
   }
   getViewType() {
@@ -36059,6 +36344,23 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
     if (this.selectedVersionId) {
       this.showCreateProjectModal();
     }
+  }
+  async getTodoStats(projectId) {
+    try {
+      const todos = await this.plugin.todoService.getByProjectId(projectId);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
+      const completed = todos.filter((t) => t.completed).length;
+      const overdue = todos.filter((t) => !t.completed && t.dueDate && t.dueDate < todayStr).length;
+      return { total: todos.length, completed, overdue };
+    } catch (error) {
+      console.error("Failed to get todo stats:", error);
+      return { total: 0, completed: 0, overdue: 0 };
+    }
+  }
+  onOpenTodos(projectId, projectName) {
+    this.todoSidePanel.open(projectId, projectName);
   }
   async refresh() {
     await this.loadData();
@@ -36224,7 +36526,9 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
           },
           () => this.showCreateVersionModal(),
           () => this.showCreateProjectModal(),
-          () => this.refresh()
+          () => this.refresh(),
+          (projectId) => this.getTodoStats(projectId),
+          (projectId, projectName) => this.onOpenTodos(projectId, projectName)
         );
         break;
       case "kanban":
@@ -36234,7 +36538,9 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
           appFilteredProjects,
           filteredVersions,
           this.apps,
-          () => this.refresh()
+          () => this.refresh(),
+          (projectId) => this.getTodoStats(projectId),
+          (projectId, projectName) => this.onOpenTodos(projectId, projectName)
         );
         break;
       case "table":
@@ -36244,7 +36550,9 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
           appFilteredProjects,
           filteredVersions,
           this.apps,
-          () => this.refresh()
+          () => this.refresh(),
+          (projectId) => this.getTodoStats(projectId),
+          (projectId, projectName) => this.onOpenTodos(projectId, projectName)
         );
         break;
     }
@@ -36389,7 +36697,7 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
       new import_obsidian18.Notice("\u8BF7\u5148\u9009\u62E9\u4E00\u4E2AAPP");
       return;
     }
-    new ImportModal(this.app, this.importExportService, this.selectedAppId, async () => {
+    new ImportModal(this.app, this.importExportService, this.plugin.backupService, this.selectedAppId, async () => {
       await this.refresh();
     }).open();
   }
@@ -36575,7 +36883,36 @@ function parseFrontmatter(content) {
       } else if (value.startsWith("'") && value.endsWith("'")) {
         value = value.slice(1, -1);
       } else if (value.startsWith("[") && value.endsWith("]")) {
-        value = value.slice(1, -1).split(",").map((v) => v.trim()).filter((v) => v);
+        const inner = value.slice(1, -1).trim();
+        if (inner === "") {
+          value = [];
+        } else {
+          if (inner.startsWith("{") && inner.endsWith("}")) {
+            const items = [];
+            let depth = 0;
+            let start = 0;
+            for (let i = 0; i < inner.length; i++) {
+              if (inner[i] === "{")
+                depth++;
+              else if (inner[i] === "}")
+                depth--;
+              else if (inner[i] === "," && depth === 0) {
+                items.push(inner.substring(start, i).trim());
+                start = i + 1;
+              }
+            }
+            items.push(inner.substring(start).trim());
+            value = items.map((v) => {
+              try {
+                return JSON.parse(v);
+              } catch (e) {
+                return v;
+              }
+            }).filter((v) => v);
+          } else {
+            value = inner.split(",").map((v) => v.trim()).filter((v) => v);
+          }
+        }
       } else if (value === "true") {
         value = true;
       } else if (value === "false") {
@@ -36609,8 +36946,14 @@ function createFrontmatter(data) {
   let fm = "---\n";
   for (const [key, value] of Object.entries(data)) {
     if (Array.isArray(value)) {
-      fm += `${key}: [${value.join(", ")}]
+      if (value.length > 0 && typeof value[0] === "object") {
+        const items = value.map((v) => JSON.stringify(v));
+        fm += `${key}: [${items.join(", ")}]
 `;
+      } else {
+        fm += `${key}: [${value.join(", ")}]
+`;
+      }
     } else if (typeof value === "string" && value.includes("\n")) {
       fm += `${key}: |
   ${value.replace(/\n/g, "\n  ")}
@@ -37451,6 +37794,7 @@ var DataService = class {
     if (file) {
       await this.deleteFile(file);
     }
+    await this.plugin.todoService.deleteByProjectId(id);
     if (memoFile) {
       await this.deleteFile(memoFile);
     }
@@ -37845,6 +38189,51 @@ var BackupService = class {
       if (!(file instanceof import_obsidian20.TFile))
         return false;
       const content = await this.app.vault.read(file);
+      return await this.restoreFromContent(content, rollback);
+    } catch (error) {
+      console.error("[AppVersionManager] Restore failed, rolling back changes.", error);
+      try {
+        await rollback();
+      } catch (rollbackError) {
+        console.error("[AppVersionManager] Rollback after restore failure also failed.", rollbackError);
+      }
+      return false;
+    }
+  }
+  async restoreFromContent(content, rollback) {
+    const beforeApps = rollback ? [] : await this.plugin.dataService.getAllApps();
+    const beforeVersions = rollback ? [] : await this.plugin.dataService.getAllVersions();
+    const beforeProjects = rollback ? [] : await this.plugin.dataService.getAllProjects();
+    const doRollback = rollback || (async () => {
+      for (const app of beforeApps) {
+        await this.plugin.dataService.upsertAppRecord(app);
+      }
+      for (const version2 of beforeVersions) {
+        await this.plugin.dataService.upsertVersionRecord(version2);
+      }
+      for (const project of beforeProjects) {
+        await this.plugin.dataService.upsertProjectRecord(project);
+      }
+      const appIds = new Set(beforeApps.map((a) => a.id));
+      const versionIds = new Set(beforeVersions.map((v) => v.id));
+      const projectIds = new Set(beforeProjects.map((p) => p.id));
+      for (const project of await this.plugin.dataService.getAllProjects()) {
+        if (!projectIds.has(project.id)) {
+          await this.plugin.dataService.deleteProject(project.id);
+        }
+      }
+      for (const version2 of await this.plugin.dataService.getAllVersions()) {
+        if (!versionIds.has(version2.id)) {
+          await this.plugin.dataService.deleteVersion(version2.id);
+        }
+      }
+      for (const app of await this.plugin.dataService.getAllApps()) {
+        if (!appIds.has(app.id)) {
+          await this.plugin.dataService.deleteApp(app.id);
+        }
+      }
+    });
+    try {
       const backupData = JSON.parse(content);
       const { apps, versions, projects } = backupData;
       if (!Array.isArray(apps) || !Array.isArray(versions) || !Array.isArray(projects)) {
@@ -37861,9 +38250,9 @@ var BackupService = class {
       }
       return true;
     } catch (error) {
-      console.error("[AppVersionManager] Restore failed, rolling back changes.", error);
+      console.error("[AppVersionManager] Restore from content failed, rolling back changes.", error);
       try {
-        await rollback();
+        await doRollback();
       } catch (rollbackError) {
         console.error("[AppVersionManager] Rollback after restore failure also failed.", rollbackError);
       }
@@ -37883,6 +38272,125 @@ var BackupService = class {
   }
 };
 
+// src/services/TodoService.ts
+var import_fs3 = require("fs");
+var import_path2 = require("path");
+var import_obsidian21 = require("obsidian");
+var TodoService = class {
+  constructor(plugin) {
+    this.plugin = plugin;
+    this.cache = new DataCache(5e3);
+  }
+  getDataPath() {
+    return this.plugin.settings.dataPath || "app-version-manager";
+  }
+  isAbsolutePath() {
+    const path = this.getDataPath();
+    return (0, import_path2.isAbsolute)(path) || /^[A-Za-z]:/.test(path);
+  }
+  getProjectsFolder() {
+    const dataPath = this.getDataPath();
+    return this.isAbsolutePath() ? (0, import_path2.join)(dataPath, "projects") : `${dataPath}/projects`;
+  }
+  getTodosFilePath(projectId) {
+    const folder = this.getProjectsFolder();
+    return this.isAbsolutePath() ? (0, import_path2.join)(folder, `todos__${projectId}.md`) : (0, import_obsidian21.normalizePath)(`${folder}/todos__${projectId}.md`);
+  }
+  async getByProjectId(projectId) {
+    const cacheKey = `todos:${projectId}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached)
+      return cached;
+    const filePath = this.getTodosFilePath(projectId);
+    if (this.isAbsolutePath()) {
+      if (!(0, import_fs3.existsSync)(filePath))
+        return [];
+      const content = (0, import_fs3.readFileSync)(filePath, "utf-8");
+      const parsed = parseFrontmatter(content);
+      const todos = (parsed == null ? void 0 : parsed.todos) || [];
+      this.cache.set(cacheKey, todos);
+      return todos;
+    } else {
+      const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
+      if (!file)
+        return [];
+      const content = await this.plugin.app.vault.read(file);
+      const parsed = parseFrontmatter(content);
+      const todos = (parsed == null ? void 0 : parsed.todos) || [];
+      this.cache.set(cacheKey, todos);
+      return todos;
+    }
+  }
+  async create(projectId, input) {
+    const todos = await this.getByProjectId(projectId);
+    const now = new Date().toISOString();
+    const todo = {
+      id: generateId(),
+      content: input.content,
+      link: input.link || "",
+      dueDate: input.dueDate || "",
+      completed: false,
+      testStageRef: input.testStageRef,
+      projectId,
+      createdAt: now,
+      updatedAt: now,
+      version: 1
+    };
+    todos.push(todo);
+    await this.saveTodos(projectId, todos);
+    return todo;
+  }
+  async update(projectId, todo, expectedVersion) {
+    const todos = await this.getByProjectId(projectId);
+    const index = todos.findIndex((t) => t.id === todo.id);
+    if (index === -1)
+      throw new Error(`Todo not found: ${todo.id}`);
+    const existing = todos[index];
+    if (expectedVersion !== void 0 && existing.version !== expectedVersion) {
+      throw new ConcurrencyConflictError(`\u5F85\u529E: ${todo.content}`, existing.version, expectedVersion);
+    }
+    todo.updatedAt = new Date().toISOString();
+    todo.version = existing.version + 1;
+    todos[index] = todo;
+    await this.saveTodos(projectId, todos);
+    return todo;
+  }
+  async delete(projectId, todoId) {
+    const todos = await this.getByProjectId(projectId);
+    const filtered = todos.filter((t) => t.id !== todoId);
+    if (filtered.length === todos.length)
+      return;
+    await this.saveTodos(projectId, filtered);
+  }
+  async deleteByProjectId(projectId) {
+    const filePath = this.getTodosFilePath(projectId);
+    this.cache.invalidate(`todos:${projectId}`);
+    if (this.isAbsolutePath()) {
+      if ((0, import_fs3.existsSync)(filePath))
+        (0, import_fs3.unlinkSync)(filePath);
+    } else {
+      const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
+      if (file)
+        await this.plugin.app.vault.delete(file);
+    }
+  }
+  async saveTodos(projectId, todos) {
+    const filePath = this.getTodosFilePath(projectId);
+    const frontmatter = createFrontmatter({ todos });
+    this.cache.invalidate(`todos:${projectId}`);
+    if (this.isAbsolutePath()) {
+      (0, import_fs3.writeFileSync)(filePath, frontmatter, "utf-8");
+    } else {
+      const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
+      if (file) {
+        await this.plugin.app.vault.modify(file, frontmatter);
+      } else {
+        await this.plugin.app.vault.create(filePath, frontmatter);
+      }
+    }
+  }
+};
+
 // src/styles.ts
 var STYLES = `
 .app-version-manager {
@@ -37891,6 +38399,7 @@ var STYLES = `
   height: 100%;
   padding: 0;
   font-size: 14px;
+  position: relative;
 }
 
 .avm-header {
@@ -38853,11 +39362,131 @@ var STYLES = `
   border: 2px solid white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
+
+/* Todo side panel */
+.avm-todo-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 10;
+  display: none;
+}
+.avm-todo-overlay.open { display: block; }
+
+.avm-todo-panel {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 360px;
+  background: var(--background-primary);
+  border-left: 1px solid var(--background-modifier-border);
+  z-index: 11;
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+}
+.avm-todo-panel.open { transform: translateX(0); }
+
+.avm-todo-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+.avm-todo-panel-title { font-weight: 600; font-size: 15px; }
+.avm-todo-panel-close {
+  cursor: pointer; border: none; background: none;
+  font-size: 18px; color: var(--text-muted); padding: 4px 8px;
+}
+
+.avm-todo-list {
+  flex: 1; overflow-y: auto; padding: 8px 0;
+}
+.avm-todo-empty {
+  text-align: center; color: var(--text-muted);
+  padding: 40px 16px; font-size: 14px;
+}
+
+.avm-todo-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-bottom: 1px solid var(--background-modifier-border-hover);
+}
+.avm-todo-item.overdue { border-left: 3px solid #ef4444; }
+.avm-todo-item.completed .avm-todo-content { text-decoration: line-through; color: var(--text-muted); }
+
+.avm-todo-checkbox {
+  flex-shrink: 0; width: 16px; height: 16px;
+  cursor: pointer;
+}
+.avm-todo-content {
+  flex: 1; font-size: 13px; cursor: pointer;
+}
+.avm-todo-due {
+  font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0;
+  cursor: pointer;
+}
+.avm-todo-due.overdue { color: #ef4444; font-weight: 600; }
+.avm-todo-link {
+  flex-shrink: 0; cursor: pointer; color: var(--text-accent);
+  font-size: 14px; opacity: 0.7;
+}
+.avm-todo-link:hover { opacity: 1; }
+.avm-todo-delete {
+  flex-shrink: 0; cursor: pointer; color: var(--text-muted);
+  font-size: 12px; opacity: 0; padding: 2px 4px;
+}
+.avm-todo-item:hover .avm-todo-delete { opacity: 0.6; }
+.avm-todo-delete:hover { opacity: 1 !important; color: #ef4444; }
+
+.avm-todo-footer {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+.avm-todo-input-row {
+  display: flex; gap: 8px;
+}
+.avm-todo-input {
+  flex: 1; padding: 6px 10px; font-size: 13px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px; background: var(--background-primary);
+}
+.avm-todo-extra-row {
+  display: flex; gap: 8px;
+}
+.avm-todo-input-link {
+  flex: 1; padding: 5px 8px; font-size: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px; background: var(--background-primary);
+}
+.avm-todo-input-date {
+  width: 140px; padding: 5px 8px; font-size: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px; background: var(--background-primary);
+  flex-shrink: 0;
+}
+.avm-todo-add-btn {
+  padding: 6px 14px; font-size: 13px;
+  background: var(--interactive-accent); color: white;
+  border: none; border-radius: 4px; cursor: pointer;
+}
+
+/* Todo badge on project cards */
+.avm-todo-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 10px;
+  font-size: 11px; cursor: pointer;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+}
+.avm-todo-badge.has-overdue {
+  background: #fef2f2; color: #ef4444;
+}
 `;
 
 // src/main.ts
 var STYLE_ID = "app-version-manager-styles";
-var AppVersionManagerPlugin = class extends import_obsidian21.Plugin {
+var AppVersionManagerPlugin = class extends import_obsidian22.Plugin {
   constructor() {
     super(...arguments);
     this.saveSettingsQueue = Promise.resolve();
@@ -38867,6 +39496,7 @@ var AppVersionManagerPlugin = class extends import_obsidian21.Plugin {
     this.injectStyles();
     this.dataService = new DataService(this.app, this);
     this.backupService = new BackupService(this.app, this);
+    this.todoService = new TodoService(this);
     this.registerView(
       VIEW_TYPE_APP_VERSION_MANAGER,
       (leaf) => new AppVersionManagerView(leaf, this)
@@ -38952,7 +39582,7 @@ var AppVersionManagerPlugin = class extends import_obsidian21.Plugin {
     }
   }
 };
-var AppVersionManagerSettingTab = class extends import_obsidian21.PluginSettingTab {
+var AppVersionManagerSettingTab = class extends import_obsidian22.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -38960,7 +39590,7 @@ var AppVersionManagerSettingTab = class extends import_obsidian21.PluginSettingT
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian21.Setting(containerEl).setName("\u6570\u636E\u5B58\u50A8\u8DEF\u5F84").setDesc("\u8BBE\u7F6E\u63D2\u4EF6\u6570\u636E\u5B58\u50A8\u7684\u6839\u76EE\u5F55\u8DEF\u5F84\u3002\u652F\u6301\u76F8\u5BF9\u8DEF\u5F84\uFF08\u76F8\u5BF9\u4E8Evault\u6839\u76EE\u5F55\uFF09\u6216\u7EDD\u5BF9\u8DEF\u5F84").addText((text) => text.setPlaceholder("app-version-manager \u6216 C:\\MyData\\app-versions").setValue(this.plugin.settings.dataPath).onChange(async (value) => {
+    new import_obsidian22.Setting(containerEl).setName("\u6570\u636E\u5B58\u50A8\u8DEF\u5F84").setDesc("\u8BBE\u7F6E\u63D2\u4EF6\u6570\u636E\u5B58\u50A8\u7684\u6839\u76EE\u5F55\u8DEF\u5F84\u3002\u652F\u6301\u76F8\u5BF9\u8DEF\u5F84\uFF08\u76F8\u5BF9\u4E8Evault\u6839\u76EE\u5F55\uFF09\u6216\u7EDD\u5BF9\u8DEF\u5F84").addText((text) => text.setPlaceholder("app-version-manager \u6216 C:\\MyData\\app-versions").setValue(this.plugin.settings.dataPath).onChange(async (value) => {
       const newPath = value.trim() || "app-version-manager";
       if (newPath !== this.plugin.settings.dataPath) {
         this.plugin.settings.dataPath = newPath;
@@ -38968,10 +39598,10 @@ var AppVersionManagerSettingTab = class extends import_obsidian21.PluginSettingT
         this.plugin.dataService = new DataService(this.app, this.plugin);
       }
     }));
-    new import_obsidian21.Setting(containerEl).setName("\u6253\u5F00\u6570\u636E\u76EE\u5F55").setDesc("\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u6253\u5F00\u6570\u636E\u5B58\u50A8\u76EE\u5F55").addButton((btn) => btn.setButtonText("\u6253\u5F00\u6570\u636E\u76EE\u5F55").onClick(() => {
+    new import_obsidian22.Setting(containerEl).setName("\u6253\u5F00\u6570\u636E\u76EE\u5F55").setDesc("\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u6253\u5F00\u6570\u636E\u5B58\u50A8\u76EE\u5F55").addButton((btn) => btn.setButtonText("\u6253\u5F00\u6570\u636E\u76EE\u5F55").onClick(() => {
       const dataPath = this.plugin.settings.dataPath;
       if (this.plugin.dataService.isAbsolutePath()) {
-        new import_obsidian21.Notice(`\u6570\u636E\u5B58\u50A8\u8DEF\u5F84: ${dataPath}
+        new import_obsidian22.Notice(`\u6570\u636E\u5B58\u50A8\u8DEF\u5F84: ${dataPath}
 
 \u8BF7\u624B\u52A8\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u6253\u5F00\u6B64\u8DEF\u5F84\u3002`);
       } else {
@@ -38981,14 +39611,14 @@ var AppVersionManagerSettingTab = class extends import_obsidian21.PluginSettingT
           if (typeof appWithShowInFolder.showInFolder === "function") {
             appWithShowInFolder.showInFolder(dataFolder.path);
           } else {
-            new import_obsidian21.Notice("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u6253\u5F00\u7CFB\u7EDF\u6587\u4EF6\u7BA1\u7406\u5668");
+            new import_obsidian22.Notice("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u6253\u5F00\u7CFB\u7EDF\u6587\u4EF6\u7BA1\u7406\u5668");
           }
         } else {
-          new import_obsidian21.Notice("\u6570\u636E\u76EE\u5F55\u5C1A\u672A\u521B\u5EFA\uFF0C\u8BF7\u5148\u521B\u5EFA\u4E00\u4E9B\u6570\u636E\u540E\u518D\u8BD5");
+          new import_obsidian22.Notice("\u6570\u636E\u76EE\u5F55\u5C1A\u672A\u521B\u5EFA\uFF0C\u8BF7\u5148\u521B\u5EFA\u4E00\u4E9B\u6570\u636E\u540E\u518D\u8BD5");
         }
       }
     }));
-    new import_obsidian21.Setting(containerEl).setName("Auto Backup").setDesc("Enable automatic weekly backup").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoBackup).onChange(async (value) => {
+    new import_obsidian22.Setting(containerEl).setName("\u81EA\u52A8\u5907\u4EFD").setDesc("\u542F\u7528\u81EA\u52A8\u6BCF\u5468\u5907\u4EFD").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoBackup).onChange(async (value) => {
       this.plugin.settings.autoBackup = value;
       await this.plugin.saveSettings();
       if (value) {
@@ -38997,36 +39627,36 @@ var AppVersionManagerSettingTab = class extends import_obsidian21.PluginSettingT
         this.plugin.backupService.clearBackupSchedule();
       }
     }));
-    new import_obsidian21.Setting(containerEl).setName("\u5907\u4EFD\u8DEF\u5F84").setDesc("\u5907\u4EFD\u6587\u4EF6\u5B58\u50A8\u8DEF\u5F84\uFF0C\u4E0D\u586B\u5219\u9ED8\u8BA4\u4E3A\u7B14\u8BB0\u6839\u76EE\u5F55\u4E0B\u7684 app-version-manager/backups \u6587\u4EF6\u5939").addText((text) => text.setPlaceholder("app-version-manager/backups \u6216\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\u8DEF\u5F84").setValue(this.plugin.settings.backupPath).onChange(async (value) => {
+    new import_obsidian22.Setting(containerEl).setName("\u5907\u4EFD\u8DEF\u5F84").setDesc("\u5907\u4EFD\u6587\u4EF6\u5B58\u50A8\u8DEF\u5F84\uFF0C\u4E0D\u586B\u5219\u9ED8\u8BA4\u4E3A\u7B14\u8BB0\u6839\u76EE\u5F55\u4E0B\u7684 app-version-manager/backups \u6587\u4EF6\u5939").addText((text) => text.setPlaceholder("app-version-manager/backups \u6216\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\u8DEF\u5F84").setValue(this.plugin.settings.backupPath).onChange(async (value) => {
       this.plugin.settings.backupPath = value.trim();
       await this.plugin.saveSettings();
     }));
-    new import_obsidian21.Setting(containerEl).setName("\u624B\u52A8\u5907\u4EFD").setDesc("\u7ACB\u5373\u521B\u5EFA\u4E00\u4E2A\u5907\u4EFD\u6587\u4EF6").addButton((btn) => btn.setButtonText("\u7ACB\u5373\u5907\u4EFD").onClick(async () => {
+    new import_obsidian22.Setting(containerEl).setName("\u624B\u52A8\u5907\u4EFD").setDesc("\u7ACB\u5373\u521B\u5EFA\u4E00\u4E2A\u5907\u4EFD\u6587\u4EF6").addButton((btn) => btn.setButtonText("\u7ACB\u5373\u5907\u4EFD").onClick(async () => {
       try {
         const backupPath = await this.plugin.backupService.performBackup();
-        new import_obsidian21.Notice(`\u5907\u4EFD\u6210\u529F\uFF01
+        new import_obsidian22.Notice(`\u5907\u4EFD\u6210\u529F\uFF01
 \u5907\u4EFD\u6587\u4EF6\uFF1A${backupPath}`);
       } catch (error) {
-        new import_obsidian21.Notice(`\u5907\u4EFD\u5931\u8D25\uFF1A${error instanceof Error ? error.message : String(error)}`);
+        new import_obsidian22.Notice(`\u5907\u4EFD\u5931\u8D25\uFF1A${error instanceof Error ? error.message : String(error)}`);
       }
     }));
-    new import_obsidian21.Setting(containerEl).setName("Backup Day").setDesc("Day of week for backup (0=Sunday, 5=Friday)").addSlider((slider) => slider.setLimits(0, 6, 1).setValue(this.plugin.settings.backupDay).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian22.Setting(containerEl).setName("\u5907\u4EFD\u65E5").setDesc("\u6BCF\u5468\u5907\u4EFD\u65E5\uFF080=\u5468\u65E5\uFF0C5=\u5468\u4E94\uFF09").addSlider((slider) => slider.setLimits(0, 6, 1).setValue(this.plugin.settings.backupDay).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.backupDay = value;
       await this.plugin.saveSettings();
       this.plugin.backupService.scheduleBackup();
     }));
-    new import_obsidian21.Setting(containerEl).setName("Backup Hour").setDesc("Hour of day for backup (0-23)").addSlider((slider) => slider.setLimits(0, 23, 1).setValue(this.plugin.settings.backupHour).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian22.Setting(containerEl).setName("\u5907\u4EFD\u65F6\u95F4").setDesc("\u6BCF\u5929\u5907\u4EFD\u65F6\u95F4\uFF080-23\u65F6\uFF09").addSlider((slider) => slider.setLimits(0, 23, 1).setValue(this.plugin.settings.backupHour).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.backupHour = value;
       await this.plugin.saveSettings();
       this.plugin.backupService.scheduleBackup();
     }));
     containerEl.createEl("h3", { text: "\u5EF6\u671F\u9884\u8B66\u8BBE\u7F6E" });
-    new import_obsidian21.Setting(containerEl).setName("\u9884\u8B66\u5929\u6570").setDesc("\u9879\u76EE\u5728\u622A\u6B62\u65E5\u671F\u524D\u591A\u5C11\u5929\u5185\u663E\u793A\u9884\u8B66\uFF081-14\u5929\uFF09").addSlider((slider) => slider.setLimits(1, 14, 1).setValue(this.plugin.settings.overdueWarningDays).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian22.Setting(containerEl).setName("\u9884\u8B66\u5929\u6570").setDesc("\u9879\u76EE\u5728\u622A\u6B62\u65E5\u671F\u524D\u591A\u5C11\u5929\u5185\u663E\u793A\u9884\u8B66\uFF081-14\u5929\uFF09").addSlider((slider) => slider.setLimits(1, 14, 1).setValue(this.plugin.settings.overdueWarningDays).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.overdueWarningDays = value;
       await this.plugin.saveSettings();
     }));
-    containerEl.createEl("h3", { text: "\u7518\u7279\u56FE\u8BBE\u7F6E" });
-    new import_obsidian21.Setting(containerEl).setName("\u81EA\u52A8\u5237\u65B0\u95F4\u9694").setDesc("\u7518\u7279\u56FE\u81EA\u52A8\u5237\u65B0\u6570\u636E\u7684\u65F6\u95F4\u95F4\u9694\uFF080=\u5173\u95ED\uFF09").addDropdown((dropdown) => {
+    containerEl.createEl("h3", { text: "\u81EA\u52A8\u5237\u65B0\u8BBE\u7F6E" });
+    new import_obsidian22.Setting(containerEl).setName("\u81EA\u52A8\u5237\u65B0\u95F4\u9694").setDesc("\u81EA\u52A8\u5237\u65B0\u5F53\u524D\u89C6\u56FE\u6570\u636E\u7684\u65F6\u95F4\u95F4\u9694\uFF080=\u5173\u95ED\uFF09").addDropdown((dropdown) => {
       dropdown.addOption("0", "\u5173\u95ED");
       dropdown.addOption("1", "1\u5206\u949F");
       dropdown.addOption("2", "2\u5206\u949F");
@@ -39044,7 +39674,7 @@ var AppVersionManagerSettingTab = class extends import_obsidian21.PluginSettingT
     progressDesc.style.fontSize = "13px";
     progressDesc.setText("\u81EA\u5B9A\u4E49\u9879\u76EE\u8FDB\u5EA6\u7684\u5404\u4E2A\u9636\u6BB5\u540D\u79F0\u548C\u989C\u8272\u3002\u9636\u6BB5\u7684\u987A\u5E8F\u5373\u4E3A\u9879\u76EE\u6D41\u7A0B\u7684\u987A\u5E8F\u3002");
     this.renderProgressStagesSettings(containerEl);
-    new import_obsidian21.Setting(containerEl).setName("\u6DFB\u52A0\u65B0\u9636\u6BB5").addButton((btn) => btn.setButtonText("\u6DFB\u52A0\u9636\u6BB5").onClick(async () => {
+    new import_obsidian22.Setting(containerEl).setName("\u6DFB\u52A0\u65B0\u9636\u6BB5").addButton((btn) => btn.setButtonText("\u6DFB\u52A0\u9636\u6BB5").onClick(async () => {
       const stages = this.plugin.settings.progressStages;
       const newColor = this.generateRandomColor();
       stages.push({ name: `\u65B0\u9636\u6BB5${stages.length + 1}`, color: newColor });
@@ -39052,7 +39682,7 @@ var AppVersionManagerSettingTab = class extends import_obsidian21.PluginSettingT
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian21.Setting(containerEl).setName("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u9636\u6BB5").setDesc("\u6062\u590D\u9ED8\u8BA4\u7684\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E").addButton((btn) => btn.setButtonText("\u91CD\u7F6E").setWarning().onClick(async () => {
+    new import_obsidian22.Setting(containerEl).setName("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u9636\u6BB5").setDesc("\u6062\u590D\u9ED8\u8BA4\u7684\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E").addButton((btn) => btn.setButtonText("\u91CD\u7F6E").setWarning().onClick(async () => {
       this.plugin.settings.progressStages = JSON.parse(JSON.stringify(DEFAULT_PROGRESS_STAGES));
       await this.plugin.saveSettings();
       this.display();
@@ -39061,7 +39691,7 @@ var AppVersionManagerSettingTab = class extends import_obsidian21.PluginSettingT
   renderProgressStagesSettings(containerEl) {
     const stages = this.plugin.settings.progressStages;
     stages.forEach((stage, index) => {
-      const setting = new import_obsidian21.Setting(containerEl).setName(`\u9636\u6BB5 ${index + 1}`).setClass("avm-progress-stage-setting");
+      const setting = new import_obsidian22.Setting(containerEl).setName(`\u9636\u6BB5 ${index + 1}`).setClass("avm-progress-stage-setting");
       setting.addText((text) => text.setValue(stage.name).setPlaceholder("\u9636\u6BB5\u540D\u79F0").onChange(async (value) => {
         stages[index].name = value;
         this.plugin.settings.progressStages = stages;
@@ -39097,7 +39727,7 @@ var AppVersionManagerSettingTab = class extends import_obsidian21.PluginSettingT
           await this.plugin.saveSettings();
           this.display();
         } else {
-          new import_obsidian21.Notice("\u81F3\u5C11\u9700\u8981\u4FDD\u7559\u4E00\u4E2A\u9636\u6BB5");
+          new import_obsidian22.Notice("\u81F3\u5C11\u9700\u8981\u4FDD\u7559\u4E00\u4E2A\u9636\u6BB5");
         }
       }));
     });

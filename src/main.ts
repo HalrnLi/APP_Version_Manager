@@ -182,8 +182,8 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
-      .setName('Auto Backup')
-      .setDesc('Enable automatic weekly backup')
+      .setName('自动备份')
+      .setDesc('启用自动每周备份')
       .addToggle(toggle => toggle
         .setValue(this.plugin.settings.autoBackup)
         .onChange(async (value) => {
@@ -222,8 +222,8 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
-      .setName('Backup Day')
-      .setDesc('Day of week for backup (0=Sunday, 5=Friday)')
+      .setName('备份日')
+      .setDesc('每周备份日（0=周日，5=周五）')
       .addSlider(slider => slider
         .setLimits(0, 6, 1)
         .setValue(this.plugin.settings.backupDay)
@@ -235,8 +235,8 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
-      .setName('Backup Hour')
-      .setDesc('Hour of day for backup (0-23)')
+      .setName('备份时间')
+      .setDesc('每天备份时间（0-23时）')
       .addSlider(slider => slider
         .setLimits(0, 23, 1)
         .setValue(this.plugin.settings.backupHour)
@@ -261,11 +261,11 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
-    containerEl.createEl('h3', { text: '甘特图设置' });
+    containerEl.createEl('h3', { text: '自动刷新设置' });
 
     new Setting(containerEl)
       .setName('自动刷新间隔')
-      .setDesc('甘特图自动刷新数据的时间间隔（0=关闭）')
+      .setDesc('自动刷新当前视图数据的时间间隔（0=关闭）')
       .addDropdown(dropdown => {
         dropdown.addOption('0', '关闭');
         dropdown.addOption('1', '1分钟');

@@ -1,6 +1,7 @@
 import AppVersionManagerPlugin from '../main';
 import { Todo, CreateTodoInput } from '../types';
 import { parseDateInput } from '../types';
+import { ConfirmModal } from './ConfirmModal';
 
 export class TodoSidePanel {
   private plugin: AppVersionManagerPlugin;
@@ -9,10 +10,12 @@ export class TodoSidePanel {
   private panelEl: HTMLElement | null = null;
   private currentProjectId: string | null = null;
   private currentProjectName: string = '';
+  private onRefresh?: () => void;
 
-  constructor(containerEl: HTMLElement, plugin: AppVersionManagerPlugin) {
+  constructor(containerEl: HTMLElement, plugin: AppVersionManagerPlugin, onRefresh?: () => void) {
     this.containerEl = containerEl;
     this.plugin = plugin;
+    this.onRefresh = onRefresh;
   }
 
   open(projectId: string, projectName: string): void {
@@ -93,6 +96,7 @@ export class TodoSidePanel {
           link: linkInput.value.trim() || undefined,
           dueDate: dateInput.value || undefined,
         });
+        this.onRefresh?.();
         input.value = '';
         linkInput.value = '';
         await this.renderTodoList(listEl);
@@ -153,6 +157,7 @@ export class TodoSidePanel {
             ...todo,
             completed: checkbox.checked
           }, todo.version);
+          this.onRefresh?.();
           await this.renderTodoList(listEl);
         } catch (error) {
           console.error('Failed to update todo:', error);
@@ -168,7 +173,10 @@ export class TodoSidePanel {
           this.plugin.todoService.update(this.currentProjectId!, {
             ...todo,
             content: newContent.trim()
-          }, todo.version).then(() => this.renderTodoList(listEl)).catch(console.error);
+          }, todo.version).then(() => {
+            this.onRefresh?.();
+            this.renderTodoList(listEl);
+          }).catch(console.error);
         }
       });
 
@@ -183,7 +191,10 @@ export class TodoSidePanel {
             this.plugin.todoService.update(this.currentProjectId!, {
               ...todo,
               dueDate: parsed || ''
-            }, todo.version).then(() => this.renderTodoList(listEl)).catch(console.error);
+            }, todo.version).then(() => {
+              this.onRefresh?.();
+              this.renderTodoList(listEl);
+            }).catch(console.error);
           }
         });
       }
@@ -200,15 +211,23 @@ export class TodoSidePanel {
 
       // Delete button
       const deleteBtn = item.createEl('button', { cls: 'avm-todo-delete', text: '🗑️' });
-      deleteBtn.addEventListener('click', async () => {
-        if (confirm('确定删除这个待办吗？')) {
-          try {
-            await this.plugin.todoService.delete(this.currentProjectId!, todo.id);
-            await this.renderTodoList(listEl);
-          } catch (error) {
-            console.error('Failed to delete todo:', error);
-          }
-        }
+      deleteBtn.addEventListener('click', () => {
+        new ConfirmModal(
+          this.plugin.app,
+          '删除待办',
+          '确定删除这个待办吗？',
+          async () => {
+            try {
+              await this.plugin.todoService.delete(this.currentProjectId!, todo.id);
+              this.onRefresh?.();
+              await this.renderTodoList(listEl);
+            } catch (error) {
+              console.error('Failed to delete todo:', error);
+            }
+          },
+          undefined,
+          true
+        ).open();
       });
     }
   }

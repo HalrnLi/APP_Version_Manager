@@ -41,7 +41,7 @@ export class AppVersionManagerView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.importExportService = new ImportExportService(this.app, this.plugin);
-    this.todoSidePanel = new TodoSidePanel(this.containerEl, this.plugin);
+    this.todoSidePanel = new TodoSidePanel(this.containerEl, this.plugin, () => this.refresh());
     this.loadSavedFilters();
   }
 
@@ -346,7 +346,7 @@ export class AppVersionManagerView extends ItemView {
       .setIcon('upload')
       .setTooltip('导入数据')
       .onClick(() => this.showImportModal());
-    
+
     new ButtonComponent(actionButtons)
       .setIcon('refresh-cw')
       .setTooltip('刷新')
@@ -581,7 +581,7 @@ export class AppVersionManagerView extends ItemView {
       new Notice('请先选择一个APP');
       return;
     }
-    new ImportModal(this.app, this.importExportService, this.selectedAppId, async () => {
+    new ImportModal(this.app, this.importExportService, this.plugin.backupService, this.selectedAppId, async () => {
       await this.refresh();
     }).open();
   }
