@@ -821,12 +821,12 @@ export class DataService {
     }
     
     const frontmatter = createFrontmatter({
-      id: project.id,
-      name: project.name,
-      versionId: project.versionId,
-      manager: project.manager,
-      projectLink: project.projectLink,
-      componentLink: project.componentLink,
+      id: updatedProject.id,
+      name: updatedProject.name,
+      versionId: updatedProject.versionId,
+      manager: updatedProject.manager,
+      projectLink: updatedProject.projectLink,
+      componentLink: updatedProject.componentLink,
       features: updatedProject.features,
       spec: updatedProject.spec,
       requirements: updatedProject.requirements,
