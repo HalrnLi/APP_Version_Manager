@@ -1043,6 +1043,41 @@ export const STYLES = `
 .avm-todo-item:hover .avm-todo-delete { opacity: 0.6; }
 .avm-todo-delete:hover { opacity: 1 !important; color: #ef4444; }
 
+.avm-todo-display-wrap {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+}
+.avm-todo-edit-btn {
+  flex-shrink: 0; cursor: pointer; color: var(--text-muted);
+  font-size: 12px; opacity: 0; padding: 2px 4px;
+}
+.avm-todo-item:hover .avm-todo-edit-btn { opacity: 0.6; }
+.avm-todo-edit-btn:hover { opacity: 1 !important; color: var(--interactive-accent); }
+
+.avm-todo-edit-container {
+  display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0;
+}
+.avm-todo-edit-content {
+  padding: 4px 8px; font-size: 13px;
+  border: 1px solid var(--interactive-accent);
+  border-radius: 4px; background: var(--background-primary);
+}
+.avm-todo-edit-row {
+  display: flex; gap: 6px;
+}
+.avm-todo-edit-btns {
+  display: flex; gap: 6px; justify-content: flex-end;
+}
+.avm-todo-save-btn {
+  padding: 3px 12px; font-size: 12px;
+  background: var(--interactive-accent); color: white;
+  border: none; border-radius: 4px; cursor: pointer;
+}
+.avm-todo-cancel-btn {
+  padding: 3px 12px; font-size: 12px;
+  background: var(--background-modifier-hover); color: var(--text-muted);
+  border: none; border-radius: 4px; cursor: pointer;
+}
+
 .avm-todo-footer {
   display: flex; flex-direction: column; gap: 8px;
   padding: 12px 16px;

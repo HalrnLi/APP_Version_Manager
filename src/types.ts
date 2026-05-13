@@ -128,6 +128,12 @@ export interface SavedFilter {
   keyword: string;
 }
 
+export interface DefaultTodoTemplate {
+  content: string;
+  link: string;
+  dueDate: string;
+}
+
 export interface PluginSettings {
   defaultAppId: string | null;
   autoBackup: boolean;
@@ -139,6 +145,7 @@ export interface PluginSettings {
   progressStages: ProgressStage[];
   overdueWarningDays: number;
   autoRefreshInterval: number;
+  defaultTodos: DefaultTodoTemplate[];
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -151,7 +158,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   backupPath: '',
   progressStages: DEFAULT_PROGRESS_STAGES,
   overdueWarningDays: 3,
-  autoRefreshInterval: 2
+  autoRefreshInterval: 2,
+  defaultTodos: []
 };
 
 export function getProgressOrder(stages: ProgressStage[]): ProjectProgress[] {

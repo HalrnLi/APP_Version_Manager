@@ -312,6 +312,16 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
           this.display();
         }));
+
+    containerEl.createEl('h3', { text: '默认待办设置' });
+
+    const defaultTodoDesc = containerEl.createDiv({ cls: 'avm-default-todo-desc' });
+    defaultTodoDesc.style.marginBottom = '12px';
+    defaultTodoDesc.style.color = 'var(--text-muted)';
+    defaultTodoDesc.style.fontSize = '13px';
+    defaultTodoDesc.setText('新建项目时自动添加以下待办事项。');
+
+    this.renderDefaultTodosSettings(containerEl);
   }
 
   private renderProgressStagesSettings(containerEl: HTMLElement) {
@@ -379,6 +389,44 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
           }
         }));
     });
+  }
+
+  private renderDefaultTodosSettings(containerEl: HTMLElement) {
+    const todos = this.plugin.settings.defaultTodos;
+
+    todos.forEach((todo, index) => {
+      const setting = new Setting(containerEl)
+        .setClass('avm-default-todo-setting');
+
+      setting.addText(text => text
+        .setValue(todo.content)
+        .setPlaceholder('待办内容')
+        .onChange(async (value) => {
+          todos[index].content = value;
+          await this.plugin.saveSettings();
+        }));
+
+      setting.addExtraButton(btn => btn
+        .setIcon('trash')
+        .setTooltip('删除')
+        .onClick(async () => {
+          todos.splice(index, 1);
+          this.plugin.settings.defaultTodos = todos;
+          await this.plugin.saveSettings();
+          this.display();
+        }));
+    });
+
+    new Setting(containerEl)
+      .setName('添加默认待办')
+      .addButton(btn => btn
+        .setButtonText('添加')
+        .onClick(async () => {
+          todos.push({ content: '', link: '', dueDate: '' });
+          this.plugin.settings.defaultTodos = todos;
+          await this.plugin.saveSettings();
+          this.display();
+        }));
   }
 
   private generateRandomColor(): string {

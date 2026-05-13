@@ -788,7 +788,21 @@ export class DataService {
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, '');
     this.cache.invalidate('projects:all');
-    
+
+    // Create default todos for the new project
+    const defaultTodos = this.plugin.settings.defaultTodos;
+    if (defaultTodos.length > 0) {
+      for (const template of defaultTodos) {
+        if (template.content.trim()) {
+          await this.plugin.todoService.create(project.id, {
+            content: template.content.trim(),
+            link: template.link?.trim() || undefined,
+            dueDate: template.dueDate || undefined,
+          });
+        }
+      }
+    }
+
     return project;
   }
 

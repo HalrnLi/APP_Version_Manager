@@ -155,6 +155,11 @@ export class AppVersionManagerView extends ItemView {
   }
 
   private render() {
+    const panelWasOpen = this.todoSidePanel.isOpen();
+    if (panelWasOpen) {
+      this.todoSidePanel.detachFromDOM();
+    }
+
     this.containerEl.empty();
     this.containerEl.addClass('app-version-manager');
 
@@ -166,6 +171,10 @@ export class AppVersionManagerView extends ItemView {
       this.renderMainView();
     } catch (error) {
       this.renderError(error instanceof Error ? error.message : String(error));
+    }
+
+    if (panelWasOpen) {
+      this.todoSidePanel.attachToDOM(this.containerEl);
     }
   }
 

@@ -230,14 +230,12 @@ describe('TodoSidePanel', () => {
       expect(addBtn).not.toBeNull();
     });
 
-    it('defaults date input to today', async () => {
+    it('date input is empty by default', async () => {
       panel.open('proj-1', 'Test');
       await new Promise(r => requestAnimationFrame(r));
 
       const dateInput = containerEl.querySelector('.avm-todo-input-date') as HTMLInputElement;
-      const today = new Date();
-      const expected = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
-      expect(dateInput.value).toBe(expected);
+      expect(dateInput.value).toBe('');
     });
   });
 

@@ -33888,7 +33888,8 @@ var DEFAULT_SETTINGS = {
   backupPath: "",
   progressStages: DEFAULT_PROGRESS_STAGES,
   overdueWarningDays: 3,
-  autoRefreshInterval: 2
+  autoRefreshInterval: 2,
+  defaultTodos: []
 };
 function getProgressOrder(stages) {
   return stages.map((s) => s.name);
@@ -35261,6 +35262,20 @@ var TodoSidePanel = class {
     this.plugin = plugin;
     this.onRefresh = onRefresh;
   }
+  isOpen() {
+    return this.overlayEl !== null && this.panelEl !== null && this.overlayEl.classList.contains("open");
+  }
+  detachFromDOM() {
+    var _a, _b;
+    (_a = this.overlayEl) == null ? void 0 : _a.remove();
+    (_b = this.panelEl) == null ? void 0 : _b.remove();
+  }
+  attachToDOM(parent) {
+    if (this.overlayEl)
+      parent.appendChild(this.overlayEl);
+    if (this.panelEl)
+      parent.appendChild(this.panelEl);
+  }
   open(projectId, projectName) {
     this.currentProjectId = projectId;
     this.currentProjectName = projectName;
@@ -35272,11 +35287,12 @@ var TodoSidePanel = class {
     });
   }
   close() {
-    var _a, _b;
+    var _a, _b, _c;
     (_a = this.overlayEl) == null ? void 0 : _a.classList.remove("open");
     (_b = this.panelEl) == null ? void 0 : _b.classList.remove("open");
     this.currentProjectId = null;
     this.currentProjectName = "";
+    (_c = this.onRefresh) == null ? void 0 : _c.call(this);
   }
   destroy() {
     var _a, _b;
@@ -35313,10 +35329,7 @@ var TodoSidePanel = class {
       cls: "avm-todo-input-date",
       attr: { type: "date" }
     });
-    const today = new Date();
-    dateInput.value = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
     const addTodo = async () => {
-      var _a;
       const content = input.value.trim();
       if (!content || !this.currentProjectId)
         return;
@@ -35326,9 +35339,9 @@ var TodoSidePanel = class {
           link: linkInput.value.trim() || void 0,
           dueDate: dateInput.value || void 0
         });
-        (_a = this.onRefresh) == null ? void 0 : _a.call(this);
         input.value = "";
         linkInput.value = "";
+        dateInput.value = "";
         await this.renderTodoList(listEl);
       } catch (error) {
         console.error("Failed to create todo:", error);
@@ -35379,60 +35392,38 @@ var TodoSidePanel = class {
       });
       checkbox.checked = todo.completed;
       checkbox.addEventListener("change", async () => {
-        var _a;
         try {
           await this.plugin.todoService.update(this.currentProjectId, {
             ...todo,
             completed: checkbox.checked
           }, todo.version);
-          (_a = this.onRefresh) == null ? void 0 : _a.call(this);
           await this.renderTodoList(listEl);
         } catch (error) {
           console.error("Failed to update todo:", error);
           checkbox.checked = !checkbox.checked;
         }
       });
-      const content = item.createDiv({ cls: "avm-todo-content", text: todo.content });
-      content.addEventListener("click", () => {
-        const newContent = prompt("\u7F16\u8F91\u5F85\u529E\u5185\u5BB9:", todo.content);
-        if (newContent && newContent.trim() && newContent !== todo.content) {
-          this.plugin.todoService.update(this.currentProjectId, {
-            ...todo,
-            content: newContent.trim()
-          }, todo.version).then(() => {
-            var _a;
-            (_a = this.onRefresh) == null ? void 0 : _a.call(this);
-            this.renderTodoList(listEl);
-          }).catch(console.error);
-        }
-      });
+      const displayWrap = item.createDiv({ cls: "avm-todo-display-wrap" });
+      const contentEl = displayWrap.createDiv({ cls: "avm-todo-content", text: todo.content });
+      let dueEl = null;
       if (todo.dueDate) {
-        const dueEl = item.createDiv({ cls: "avm-todo-due", text: todo.dueDate });
+        dueEl = displayWrap.createDiv({ cls: "avm-todo-due", text: todo.dueDate });
         if (isOverdue)
           dueEl.addClass("overdue");
-        dueEl.addEventListener("click", () => {
-          const newDate = prompt("\u7F16\u8F91\u622A\u6B62\u65E5\u671F (YYYY-MM-DD):", todo.dueDate);
-          if (newDate !== null) {
-            const parsed = parseDateInput(newDate);
-            this.plugin.todoService.update(this.currentProjectId, {
-              ...todo,
-              dueDate: parsed || ""
-            }, todo.version).then(() => {
-              var _a;
-              (_a = this.onRefresh) == null ? void 0 : _a.call(this);
-              this.renderTodoList(listEl);
-            }).catch(console.error);
-          }
-        });
       }
+      let linkEl = null;
       if (todo.link) {
         const normalized = /^https?:\/\//i.test(todo.link) ? todo.link : `https://${todo.link}`;
-        const linkEl = item.createEl("a", {
+        linkEl = displayWrap.createEl("a", {
           cls: "avm-todo-link",
           text: "\u{1F517}",
           attr: { href: normalized, target: "_blank", rel: "noopener noreferrer" }
         });
       }
+      const editBtn = item.createEl("button", { cls: "avm-todo-edit-btn", text: "\u270F\uFE0F" });
+      editBtn.addEventListener("click", () => {
+        this.enterEditMode(item, displayWrap, editBtn, deleteBtn, todo, listEl);
+      });
       const deleteBtn = item.createEl("button", { cls: "avm-todo-delete", text: "\u{1F5D1}\uFE0F" });
       deleteBtn.addEventListener("click", () => {
         new ConfirmModal(
@@ -35440,10 +35431,8 @@ var TodoSidePanel = class {
           "\u5220\u9664\u5F85\u529E",
           "\u786E\u5B9A\u5220\u9664\u8FD9\u4E2A\u5F85\u529E\u5417\uFF1F",
           async () => {
-            var _a;
             try {
               await this.plugin.todoService.delete(this.currentProjectId, todo.id);
-              (_a = this.onRefresh) == null ? void 0 : _a.call(this);
               await this.renderTodoList(listEl);
             } catch (error) {
               console.error("Failed to delete todo:", error);
@@ -35454,6 +35443,56 @@ var TodoSidePanel = class {
         ).open();
       });
     }
+  }
+  enterEditMode(item, displayWrap, editBtn, deleteBtn, todo, listEl) {
+    displayWrap.hide();
+    editBtn.hide();
+    deleteBtn.hide();
+    const editContainer = item.createDiv({ cls: "avm-todo-edit-container" });
+    const contentInput = editContainer.createEl("input", {
+      cls: "avm-todo-edit-content",
+      attr: { type: "text", placeholder: "\u5F85\u529E\u5185\u5BB9" }
+    });
+    contentInput.value = todo.content;
+    const row = editContainer.createDiv({ cls: "avm-todo-edit-row" });
+    const linkInput = row.createEl("input", {
+      cls: "avm-todo-input-link",
+      attr: { type: "url", placeholder: "\u94FE\u63A5 (\u53EF\u9009)" }
+    });
+    linkInput.value = todo.link;
+    const dateInput = row.createEl("input", {
+      cls: "avm-todo-input-date",
+      attr: { type: "date" }
+    });
+    dateInput.value = todo.dueDate;
+    const btnRow = editContainer.createDiv({ cls: "avm-todo-edit-btns" });
+    const saveBtn = btnRow.createEl("button", { cls: "avm-todo-save-btn", text: "\u4FDD\u5B58" });
+    const cancelBtn = btnRow.createEl("button", { cls: "avm-todo-cancel-btn", text: "\u53D6\u6D88" });
+    const exitEdit = () => {
+      editContainer.remove();
+      displayWrap.show();
+      editBtn.show();
+      deleteBtn.show();
+    };
+    cancelBtn.addEventListener("click", exitEdit);
+    saveBtn.addEventListener("click", async () => {
+      const newContent = contentInput.value.trim();
+      if (!newContent)
+        return;
+      try {
+        await this.plugin.todoService.update(this.currentProjectId, {
+          ...todo,
+          content: newContent,
+          link: linkInput.value.trim(),
+          dueDate: dateInput.value
+        }, todo.version);
+        await this.renderTodoList(listEl);
+      } catch (error) {
+        console.error("Failed to update todo:", error);
+      }
+    });
+    contentInput.focus();
+    contentInput.select();
   }
 };
 
@@ -36367,6 +36406,10 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
     this.render();
   }
   render() {
+    const panelWasOpen = this.todoSidePanel.isOpen();
+    if (panelWasOpen) {
+      this.todoSidePanel.detachFromDOM();
+    }
     this.containerEl.empty();
     this.containerEl.addClass("app-version-manager");
     try {
@@ -36376,6 +36419,9 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
       this.renderMainView();
     } catch (error) {
       this.renderError(error instanceof Error ? error.message : String(error));
+    }
+    if (panelWasOpen) {
+      this.todoSidePanel.attachToDOM(this.containerEl);
     }
   }
   renderHeader() {
@@ -37591,6 +37637,7 @@ var DataService = class {
     }
   }
   async createProject(data) {
+    var _a;
     await this.initializeDataFolders();
     const existingProjects = await this.getAllProjects();
     if (existingProjects.some((p) => p.name === data.name)) {
@@ -37657,6 +37704,18 @@ var DataService = class {
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, "");
     this.cache.invalidate("projects:all");
+    const defaultTodos = this.plugin.settings.defaultTodos;
+    if (defaultTodos.length > 0) {
+      for (const template of defaultTodos) {
+        if (template.content.trim()) {
+          await this.plugin.todoService.create(project.id, {
+            content: template.content.trim(),
+            link: ((_a = template.link) == null ? void 0 : _a.trim()) || void 0,
+            dueDate: template.dueDate || void 0
+          });
+        }
+      }
+    }
     return project;
   }
   async updateProject(id, data, expectedVersion) {
@@ -39437,6 +39496,41 @@ var STYLES = `
 .avm-todo-item:hover .avm-todo-delete { opacity: 0.6; }
 .avm-todo-delete:hover { opacity: 1 !important; color: #ef4444; }
 
+.avm-todo-display-wrap {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+}
+.avm-todo-edit-btn {
+  flex-shrink: 0; cursor: pointer; color: var(--text-muted);
+  font-size: 12px; opacity: 0; padding: 2px 4px;
+}
+.avm-todo-item:hover .avm-todo-edit-btn { opacity: 0.6; }
+.avm-todo-edit-btn:hover { opacity: 1 !important; color: var(--interactive-accent); }
+
+.avm-todo-edit-container {
+  display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0;
+}
+.avm-todo-edit-content {
+  padding: 4px 8px; font-size: 13px;
+  border: 1px solid var(--interactive-accent);
+  border-radius: 4px; background: var(--background-primary);
+}
+.avm-todo-edit-row {
+  display: flex; gap: 6px;
+}
+.avm-todo-edit-btns {
+  display: flex; gap: 6px; justify-content: flex-end;
+}
+.avm-todo-save-btn {
+  padding: 3px 12px; font-size: 12px;
+  background: var(--interactive-accent); color: white;
+  border: none; border-radius: 4px; cursor: pointer;
+}
+.avm-todo-cancel-btn {
+  padding: 3px 12px; font-size: 12px;
+  background: var(--background-modifier-hover); color: var(--text-muted);
+  border: none; border-radius: 4px; cursor: pointer;
+}
+
 .avm-todo-footer {
   display: flex; flex-direction: column; gap: 8px;
   padding: 12px 16px;
@@ -39687,6 +39781,13 @@ var AppVersionManagerSettingTab = class extends import_obsidian22.PluginSettingT
       await this.plugin.saveSettings();
       this.display();
     }));
+    containerEl.createEl("h3", { text: "\u9ED8\u8BA4\u5F85\u529E\u8BBE\u7F6E" });
+    const defaultTodoDesc = containerEl.createDiv({ cls: "avm-default-todo-desc" });
+    defaultTodoDesc.style.marginBottom = "12px";
+    defaultTodoDesc.style.color = "var(--text-muted)";
+    defaultTodoDesc.style.fontSize = "13px";
+    defaultTodoDesc.setText("\u65B0\u5EFA\u9879\u76EE\u65F6\u81EA\u52A8\u6DFB\u52A0\u4EE5\u4E0B\u5F85\u529E\u4E8B\u9879\u3002");
+    this.renderDefaultTodosSettings(containerEl);
   }
   renderProgressStagesSettings(containerEl) {
     const stages = this.plugin.settings.progressStages;
@@ -39731,6 +39832,28 @@ var AppVersionManagerSettingTab = class extends import_obsidian22.PluginSettingT
         }
       }));
     });
+  }
+  renderDefaultTodosSettings(containerEl) {
+    const todos = this.plugin.settings.defaultTodos;
+    todos.forEach((todo, index) => {
+      const setting = new import_obsidian22.Setting(containerEl).setClass("avm-default-todo-setting");
+      setting.addText((text) => text.setValue(todo.content).setPlaceholder("\u5F85\u529E\u5185\u5BB9").onChange(async (value) => {
+        todos[index].content = value;
+        await this.plugin.saveSettings();
+      }));
+      setting.addExtraButton((btn) => btn.setIcon("trash").setTooltip("\u5220\u9664").onClick(async () => {
+        todos.splice(index, 1);
+        this.plugin.settings.defaultTodos = todos;
+        await this.plugin.saveSettings();
+        this.display();
+      }));
+    });
+    new import_obsidian22.Setting(containerEl).setName("\u6DFB\u52A0\u9ED8\u8BA4\u5F85\u529E").addButton((btn) => btn.setButtonText("\u6DFB\u52A0").onClick(async () => {
+      todos.push({ content: "", link: "", dueDate: "" });
+      this.plugin.settings.defaultTodos = todos;
+      await this.plugin.saveSettings();
+      this.display();
+    }));
   }
   generateRandomColor() {
     const colors = ["#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#3b82f6", "#10b981", "#ef4444", "#f97316", "#14b8a6", "#64748b"];

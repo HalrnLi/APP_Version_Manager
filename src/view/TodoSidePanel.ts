@@ -6,8 +6,8 @@ import { ConfirmModal } from './ConfirmModal';
 export class TodoSidePanel {
   private plugin: AppVersionManagerPlugin;
   private containerEl: HTMLElement;
-  private overlayEl: HTMLElement | null = null;
-  private panelEl: HTMLElement | null = null;
+  overlayEl: HTMLElement | null = null;
+  panelEl: HTMLElement | null = null;
   private currentProjectId: string | null = null;
   private currentProjectName: string = '';
   private onRefresh?: () => void;
@@ -16,6 +16,21 @@ export class TodoSidePanel {
     this.containerEl = containerEl;
     this.plugin = plugin;
     this.onRefresh = onRefresh;
+  }
+
+  isOpen(): boolean {
+    return this.overlayEl !== null && this.panelEl !== null &&
+      this.overlayEl.classList.contains('open');
+  }
+
+  detachFromDOM(): void {
+    this.overlayEl?.remove();
+    this.panelEl?.remove();
+  }
+
+  attachToDOM(parent: HTMLElement): void {
+    if (this.overlayEl) parent.appendChild(this.overlayEl);
+    if (this.panelEl) parent.appendChild(this.panelEl);
   }
 
   open(projectId: string, projectName: string): void {
@@ -33,6 +48,7 @@ export class TodoSidePanel {
     this.panelEl?.classList.remove('open');
     this.currentProjectId = null;
     this.currentProjectName = '';
+    this.onRefresh?.();
   }
 
   destroy(): void {
@@ -82,9 +98,6 @@ export class TodoSidePanel {
       cls: 'avm-todo-input-date',
       attr: { type: 'date' }
     });
-    // Default to today
-    const today = new Date();
-    dateInput.value = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
 
     const addTodo = async () => {
       const content = input.value.trim();
@@ -96,9 +109,9 @@ export class TodoSidePanel {
           link: linkInput.value.trim() || undefined,
           dueDate: dateInput.value || undefined,
         });
-        this.onRefresh?.();
         input.value = '';
         linkInput.value = '';
+        dateInput.value = '';
         await this.renderTodoList(listEl);
       } catch (error) {
         console.error('Failed to create todo:', error);
@@ -157,57 +170,42 @@ export class TodoSidePanel {
             ...todo,
             completed: checkbox.checked
           }, todo.version);
-          this.onRefresh?.();
           await this.renderTodoList(listEl);
         } catch (error) {
           console.error('Failed to update todo:', error);
-          checkbox.checked = !checkbox.checked; // Revert on error
+          checkbox.checked = !checkbox.checked;
         }
       });
+
+      // Display elements wrapper
+      const displayWrap = item.createDiv({ cls: 'avm-todo-display-wrap' });
 
       // Content
-      const content = item.createDiv({ cls: 'avm-todo-content', text: todo.content });
-      content.addEventListener('click', () => {
-        const newContent = prompt('编辑待办内容:', todo.content);
-        if (newContent && newContent.trim() && newContent !== todo.content) {
-          this.plugin.todoService.update(this.currentProjectId!, {
-            ...todo,
-            content: newContent.trim()
-          }, todo.version).then(() => {
-            this.onRefresh?.();
-            this.renderTodoList(listEl);
-          }).catch(console.error);
-        }
-      });
+      const contentEl = displayWrap.createDiv({ cls: 'avm-todo-content', text: todo.content });
 
       // Due date
+      let dueEl: HTMLElement | null = null;
       if (todo.dueDate) {
-        const dueEl = item.createDiv({ cls: 'avm-todo-due', text: todo.dueDate });
+        dueEl = displayWrap.createDiv({ cls: 'avm-todo-due', text: todo.dueDate });
         if (isOverdue) dueEl.addClass('overdue');
-        dueEl.addEventListener('click', () => {
-          const newDate = prompt('编辑截止日期 (YYYY-MM-DD):', todo.dueDate);
-          if (newDate !== null) {
-            const parsed = parseDateInput(newDate);
-            this.plugin.todoService.update(this.currentProjectId!, {
-              ...todo,
-              dueDate: parsed || ''
-            }, todo.version).then(() => {
-              this.onRefresh?.();
-              this.renderTodoList(listEl);
-            }).catch(console.error);
-          }
-        });
       }
 
       // Link
+      let linkEl: HTMLElement | null = null;
       if (todo.link) {
         const normalized = /^https?:\/\//i.test(todo.link) ? todo.link : `https://${todo.link}`;
-        const linkEl = item.createEl('a', {
+        linkEl = displayWrap.createEl('a', {
           cls: 'avm-todo-link',
           text: '🔗',
           attr: { href: normalized, target: '_blank', rel: 'noopener noreferrer' }
         });
       }
+
+      // Edit button
+      const editBtn = item.createEl('button', { cls: 'avm-todo-edit-btn', text: '✏️' });
+      editBtn.addEventListener('click', () => {
+        this.enterEditMode(item, displayWrap, editBtn, deleteBtn, todo, listEl);
+      });
 
       // Delete button
       const deleteBtn = item.createEl('button', { cls: 'avm-todo-delete', text: '🗑️' });
@@ -219,7 +217,6 @@ export class TodoSidePanel {
           async () => {
             try {
               await this.plugin.todoService.delete(this.currentProjectId!, todo.id);
-              this.onRefresh?.();
               await this.renderTodoList(listEl);
             } catch (error) {
               console.error('Failed to delete todo:', error);
@@ -230,5 +227,75 @@ export class TodoSidePanel {
         ).open();
       });
     }
+  }
+
+  private enterEditMode(
+    item: HTMLElement,
+    displayWrap: HTMLElement,
+    editBtn: HTMLElement,
+    deleteBtn: HTMLElement,
+    todo: Todo,
+    listEl: HTMLElement
+  ): void {
+    // Hide display elements and buttons
+    displayWrap.hide();
+    editBtn.hide();
+    deleteBtn.hide();
+
+    // Create edit container
+    const editContainer = item.createDiv({ cls: 'avm-todo-edit-container' });
+
+    const contentInput = editContainer.createEl('input', {
+      cls: 'avm-todo-edit-content',
+      attr: { type: 'text', placeholder: '待办内容' }
+    });
+    contentInput.value = todo.content;
+
+    const row = editContainer.createDiv({ cls: 'avm-todo-edit-row' });
+    const linkInput = row.createEl('input', {
+      cls: 'avm-todo-input-link',
+      attr: { type: 'url', placeholder: '链接 (可选)' }
+    });
+    linkInput.value = todo.link;
+
+    const dateInput = row.createEl('input', {
+      cls: 'avm-todo-input-date',
+      attr: { type: 'date' }
+    });
+    dateInput.value = todo.dueDate;
+
+    const btnRow = editContainer.createDiv({ cls: 'avm-todo-edit-btns' });
+    const saveBtn = btnRow.createEl('button', { cls: 'avm-todo-save-btn', text: '保存' });
+    const cancelBtn = btnRow.createEl('button', { cls: 'avm-todo-cancel-btn', text: '取消' });
+
+    const exitEdit = () => {
+      editContainer.remove();
+      displayWrap.show();
+      editBtn.show();
+      deleteBtn.show();
+    };
+
+    cancelBtn.addEventListener('click', exitEdit);
+
+    saveBtn.addEventListener('click', async () => {
+      const newContent = contentInput.value.trim();
+      if (!newContent) return;
+
+      try {
+        await this.plugin.todoService.update(this.currentProjectId!, {
+          ...todo,
+          content: newContent,
+          link: linkInput.value.trim(),
+          dueDate: dateInput.value,
+        }, todo.version);
+        await this.renderTodoList(listEl);
+      } catch (error) {
+        console.error('Failed to update todo:', error);
+      }
+    });
+
+    // Focus content input
+    contentInput.focus();
+    contentInput.select();
   }
 }
