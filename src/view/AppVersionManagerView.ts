@@ -186,6 +186,18 @@ export class AppVersionManagerView extends ItemView {
     }
   }
 
+  /** 仅更新 tab bar 的 active 状态，不重建整个 header */
+  private updateTabBar(): void {
+    const tabBar = this.headerEl?.querySelector('.avm-tab-bar');
+    if (!tabBar) return;
+    const tabs = tabBar.querySelectorAll('.avm-tab');
+    tabs.forEach((tab, i) => {
+      const keys: Array<'projects' | 'plans' | 'archived'> = ['projects', 'plans', 'archived'];
+      const isActive = keys[i] === this.currentTab;
+      tab.classList.toggle('avm-tab-active', isActive);
+    });
+  }
+
   private renderHeader() {
     this.headerEl.empty();
 
@@ -202,7 +214,8 @@ export class AppVersionManagerView extends ItemView {
       tabEl.addEventListener('click', () => {
         if (this.currentTab !== key) {
           this.currentTab = key;
-          this.render();
+          this.updateTabBar();
+          this.renderMainView();
         }
       });
     });
@@ -282,7 +295,7 @@ export class AppVersionManagerView extends ItemView {
         .setTooltip(label)
         .onClick(() => {
           this.currentView = type;
-          this.render();
+          this.renderMainView();
         });
       if (this.currentView === type) {
         btn.setClass('avm-view-btn-active');

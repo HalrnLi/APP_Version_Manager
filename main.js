@@ -36490,6 +36490,19 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
       this.todoSidePanel.attachToDOM(this.containerEl);
     }
   }
+  /** 仅更新 tab bar 的 active 状态，不重建整个 header */
+  updateTabBar() {
+    var _a;
+    const tabBar = (_a = this.headerEl) == null ? void 0 : _a.querySelector(".avm-tab-bar");
+    if (!tabBar)
+      return;
+    const tabs = tabBar.querySelectorAll(".avm-tab");
+    tabs.forEach((tab, i) => {
+      const keys2 = ["projects", "plans", "archived"];
+      const isActive = keys2[i] === this.currentTab;
+      tab.classList.toggle("avm-tab-active", isActive);
+    });
+  }
   renderHeader() {
     this.headerEl.empty();
     const tabBar = this.headerEl.createDiv({ cls: "avm-tab-bar" });
@@ -36504,7 +36517,8 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
       tabEl.addEventListener("click", () => {
         if (this.currentTab !== key) {
           this.currentTab = key;
-          this.render();
+          this.updateTabBar();
+          this.renderMainView();
         }
       });
     });
@@ -36552,7 +36566,7 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
     viewTypes.forEach(({ type, label, icon }) => {
       const btn = new import_obsidian18.ButtonComponent(viewSwitcher).setIcon(icon).setTooltip(label).onClick(() => {
         this.currentView = type;
-        this.render();
+        this.renderMainView();
       });
       if (this.currentView === type) {
         btn.setClass("avm-view-btn-active");
