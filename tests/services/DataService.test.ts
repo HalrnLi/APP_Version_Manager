@@ -354,6 +354,290 @@ describe('DataService (vault path)', () => {
     });
   });
 
+  // ----- getVersionsByAppId -----
+  describe('getVersionsByAppId', () => {
+    it('returns versions filtered by appId, sorted descending', async () => {
+      const ver1 = makeTFile('App_v2__ver-2', '---\nid: ver-2\nappId: app-1\nversionNumber: 2.0.0\nversion: 1\n---\n');
+      const ver2 = makeTFile('App_v1__ver-1', '---\nid: ver-1\nappId: app-1\nversionNumber: 1.0.0\nversion: 1\n---\n');
+      const ver3 = makeTFile('Other__ver-3', '---\nid: ver-3\nappId: app-2\nversionNumber: 1.0.0\nversion: 1\n---\n');
+
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/versions';
+      folder.children = [ver1, ver2, ver3];
+
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/versions' || path === 'app-version-manager') return folder;
+        if ([ver1.path, ver2.path, ver3.path].includes(path)) return [ver1, ver2, ver3].find((f) => f.path === path) || null;
+        return null;
+      });
+      mocks.vaultRead.mockImplementation(async (file: TFile) => {
+        if (file.path === ver1.path) return '---\nid: ver-2\nappId: app-1\nversionNumber: 2.0.0\nversion: 1\n---\n';
+        if (file.path === ver2.path) return '---\nid: ver-1\nappId: app-1\nversionNumber: 1.0.0\nversion: 1\n---\n';
+        if (file.path === ver3.path) return '---\nid: ver-3\nappId: app-2\nversionNumber: 1.0.0\nversion: 1\n---\n';
+        return '---\nid: unknown\n---\n';
+      });
+
+      const versions = await service.getVersionsByAppId('app-1');
+      expect(versions).toHaveLength(2);
+      // 按 versionNumber 降序
+      expect(versions[0].versionNumber).toBe('2.0.0');
+      expect(versions[1].versionNumber).toBe('1.0.0');
+    });
+  });
+
+  // ----- getAllVersions -----
+  describe('getAllVersions', () => {
+    it('returns empty array when no versions folder', async () => {
+      const versions = await service.getAllVersions();
+      expect(versions).toEqual([]);
+    });
+
+    it('parses version files', async () => {
+      const verFile = makeTFile('App_v1__ver-1', '');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/versions';
+      folder.children = [verFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/versions' || path === 'app-version-manager') return folder;
+        if (path === verFile.path || path === verFile.name) return verFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: ver-1\nappId: app-1\nversionNumber: 1.0.0\nbllVersion: 1.0\nippVersion: 2.0\nversion: 1\n---\n');
+
+      const versions = await service.getAllVersions();
+      expect(versions).toHaveLength(1);
+      expect(versions[0].id).toBe('ver-1');
+      expect(versions[0].versionNumber).toBe('1.0.0');
+    });
+  });
+
+  // ----- updateVersion -----
+  describe('updateVersion', () => {
+    it('updates version fields and increments version', async () => {
+      const verFile = makeTFile('App_v1__ver-1', '');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/versions';
+      folder.children = [verFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/versions' || path === 'app-version-manager') return folder;
+        if (path === verFile.path || path === verFile.name) return verFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: ver-1\nappId: app-1\nversionNumber: 1.0.0\nversion: 1\n---\n');
+
+      const updated = await service.updateVersion('ver-1', { bllVersion: '2.0' }, 1);
+      expect(updated).not.toBeNull();
+      expect(updated!.bllVersion).toBe('2.0');
+      expect(updated!.version).toBe(2);
+    });
+
+    it('throws ConcurrencyConflictError on version mismatch', async () => {
+      const verFile = makeTFile('App_v1__ver-1', '');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/versions';
+      folder.children = [verFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/versions' || path === 'app-version-manager') return folder;
+        if (path === verFile.path || path === verFile.name) return verFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: ver-1\nappId: app-1\nversionNumber: 1.0.0\nversion: 3\n---\n');
+
+      await expect(service.updateVersion('ver-1', { bllVersion: '2.0' }, 1)).rejects.toThrow(ConcurrencyConflictError);
+    });
+  });
+
+  // ----- archiveVersion / unarchiveVersion -----
+  describe('archiveVersion', () => {
+    it('sets isArchived to true', async () => {
+      const verFile = makeTFile('App_v1__ver-1', '');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/versions';
+      folder.children = [verFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/versions' || path === 'app-version-manager') return folder;
+        if (path === verFile.path || path === verFile.name) return verFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: ver-1\nappId: app-1\nversionNumber: 1.0.0\nisArchived: false\nversion: 1\n---\n');
+
+      const archived = await service.archiveVersion('ver-1', 1);
+      expect(archived).not.toBeNull();
+      expect(archived!.isArchived).toBe(true);
+    });
+  });
+
+  describe('unarchiveVersion', () => {
+    it('sets isArchived to false', async () => {
+      const verFile = makeTFile('App_v1__ver-1', '');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/versions';
+      folder.children = [verFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/versions' || path === 'app-version-manager') return folder;
+        if (path === verFile.path || path === verFile.name) return verFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: ver-1\nappId: app-1\nversionNumber: 1.0.0\nisArchived: true\nversion: 1\n---\n');
+
+      const unarchived = await service.unarchiveVersion('ver-1', 1);
+      expect(unarchived).not.toBeNull();
+      expect(unarchived!.isArchived).toBe(false);
+    });
+  });
+
+  // ----- deleteVersion -----
+  describe('deleteVersion', () => {
+    it('deletes version file and clears versionId from linked projects', async () => {
+      const verFile = makeTFile('App_v1__ver-1', '');
+      const projFile = makeTFile('Proj__proj-1', '---\nid: proj-1\nname: Proj\nversionId: ver-1\nversion: 1\n---\n');
+
+      const versionsFolder = new TFolder();
+      versionsFolder.path = 'app-version-manager/versions';
+      versionsFolder.children = [verFile];
+
+      const projectsFolder = new TFolder();
+      projectsFolder.path = 'app-version-manager/projects';
+      projectsFolder.children = [projFile];
+
+      const appsFolder = new TFolder();
+      appsFolder.path = 'app-version-manager/apps';
+      appsFolder.children = [];
+
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/versions') return versionsFolder;
+        if (path === 'app-version-manager/projects') return projectsFolder;
+        if (path === 'app-version-manager/apps' || path === 'app-version-manager') return appsFolder;
+        if (path === verFile.path || path === verFile.name) return verFile;
+        if (path === projFile.path || path === projFile.name) return projFile;
+        return null;
+      });
+      mocks.vaultRead.mockImplementation(async (file: TFile) => {
+        if (file.path?.includes('App_v1__ver-1')) return '---\nid: ver-1\nappId: app-1\nversionNumber: 1.0.0\nversion: 1\n---\n';
+        if (file.path?.includes('Proj__proj-1')) return '---\nid: proj-1\nname: Proj\nversionId: ver-1\nversion: 1\n---\n';
+        return '---\nid: unknown\n---\n';
+      });
+
+      const result = await service.deleteVersion('ver-1');
+      expect(result).toBe(true);
+      expect(mocks.vaultDelete).toHaveBeenCalled();
+      expect(mocks.vaultModify).toHaveBeenCalled(); // 清除关联项目的 versionId
+    });
+  });
+
+  // ----- getAllPlans -----
+  describe('getAllPlans', () => {
+    it('returns empty array when no plans folder', async () => {
+      const plans = await service.getAllPlans();
+      expect(plans).toEqual([]);
+    });
+
+    it('parses plan files', async () => {
+      const planFile = makeTFile('PlanTopic__plan-1', '');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/plans';
+      folder.children = [planFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/plans' || path === 'app-version-manager') return folder;
+        if (path === planFile.path || path === planFile.name) return planFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: plan-1\ntopic: Plan Topic\nmanager: Alice\ntestDate: 2026-06-01\nreleaseDate: 2026-07-01\nversion: 1\n---\n');
+
+      const plans = await service.getAllPlans();
+      expect(plans).toHaveLength(1);
+      expect(plans[0].topic).toBe('Plan Topic');
+      expect(plans[0].manager).toBe('Alice');
+    });
+  });
+
+  // ----- createPlan -----
+  describe('createPlan', () => {
+    it('creates a new plan', async () => {
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager' || path.startsWith('app-version-manager/')) return new TFolder();
+        return null;
+      });
+
+      const plan = await service.createPlan({ topic: 'New Plan', manager: 'Bob' });
+      expect(plan.topic).toBe('New Plan');
+      expect(plan.manager).toBe('Bob');
+      expect(plan.version).toBe(1);
+      expect(mocks.vaultCreate).toHaveBeenCalled();
+    });
+
+    it('throws when topic already exists', async () => {
+      const planFile = makeTFile('Dup__plan-1', '---\nid: plan-1\ntopic: Dup\nversion: 1\n---\n');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/plans';
+      folder.children = [planFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/plans' || path === 'app-version-manager') return folder;
+        if (path === planFile.path || path === planFile.name) return planFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: plan-1\ntopic: Dup\nversion: 1\n---\n');
+
+      await expect(service.createPlan({ topic: 'Dup' })).rejects.toThrow('Plan topic already exists');
+    });
+  });
+
+  // ----- updatePlan -----
+  describe('updatePlan', () => {
+    it('updates plan fields and increments version', async () => {
+      const planFile = makeTFile('Topic__plan-1', '');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/plans';
+      folder.children = [planFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/plans' || path === 'app-version-manager') return folder;
+        if (path === planFile.path || path === planFile.name) return planFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: plan-1\ntopic: Topic\nmanager: Alice\nversion: 1\n---\n');
+
+      const updated = await service.updatePlan('plan-1', { manager: 'Bob' }, 1);
+      expect(updated).not.toBeNull();
+      expect(updated!.manager).toBe('Bob');
+      expect(updated!.version).toBe(2);
+    });
+
+    it('throws ConcurrencyConflictError on version mismatch', async () => {
+      const planFile = makeTFile('Topic__plan-1', '');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/plans';
+      folder.children = [planFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/plans' || path === 'app-version-manager') return folder;
+        if (path === planFile.path || path === planFile.name) return planFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: plan-1\ntopic: Topic\nversion: 3\n---\n');
+
+      await expect(service.updatePlan('plan-1', { manager: 'Bob' }, 1)).rejects.toThrow(ConcurrencyConflictError);
+    });
+  });
+
+  // ----- deletePlan -----
+  describe('deletePlan', () => {
+    it('deletes a plan', async () => {
+      const planFile = makeTFile('Topic__plan-1', '---\nid: plan-1\ntopic: Topic\nversion: 1\n---\n');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/plans';
+      folder.children = [planFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/plans' || path === 'app-version-manager') return folder;
+        if (path === planFile.path || path === planFile.name) return planFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: plan-1\ntopic: Topic\nversion: 1\n---\n');
+
+      const result = await service.deletePlan('plan-1');
+      expect(result).toBe(true);
+      expect(mocks.vaultDelete).toHaveBeenCalled();
+    });
+  });
+
   // ----- createProject -----
   describe('createProject', () => {
     it('creates a project with default progress and memo file', async () => {
@@ -564,6 +848,121 @@ version: 1
       expect(secondBatch).toHaveLength(2); // original + new
       // vaultRead count unchanged because cache was updated in-place
       expect(mocks.vaultRead.mock.calls.length).toBe(readCountAfterFirstPopulate);
+    });
+  });
+
+  // ----- searchProjects -----
+  describe('searchProjects', () => {
+    it('filters by name keyword', async () => {
+      const p1 = makeTFile('Alpha__p1', '---\nid: p1\nname: Alpha Project\nmanager: Alice\nversion: 1\n---\n');
+      const p2 = makeTFile('Beta__p2', '---\nid: p2\nname: Beta Project\nmanager: Bob\nversion: 1\n---\n');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/projects';
+      folder.children = [p1, p2];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/projects' || path === 'app-version-manager') return folder;
+        if ([p1.path, p2.path].includes(path)) return [p1, p2].find((f) => f.path === path) || null;
+        return null;
+      });
+      mocks.vaultRead.mockImplementation(async (file: TFile) => {
+        if (file.path === p1.path) return '---\nid: p1\nname: Alpha Project\nmanager: Alice\nversion: 1\n---\n';
+        if (file.path === p2.path) return '---\nid: p2\nname: Beta Project\nmanager: Bob\nversion: 1\n---\n';
+        return '---\nid: unknown\n---\n';
+      });
+
+      const result = await service.searchProjects('Alpha');
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('p1');
+    });
+  });
+
+  // ----- getProjectsByVersionId -----
+  describe('getProjectsByVersionId', () => {
+    it('returns projects filtered by versionId', async () => {
+      const p1 = makeTFile('P1__p1', '---\nid: p1\nname: P1\nversionId: ver-1\nprogress: 需求分解\nversion: 1\n---\n');
+      const p2 = makeTFile('P2__p2', '---\nid: p2\nname: P2\nversionId: ver-2\nprogress: 已提测\nversion: 1\n---\n');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/projects';
+      folder.children = [p1, p2];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/projects' || path === 'app-version-manager') return folder;
+        if ([p1.path, p2.path].includes(path)) return [p1, p2].find((f) => f.path === path) || null;
+        return null;
+      });
+      mocks.vaultRead.mockImplementation(async (file: TFile) => {
+        if (file.path === p1.path) return '---\nid: p1\nname: P1\nversionId: ver-1\nprogress: 需求分解\nversion: 1\n---\n';
+        if (file.path === p2.path) return '---\nid: p2\nname: P2\nversionId: ver-2\nprogress: 已提测\nversion: 1\n---\n';
+        return '---\nid: unknown\n---\n';
+      });
+
+      const result = await service.getProjectsByVersionId('ver-1');
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('p1');
+    });
+  });
+
+  // ----- getProjectById (per-project cache) -----
+  describe('getProjectById', () => {
+    it('hits per-project cache after getAllProjects', async () => {
+      const projFile = makeTFile('Cached__p1', '---\nid: p1\nname: Cached\nversion: 1\n---\n');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/projects';
+      folder.children = [projFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/projects' || path === 'app-version-manager') return folder;
+        if (path === projFile.path || path === projFile.name) return projFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: p1\nname: Cached\nversion: 1\n---\n');
+
+      // Populate cache via getAllProjects
+      await service.getAllProjects();
+      const readCount = mocks.vaultRead.mock.calls.length;
+
+      // getProjectById should use per-project cache, not vaultRead
+      const project = await service.getProjectById('p1');
+      expect(project).not.toBeNull();
+      expect(project!.name).toBe('Cached');
+      expect(mocks.vaultRead.mock.calls.length).toBe(readCount);
+    });
+  });
+
+  // ----- getVersionById / getAppById -----
+  describe('getVersionById', () => {
+    it('finds a version by id', async () => {
+      const verFile = makeTFile('App_v1__ver-1', '');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/versions';
+      folder.children = [verFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/versions' || path === 'app-version-manager') return folder;
+        if (path === verFile.path || path === verFile.name) return verFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: ver-1\nappId: app-1\nversionNumber: 1.0.0\nversion: 1\n---\n');
+
+      const version = await service.getVersionById('ver-1');
+      expect(version).not.toBeNull();
+      expect(version!.versionNumber).toBe('1.0.0');
+    });
+  });
+
+  describe('getAppById', () => {
+    it('finds an app by id', async () => {
+      const appFile = makeTFile('TestApp__app-1', '---\nid: app-1\nname: TestApp\nversion: 1\n---\n');
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/apps';
+      folder.children = [appFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/apps' || path === 'app-version-manager') return folder;
+        if (path === appFile.path || path === appFile.name) return appFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue('---\nid: app-1\nname: TestApp\nversion: 1\n---\n');
+
+      const app = await service.getAppById('app-1');
+      expect(app).not.toBeNull();
+      expect(app!.name).toBe('TestApp');
     });
   });
 });
