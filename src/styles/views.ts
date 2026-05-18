@@ -84,6 +84,7 @@ export const VIEWS = `
 }
 
 .avm-table td { padding: 10px 12px; border-bottom: 1px solid var(--background-modifier-border); vertical-align: middle; }
+.avm-table tr { content-visibility: auto; contain-intrinsic-size: 50px; }
 .avm-table tr:hover { background: var(--background-modifier-hover); }
 .avm-table tr.avm-overdue-row { background: rgba(239, 68, 68, 0.05); }
 .avm-table tr.avm-overdue-row:hover { background: rgba(239, 68, 68, 0.1); }

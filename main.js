@@ -37267,20 +37267,24 @@ var DataService = class {
     const path = this.getDataPath();
     return (0, import_path.isAbsolute)(path) || /^[A-Za-z]:/.test(path);
   }
+  /** 统一路径拼接：join + normalize，消除 isAbsolutePath 分支 */
+  joinPath(...parts) {
+    return (0, import_obsidian19.normalizePath)((0, import_path.join)(...parts));
+  }
   getAppsFolder() {
-    return this.isAbsolutePath() ? (0, import_path.join)(this.getDataPath(), "apps") : `${this.getDataPath()}/apps`;
+    return this.joinPath(this.getDataPath(), "apps");
   }
   getVersionsFolder() {
-    return this.isAbsolutePath() ? (0, import_path.join)(this.getDataPath(), "versions") : `${this.getDataPath()}/versions`;
+    return this.joinPath(this.getDataPath(), "versions");
   }
   getProjectsFolder() {
-    return this.isAbsolutePath() ? (0, import_path.join)(this.getDataPath(), "projects") : `${this.getDataPath()}/projects`;
+    return this.joinPath(this.getDataPath(), "projects");
   }
   getMemosFolder() {
-    return this.isAbsolutePath() ? (0, import_path.join)(this.getDataPath(), "memos") : `${this.getDataPath()}/memos`;
+    return this.joinPath(this.getDataPath(), "memos");
   }
   getPlansFolder() {
-    return this.isAbsolutePath() ? (0, import_path.join)(this.getDataPath(), "plans") : `${this.getDataPath()}/plans`;
+    return this.joinPath(this.getDataPath(), "plans");
   }
   async ensureFolder(path) {
     if (this.isAbsolutePath()) {
@@ -37476,7 +37480,7 @@ var DataService = class {
       version: app.version
     });
     const fileName = sanitizeFileName(name);
-    const filePath = this.isAbsolutePath() ? (0, import_path.join)(this.getAppsFolder(), `${fileName}__${id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getAppsFolder()}/${fileName}__${id}.md`);
+    const filePath = this.joinPath(this.getAppsFolder(), `${fileName}__${id}.md`);
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate("apps:all");
     return app;
@@ -37525,7 +37529,7 @@ var DataService = class {
       });
       await this.modifyFile(file, frontmatter);
       if (oldFileName !== newFileName) {
-        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getAppsFolder(), `${newFileName}__${app.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getAppsFolder()}/${newFileName}__${app.id}.md`);
+        const newPath = this.joinPath(this.getAppsFolder(), `${newFileName}__${app.id}.md`);
         await this.renameFile(file, newPath);
       }
     }
@@ -37664,7 +37668,7 @@ var DataService = class {
     const appName = app ? sanitizeFileName(app.name) : "unknown";
     const versionNum = sanitizeFileName(data.versionNumber);
     const fileName = `${appName}_${versionNum}__${id}`;
-    const filePath = this.isAbsolutePath() ? (0, import_path.join)(this.getVersionsFolder(), `${fileName}.md`) : (0, import_obsidian19.normalizePath)(`${this.getVersionsFolder()}/${fileName}.md`);
+    const filePath = this.joinPath(this.getVersionsFolder(), `${fileName}.md`);
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate(`versions:${data.appId}`);
     return version2;
@@ -37707,7 +37711,7 @@ var DataService = class {
       });
       await this.modifyFile(file, frontmatter);
       if (file.basename !== fileName) {
-        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getVersionsFolder(), `${fileName}.md`) : (0, import_obsidian19.normalizePath)(`${this.getVersionsFolder()}/${fileName}.md`);
+        const newPath = this.joinPath(this.getVersionsFolder(), `${fileName}.md`);
         await this.renameFile(file, newPath);
       }
     }
@@ -37872,8 +37876,8 @@ var DataService = class {
       version: project.version
     });
     const fileName = sanitizeFileName(data.name);
-    const projectFilePath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${fileName}__${id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getProjectsFolder()}/${fileName}__${id}.md`);
-    const memoFilePath = this.isAbsolutePath() ? (0, import_path.join)(this.getMemosFolder(), `${fileName}.md`) : (0, import_obsidian19.normalizePath)(`${this.getMemosFolder()}/${fileName}.md`);
+    const projectFilePath = this.joinPath(this.getProjectsFolder(), `${fileName}__${id}.md`);
+    const memoFilePath = this.joinPath(this.getMemosFolder(), `${fileName}.md`);
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, "");
     this.updateProjectsAllCache((projects) => [...projects, project]);
@@ -37963,7 +37967,7 @@ var DataService = class {
     if (file) {
       await this.modifyFile(file, frontmatter);
       if (oldFileName !== newFileName) {
-        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${newFileName}__${project.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getProjectsFolder()}/${newFileName}__${project.id}.md`);
+        const newPath = this.joinPath(this.getProjectsFolder(), `${newFileName}__${project.id}.md`);
         await this.renameFile(file, newPath);
         if (this.isAbsolutePath()) {
           const oldMemoPath = (0, import_path.join)(this.getMemosFolder(), `${oldFileName}.md`);
@@ -38081,8 +38085,7 @@ var DataService = class {
   }
   getProjectMemoPath(projectName, projectId) {
     const fileName = sanitizeFileName(projectName);
-    const targetPath = `${this.getMemosFolder()}/${fileName}.md`;
-    return this.isAbsolutePath() ? targetPath : (0, import_obsidian19.normalizePath)(targetPath);
+    return this.joinPath(this.getMemosFolder(), `${fileName}.md`);
   }
   async ensureMemoFile(projectName) {
     await this.ensureFolder(this.getMemosFolder());
@@ -38105,7 +38108,7 @@ var DataService = class {
   async upsertAppRecord(record) {
     await this.initializeDataFolders();
     const fileName = sanitizeFileName(record.name);
-    const targetPath = this.isAbsolutePath() ? (0, import_path.join)(this.getAppsFolder(), `${fileName}__${record.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getAppsFolder()}/${fileName}__${record.id}.md`);
+    const targetPath = this.joinPath(this.getAppsFolder(), `${fileName}__${record.id}.md`);
     const frontmatter = createFrontmatter(record);
     const existingFile = await this.findEntityFileById(this.getAppsFolder(), this.parseAppFile, record.id);
     if (existingFile) {
@@ -38122,7 +38125,7 @@ var DataService = class {
     const app = await this.getAppById(record.appId);
     const appName = sanitizeFileName((app == null ? void 0 : app.name) || "unknown");
     const versionName = sanitizeFileName(record.versionNumber);
-    const targetPath = this.isAbsolutePath() ? (0, import_path.join)(this.getVersionsFolder(), `${appName}_${versionName}__${record.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getVersionsFolder()}/${appName}_${versionName}__${record.id}.md`);
+    const targetPath = this.joinPath(this.getVersionsFolder(), `${appName}_${versionName}__${record.id}.md`);
     const frontmatter = createFrontmatter(record);
     const existingFile = await this.findEntityFileById(this.getVersionsFolder(), this.parseVersionFile, record.id);
     if (existingFile) {
@@ -38137,7 +38140,7 @@ var DataService = class {
   async upsertProjectRecord(record) {
     await this.initializeDataFolders();
     const fileName = sanitizeFileName(record.name);
-    const targetPath = this.isAbsolutePath() ? (0, import_path.join)(this.getProjectsFolder(), `${fileName}__${record.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getProjectsFolder()}/${fileName}__${record.id}.md`);
+    const targetPath = this.joinPath(this.getProjectsFolder(), `${fileName}__${record.id}.md`);
     const frontmatter = createFrontmatter({
       ...record,
       progressHistory: record.progressHistory.map((h) => `${h.progress}@${h.changedAt}`)
@@ -38210,7 +38213,7 @@ var DataService = class {
       version: plan.version
     });
     const fileName = sanitizeFileName(plan.topic);
-    const filePath = this.isAbsolutePath() ? (0, import_path.join)(this.getPlansFolder(), `${fileName}__${id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getPlansFolder()}/${fileName}__${id}.md`);
+    const filePath = this.joinPath(this.getPlansFolder(), `${fileName}__${id}.md`);
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate("plans:all");
     return plan;
@@ -38264,7 +38267,7 @@ var DataService = class {
       });
       await this.modifyFile(file, frontmatter);
       if (oldFileName !== newFileName) {
-        const newPath = this.isAbsolutePath() ? (0, import_path.join)(this.getPlansFolder(), `${newFileName}__${plan.id}.md`) : (0, import_obsidian19.normalizePath)(`${this.getPlansFolder()}/${newFileName}__${plan.id}.md`);
+        const newPath = this.joinPath(this.getPlansFolder(), `${newFileName}__${plan.id}.md`);
         await this.renameFile(file, newPath);
       }
     }
@@ -39082,6 +39085,7 @@ var VIEWS = `
 }
 
 .avm-table td { padding: 10px 12px; border-bottom: 1px solid var(--background-modifier-border); vertical-align: middle; }
+.avm-table tr { content-visibility: auto; contain-intrinsic-size: 50px; }
 .avm-table tr:hover { background: var(--background-modifier-hover); }
 .avm-table tr.avm-overdue-row { background: rgba(239, 68, 68, 0.05); }
 .avm-table tr.avm-overdue-row:hover { background: rgba(239, 68, 68, 0.1); }

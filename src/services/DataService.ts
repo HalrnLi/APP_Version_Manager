@@ -58,24 +58,29 @@ export class DataService {
     return isAbsolute(path) || /^[A-Za-z]:/.test(path); // Windows drive letter or absolute path
   }
 
+  /** 统一路径拼接：join + normalize，消除 isAbsolutePath 分支 */
+  private joinPath(...parts: string[]): string {
+    return normalizePath(join(...parts));
+  }
+
   private getAppsFolder(): string {
-    return this.isAbsolutePath() ? join(this.getDataPath(), 'apps') : `${this.getDataPath()}/apps`;
+    return this.joinPath(this.getDataPath(), 'apps');
   }
 
   private getVersionsFolder(): string {
-    return this.isAbsolutePath() ? join(this.getDataPath(), 'versions') : `${this.getDataPath()}/versions`;
+    return this.joinPath(this.getDataPath(), 'versions');
   }
 
   private getProjectsFolder(): string {
-    return this.isAbsolutePath() ? join(this.getDataPath(), 'projects') : `${this.getDataPath()}/projects`;
+    return this.joinPath(this.getDataPath(), 'projects');
   }
 
   private getMemosFolder(): string {
-    return this.isAbsolutePath() ? join(this.getDataPath(), 'memos') : `${this.getDataPath()}/memos`;
+    return this.joinPath(this.getDataPath(), 'memos');
   }
 
   private getPlansFolder(): string {
-    return this.isAbsolutePath() ? join(this.getDataPath(), 'plans') : `${this.getDataPath()}/plans`;
+    return this.joinPath(this.getDataPath(), 'plans');
   }
 
   private async ensureFolder(path: string) {
@@ -299,9 +304,7 @@ export class DataService {
     });
 
     const fileName = sanitizeFileName(name);
-    const filePath = this.isAbsolutePath()
-      ? join(this.getAppsFolder(), `${fileName}__${id}.md`)
-      : normalizePath(`${this.getAppsFolder()}/${fileName}__${id}.md`);
+    const filePath = this.joinPath(this.getAppsFolder(), `${fileName}__${id}.md`);
 
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate('apps:all');
@@ -364,9 +367,7 @@ export class DataService {
       await this.modifyFile(file, frontmatter);
 
       if (oldFileName !== newFileName) {
-        const newPath = this.isAbsolutePath()
-          ? join(this.getAppsFolder(), `${newFileName}__${app.id}.md`)
-          : normalizePath(`${this.getAppsFolder()}/${newFileName}__${app.id}.md`);
+        const newPath = this.joinPath(this.getAppsFolder(), `${newFileName}__${app.id}.md`);
         await this.renameFile(file, newPath);
       }
     }
@@ -538,9 +539,7 @@ export class DataService {
     const appName = app ? sanitizeFileName(app.name) : 'unknown';
     const versionNum = sanitizeFileName(data.versionNumber);
     const fileName = `${appName}_${versionNum}__${id}`;
-    const filePath = this.isAbsolutePath()
-      ? join(this.getVersionsFolder(), `${fileName}.md`)
-      : normalizePath(`${this.getVersionsFolder()}/${fileName}.md`);
+    const filePath = this.joinPath(this.getVersionsFolder(), `${fileName}.md`);
 
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate(`versions:${data.appId}`);
@@ -591,9 +590,7 @@ export class DataService {
       await this.modifyFile(file, frontmatter);
 
       if (file.basename !== fileName) {
-        const newPath = this.isAbsolutePath()
-          ? join(this.getVersionsFolder(), `${fileName}.md`)
-          : normalizePath(`${this.getVersionsFolder()}/${fileName}.md`);
+        const newPath = this.joinPath(this.getVersionsFolder(), `${fileName}.md`);
         await this.renameFile(file, newPath);
       }
     }
@@ -798,12 +795,8 @@ export class DataService {
     });
 
     const fileName = sanitizeFileName(data.name);
-    const projectFilePath = this.isAbsolutePath()
-      ? join(this.getProjectsFolder(), `${fileName}__${id}.md`)
-      : normalizePath(`${this.getProjectsFolder()}/${fileName}__${id}.md`);
-    const memoFilePath = this.isAbsolutePath()
-      ? join(this.getMemosFolder(), `${fileName}.md`)
-      : normalizePath(`${this.getMemosFolder()}/${fileName}.md`);
+    const projectFilePath = this.joinPath(this.getProjectsFolder(), `${fileName}__${id}.md`);
+    const memoFilePath = this.joinPath(this.getMemosFolder(), `${fileName}.md`);
 
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, '');
@@ -912,9 +905,7 @@ export class DataService {
       await this.modifyFile(file, frontmatter);
 
       if (oldFileName !== newFileName) {
-        const newPath = this.isAbsolutePath()
-          ? join(this.getProjectsFolder(), `${newFileName}__${project.id}.md`)
-          : normalizePath(`${this.getProjectsFolder()}/${newFileName}__${project.id}.md`);
+        const newPath = this.joinPath(this.getProjectsFolder(), `${newFileName}__${project.id}.md`);
         await this.renameFile(file, newPath);
 
         if (this.isAbsolutePath()) {
@@ -1057,8 +1048,7 @@ export class DataService {
 
   getProjectMemoPath(projectName: string, projectId?: string): string {
     const fileName = sanitizeFileName(projectName);
-    const targetPath = `${this.getMemosFolder()}/${fileName}.md`;
-    return this.isAbsolutePath() ? targetPath : normalizePath(targetPath);
+    return this.joinPath(this.getMemosFolder(), `${fileName}.md`);
   }
 
   async ensureMemoFile(projectName: string): Promise<string> {
@@ -1086,9 +1076,7 @@ export class DataService {
   async upsertAppRecord(record: App): Promise<void> {
     await this.initializeDataFolders();
     const fileName = sanitizeFileName(record.name);
-    const targetPath = this.isAbsolutePath()
-      ? join(this.getAppsFolder(), `${fileName}__${record.id}.md`)
-      : normalizePath(`${this.getAppsFolder()}/${fileName}__${record.id}.md`);
+    const targetPath = this.joinPath(this.getAppsFolder(), `${fileName}__${record.id}.md`);
     const frontmatter = createFrontmatter(record as unknown as Record<string, unknown>);
     const existingFile = await this.findEntityFileById<App>(this.getAppsFolder(), this.parseAppFile, record.id);
     if (existingFile) {
@@ -1106,9 +1094,7 @@ export class DataService {
     const app = await this.getAppById(record.appId);
     const appName = sanitizeFileName(app?.name || 'unknown');
     const versionName = sanitizeFileName(record.versionNumber);
-    const targetPath = this.isAbsolutePath()
-      ? join(this.getVersionsFolder(), `${appName}_${versionName}__${record.id}.md`)
-      : normalizePath(`${this.getVersionsFolder()}/${appName}_${versionName}__${record.id}.md`);
+    const targetPath = this.joinPath(this.getVersionsFolder(), `${appName}_${versionName}__${record.id}.md`);
     const frontmatter = createFrontmatter(record as unknown as Record<string, unknown>);
     const existingFile = await this.findEntityFileById<Version>(this.getVersionsFolder(), this.parseVersionFile, record.id);
     if (existingFile) {
@@ -1124,9 +1110,7 @@ export class DataService {
   async upsertProjectRecord(record: Project): Promise<void> {
     await this.initializeDataFolders();
     const fileName = sanitizeFileName(record.name);
-    const targetPath = this.isAbsolutePath()
-      ? join(this.getProjectsFolder(), `${fileName}__${record.id}.md`)
-      : normalizePath(`${this.getProjectsFolder()}/${fileName}__${record.id}.md`);
+    const targetPath = this.joinPath(this.getProjectsFolder(), `${fileName}__${record.id}.md`);
     const frontmatter = createFrontmatter({
       ...record,
       progressHistory: record.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
@@ -1206,9 +1190,7 @@ export class DataService {
     });
 
     const fileName = sanitizeFileName(plan.topic);
-    const filePath = this.isAbsolutePath()
-      ? join(this.getPlansFolder(), `${fileName}__${id}.md`)
-      : normalizePath(`${this.getPlansFolder()}/${fileName}__${id}.md`);
+    const filePath = this.joinPath(this.getPlansFolder(), `${fileName}__${id}.md`);
 
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate('plans:all');
@@ -1274,9 +1256,7 @@ export class DataService {
       await this.modifyFile(file, frontmatter);
 
       if (oldFileName !== newFileName) {
-        const newPath = this.isAbsolutePath()
-          ? join(this.getPlansFolder(), `${newFileName}__${plan.id}.md`)
-          : normalizePath(`${this.getPlansFolder()}/${newFileName}__${plan.id}.md`);
+        const newPath = this.joinPath(this.getPlansFolder(), `${newFileName}__${plan.id}.md`);
         await this.renameFile(file, newPath);
       }
     }
