@@ -2,7 +2,7 @@ export class ConcurrencyConflictError extends Error {
   constructor(
     public entityName: string,
     public currentVersion: number,
-    public expectedVersion: number
+    public expectedVersion: number,
   ) {
     super(`并发冲突：${entityName} 已被其他用户修改。当前版本: ${currentVersion}，期望版本: ${expectedVersion}`);
     this.name = 'ConcurrencyConflictError';
@@ -30,7 +30,7 @@ export const DEFAULT_PROGRESS_STAGES: ProgressStage[] = [
   { name: '自测验证', color: '#f59e0b' },
   { name: '待提测', color: '#f97316' },
   { name: '已提测', color: '#3b82f6' },
-  { name: '已发布', color: '#10b981' }
+  { name: '已发布', color: '#10b981' },
 ];
 
 export interface Project {
@@ -159,16 +159,16 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   progressStages: DEFAULT_PROGRESS_STAGES,
   overdueWarningDays: 3,
   autoRefreshInterval: 2,
-  defaultTodos: []
+  defaultTodos: [],
 };
 
 export function getProgressOrder(stages: ProgressStage[]): ProjectProgress[] {
-  return stages.map(s => s.name);
+  return stages.map((s) => s.name);
 }
 
 export function getProgressColors(stages: ProgressStage[]): Record<string, string> {
   const colors: Record<string, string> = {};
-  stages.forEach(s => {
+  stages.forEach((s) => {
     colors[s.name] = s.color;
   });
   return colors;
@@ -190,15 +190,15 @@ export const TEST_STAGES = [
   { key: 'b3IntegrationTestTime', label: 'B3集成测试' },
   { key: 'b3SystemTestTime', label: 'B3系统测试' },
   { key: 'b4IntegrationTestTime', label: 'B4集成测试' },
-  { key: 'b4SystemTestTime', label: 'B4系统测试' }
+  { key: 'b4SystemTestTime', label: 'B4系统测试' },
 ] as const;
 
 // 日期解析函数，支持多种格式
 export function parseDateInput(input: string): string | null {
   if (!input || input.trim() === '') return null;
-  
+
   const trimmed = input.trim();
-  
+
   // 先检测明确的 MM.DD 格式（必须在 new Date() 之前处理，避免 V8 将 "2.10" 解析为 2026-02-10 导致时区偏移问题）
   const mmddMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})$/);
   if (mmddMatch) {
@@ -206,13 +206,11 @@ export function parseDateInput(input: string): string | null {
     const day = parseInt(mmddMatch[2]);
     const year = new Date().getFullYear();
     const testDate = new Date(year, month - 1, day);
-    if (testDate.getFullYear() === year && 
-        testDate.getMonth() === month - 1 && 
-        testDate.getDate() === day) {
+    if (testDate.getFullYear() === year && testDate.getMonth() === month - 1 && testDate.getDate() === day) {
       return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
     }
   }
-  
+
   // 尝试直接解析为Date对象
   const date = new Date(trimmed);
   if (!isNaN(date.getTime())) {
@@ -228,11 +226,11 @@ export function parseDateInput(input: string): string | null {
     }
     return formatLocalDate(date);
   }
-  
+
   // 支持常见格式的正则表达式
   const patterns = [
     // YYYY-MM-DD or YYYY/MM/DD
-    /^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/,
+    /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/,
     // MM/DD/YYYY or DD/MM/YYYY
     /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
     // YYYY年MM月DD日
@@ -248,62 +246,69 @@ export function parseDateInput(input: string): string | null {
     // MM月DD日 (month day with current year)
     /^(\d{1,2})月(\d{1,2})日?$/,
     // DD日MM月 (day month with current year)
-    /^(\d{1,2})日(\d{1,2})月$/
+    /^(\d{1,2})日(\d{1,2})月$/,
   ];
-  
+
   for (const pattern of patterns) {
     const match = trimmed.match(pattern);
     if (match) {
       let year: number, month: number, day: number;
-      
-      if (pattern === patterns[0]) { // YYYY-MM-DD/YYYY/MM/DD
+
+      if (pattern === patterns[0]) {
+        // YYYY-MM-DD/YYYY/MM/DD
         year = parseInt(match[1]);
         month = parseInt(match[2]);
         day = parseInt(match[3]);
-      } else if (pattern === patterns[1]) { // MM/DD/YYYY or DD/MM/YYYY
+      } else if (pattern === patterns[1]) {
+        // MM/DD/YYYY or DD/MM/YYYY
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = parseInt(match[3]);
-      } else if (pattern === patterns[2]) { // YYYY年MM月DD日
+      } else if (pattern === patterns[2]) {
+        // YYYY年MM月DD日
         year = parseInt(match[1]);
         month = parseInt(match[2]);
         day = parseInt(match[3]);
-      } else if (pattern === patterns[3]) { // MM月DD日YYYY年
+      } else if (pattern === patterns[3]) {
+        // MM月DD日YYYY年
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = parseInt(match[3]);
-      } else if (pattern === patterns[4]) { // DD日MM月YYYY年
+      } else if (pattern === patterns[4]) {
+        // DD日MM月YYYY年
         day = parseInt(match[1]);
         month = parseInt(match[2]);
         year = parseInt(match[3]);
-      } else if (pattern === patterns[5]) { // MM-DD (month-day with current year)
+      } else if (pattern === patterns[5]) {
+        // MM-DD (month-day with current year)
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = new Date().getFullYear();
-      } else if (pattern === patterns[6]) { // MM.DD (month.day with current year)
+      } else if (pattern === patterns[6]) {
+        // MM.DD (month.day with current year)
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = new Date().getFullYear();
-      } else if (pattern === patterns[7]) { // MM月DD日 (month day with current year)
+      } else if (pattern === patterns[7]) {
+        // MM月DD日 (month day with current year)
         month = parseInt(match[1]);
         day = parseInt(match[2]);
         year = new Date().getFullYear();
-      } else { // DD日MM月 (day month with current year)
+      } else {
+        // DD日MM月 (day month with current year)
         day = parseInt(match[1]);
         month = parseInt(match[2]);
         year = new Date().getFullYear();
       }
-      
+
       // 验证日期有效性
       const testDate = new Date(year, month - 1, day);
-      if (testDate.getFullYear() === year && 
-          testDate.getMonth() === month - 1 && 
-          testDate.getDate() === day) {
+      if (testDate.getFullYear() === year && testDate.getMonth() === month - 1 && testDate.getDate() === day) {
         return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       }
     }
   }
-  
+
   return null; // 无法解析
 }
 
@@ -334,6 +339,6 @@ export function getNextStageInfo(project: Project): { stage: string; time: strin
 
   return {
     stage: nextStage || '无',
-    time: nextTime || ''
+    time: nextTime || '',
   };
 }

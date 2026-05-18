@@ -29,13 +29,13 @@ export class BackupService {
 
   scheduleBackup() {
     this.clearBackupSchedule();
-    
+
     if (!this.plugin.settings.autoBackup) return;
-    
+
     const now = new Date();
     const targetDay = this.plugin.settings.backupDay;
     const targetHour = this.plugin.settings.backupHour;
-    
+
     let daysUntilTarget = targetDay - now.getDay();
     if (daysUntilTarget < 0) {
       daysUntilTarget += 7;
@@ -72,30 +72,30 @@ export class BackupService {
 
   async performBackup(): Promise<string> {
     await this.ensureBackupFolder();
-    
+
     const backupFolder = this.getBackupFolder();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupFileName = `backup-${timestamp}.json`;
     const backupPath = normalizePath(`${backupFolder}/${backupFileName}`);
-    
+
     const apps = await this.plugin.dataService.getAllApps();
     const versions = await this.plugin.dataService.getAllVersions();
     const projects = await this.plugin.dataService.getAllProjects();
-    
+
     const backupData = {
       timestamp: new Date().toISOString(),
       apps,
       versions,
-      projects
+      projects,
     };
-    
+
     await this.app.vault.create(backupPath, JSON.stringify(backupData, null, 2));
-    
+
     this.plugin.settings.lastBackupTime = new Date().toISOString();
     await this.plugin.saveSettings();
-    
+
     await this.cleanOldBackups();
-    
+
     return backupPath;
   }
 
@@ -103,11 +103,11 @@ export class BackupService {
     const backupFolder = this.getBackupFolder();
     const folder = this.app.vault.getAbstractFileByPath(backupFolder);
     if (!(folder instanceof TFolder)) return;
-    
+
     const backupFiles = folder.children
       .filter((f): f is TFile => f instanceof TFile && f.extension === 'json' && f.name.startsWith('backup-'))
       .sort((a, b) => b.name.localeCompare(a.name));
-    
+
     const maxBackups = 10;
     if (backupFiles.length > maxBackups) {
       for (let i = maxBackups; i < backupFiles.length; i++) {
@@ -136,9 +136,9 @@ export class BackupService {
         await this.plugin.dataService.upsertProjectRecord(project);
       }
 
-      const appIds = new Set(beforeApps.map(a => a.id));
-      const versionIds = new Set(beforeVersions.map(v => v.id));
-      const projectIds = new Set(beforeProjects.map(p => p.id));
+      const appIds = new Set(beforeApps.map((a) => a.id));
+      const versionIds = new Set(beforeVersions.map((v) => v.id));
+      const projectIds = new Set(beforeProjects.map((p) => p.id));
 
       for (const project of await this.plugin.dataService.getAllProjects()) {
         if (!projectIds.has(project.id)) {
@@ -179,37 +179,39 @@ export class BackupService {
     const beforeVersions = rollback ? [] : await this.plugin.dataService.getAllVersions();
     const beforeProjects = rollback ? [] : await this.plugin.dataService.getAllProjects();
 
-    const doRollback = rollback || (async () => {
-      for (const app of beforeApps) {
-        await this.plugin.dataService.upsertAppRecord(app);
-      }
-      for (const version of beforeVersions) {
-        await this.plugin.dataService.upsertVersionRecord(version);
-      }
-      for (const project of beforeProjects) {
-        await this.plugin.dataService.upsertProjectRecord(project);
-      }
+    const doRollback =
+      rollback ||
+      (async () => {
+        for (const app of beforeApps) {
+          await this.plugin.dataService.upsertAppRecord(app);
+        }
+        for (const version of beforeVersions) {
+          await this.plugin.dataService.upsertVersionRecord(version);
+        }
+        for (const project of beforeProjects) {
+          await this.plugin.dataService.upsertProjectRecord(project);
+        }
 
-      const appIds = new Set(beforeApps.map(a => a.id));
-      const versionIds = new Set(beforeVersions.map(v => v.id));
-      const projectIds = new Set(beforeProjects.map(p => p.id));
+        const appIds = new Set(beforeApps.map((a) => a.id));
+        const versionIds = new Set(beforeVersions.map((v) => v.id));
+        const projectIds = new Set(beforeProjects.map((p) => p.id));
 
-      for (const project of await this.plugin.dataService.getAllProjects()) {
-        if (!projectIds.has(project.id)) {
-          await this.plugin.dataService.deleteProject(project.id);
+        for (const project of await this.plugin.dataService.getAllProjects()) {
+          if (!projectIds.has(project.id)) {
+            await this.plugin.dataService.deleteProject(project.id);
+          }
         }
-      }
-      for (const version of await this.plugin.dataService.getAllVersions()) {
-        if (!versionIds.has(version.id)) {
-          await this.plugin.dataService.deleteVersion(version.id);
+        for (const version of await this.plugin.dataService.getAllVersions()) {
+          if (!versionIds.has(version.id)) {
+            await this.plugin.dataService.deleteVersion(version.id);
+          }
         }
-      }
-      for (const app of await this.plugin.dataService.getAllApps()) {
-        if (!appIds.has(app.id)) {
-          await this.plugin.dataService.deleteApp(app.id);
+        for (const app of await this.plugin.dataService.getAllApps()) {
+          if (!appIds.has(app.id)) {
+            await this.plugin.dataService.deleteApp(app.id);
+          }
         }
-      }
-    });
+      });
 
     try {
       const backupData = JSON.parse(content);
@@ -251,13 +253,13 @@ export class BackupService {
     const backupFolder = this.getBackupFolder();
     const folder = this.app.vault.getAbstractFileByPath(backupFolder);
     if (!(folder instanceof TFolder)) return [];
-    
+
     return folder.children
-      .filter(f => (f as any).extension === 'json' && f.name.startsWith('backup-'))
-      .map(f => ({
+      .filter((f) => (f as any).extension === 'json' && f.name.startsWith('backup-'))
+      .map((f) => ({
         name: f.name,
         path: f.path,
-        date: new Date((f as any).stat.mtime)
+        date: new Date((f as any).stat.mtime),
       }))
       .sort((a, b) => b.date.getTime() - a.date.getTime());
   }

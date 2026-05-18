@@ -31,64 +31,61 @@ export class PlanModal extends Modal {
       manager: this.plan?.manager ?? '',
       testDate: this.plan?.testDate ?? '',
       releaseDate: this.plan?.releaseDate ?? '',
-      requirements: this.plan?.requirements ?? ''
+      requirements: this.plan?.requirements ?? '',
     };
 
-    new Setting(contentEl)
-      .setName('项目主题 *')
-      .addText(text => text
+    new Setting(contentEl).setName('项目主题 *').addText((text) =>
+      text
         .setPlaceholder('输入项目主题')
         .setValue(data.topic)
-        .onChange(value => data.topic = value));
+        .onChange((value) => (data.topic = value)),
+    );
 
-    new Setting(contentEl)
-      .setName('项目经理')
-      .addText(text => text
+    new Setting(contentEl).setName('项目经理').addText((text) =>
+      text
         .setPlaceholder('选填')
         .setValue(data.manager ?? '')
-        .onChange(value => data.manager = value || undefined));
+        .onChange((value) => (data.manager = value || undefined)),
+    );
 
-    new Setting(contentEl)
-      .setName('提测时间')
-      .addText(text => text
+    new Setting(contentEl).setName('提测时间').addText((text) =>
+      text
         .setPlaceholder('选填，如 2026-04-01')
         .setValue(data.testDate ?? '')
-        .onChange(value => data.testDate = parseDateInput(value) || undefined));
+        .onChange((value) => (data.testDate = parseDateInput(value) || undefined)),
+    );
 
-    new Setting(contentEl)
-      .setName('发布时间')
-      .addText(text => text
+    new Setting(contentEl).setName('发布时间').addText((text) =>
+      text
         .setPlaceholder('选填，如 2026-05-01')
         .setValue(data.releaseDate ?? '')
-        .onChange(value => data.releaseDate = parseDateInput(value) || undefined));
+        .onChange((value) => (data.releaseDate = parseDateInput(value) || undefined)),
+    );
 
-    new Setting(contentEl)
-      .setName('项目需求')
-      .addTextArea(text => text
+    new Setting(contentEl).setName('项目需求').addTextArea((text) =>
+      text
         .setPlaceholder('选填')
         .setValue(data.requirements ?? '')
-        .onChange(value => data.requirements = value || undefined));
-
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: this.plan ? '保存' : '创建',
-        cancelText: '取消',
-        onConfirm: () => {
-          if (data.topic.trim()) {
-            this.onSubmit({
-              topic: data.topic.trim(),
-              manager: data.manager?.trim() || '',
-              testDate: data.testDate?.trim() || '',
-              releaseDate: data.releaseDate?.trim() || '',
-              requirements: data.requirements?.trim() || ''
-            });
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
+        .onChange((value) => (data.requirements = value || undefined)),
     );
+
+    createActionButtons(contentEl, {
+      confirmText: this.plan ? '保存' : '创建',
+      cancelText: '取消',
+      onConfirm: () => {
+        if (data.topic.trim()) {
+          this.onSubmit({
+            topic: data.topic.trim(),
+            manager: data.manager?.trim() || '',
+            testDate: data.testDate?.trim() || '',
+            releaseDate: data.releaseDate?.trim() || '',
+            requirements: data.requirements?.trim() || '',
+          });
+          this.close();
+        }
+      },
+      onCancel: () => this.close(),
+    });
   }
 
   onClose() {

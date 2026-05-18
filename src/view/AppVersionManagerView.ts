@@ -9,7 +9,16 @@ import { TodoSidePanel } from './TodoSidePanel';
 import { ConfirmModal } from './ConfirmModal';
 import { ConvertPlanModal } from './ConvertPlanModal';
 import { ImportExportService } from '../services/ImportExportService';
-import { CreateAppModal, RenameAppModal, CreateVersionModal, CreateProjectModal, DeleteFilterModal, ExportModal, ImportModal, PlanModal } from './modals';
+import {
+  CreateAppModal,
+  RenameAppModal,
+  CreateVersionModal,
+  CreateProjectModal,
+  DeleteFilterModal,
+  ExportModal,
+  ImportModal,
+  PlanModal,
+} from './modals';
 import type { CreateProjectData, PlanFormData } from './modals';
 
 export const VIEW_TYPE_APP_VERSION_MANAGER = 'app-version-manager-view';
@@ -24,13 +33,13 @@ export class AppVersionManagerView extends ItemView {
   selectedAppId: string | null = null;
   selectedVersionId: string | null = null;
   currentView: ViewType = 'dual';
-  currentTab: 'projects' | 'plans' = 'projects';
+  currentTab: 'projects' | 'plans' | 'archived' = 'projects';
   plans: Plan[] = [];
   savedFilters: SavedFilter[] = [];
   currentFilter: { progress: ProjectProgress | null; keyword: string } = { progress: null, keyword: '' };
   importExportService: ImportExportService;
   todoSidePanel: TodoSidePanel;
-  
+
   private viewContainerEl: HTMLElement;
   private headerEl: HTMLElement;
   private mainEl: HTMLElement;
@@ -89,32 +98,31 @@ export class AppVersionManagerView extends ItemView {
     this.apps = await this.plugin.dataService.getAllApps();
 
     if (this.apps.length > 0) {
-      if (!this.selectedAppId || !this.apps.find(a => a.id === this.selectedAppId)) {
+      if (!this.selectedAppId || !this.apps.find((a) => a.id === this.selectedAppId)) {
         this.selectedAppId = this.plugin.settings.defaultAppId || this.apps[0].id;
       }
 
       this.versions = await this.plugin.dataService.getVersionsByAppId(this.selectedAppId);
       // 只保留当前 app 关联的 projects（用 Set 过滤，避免 O(n*m) 的 .includes()）
       const allProjects = await this.plugin.dataService.getAllProjects();
-      const versionIds = new Set(this.versions.map(v => v.id));
-      this.projects = allProjects.filter(p => versionIds.has(p.versionId));
+      const versionIds = new Set(this.versions.map((v) => v.id));
+      this.projects = allProjects.filter((p) => versionIds.has(p.versionId));
       this.plans = await this.plugin.dataService.getAllPlans();
     }
   }
 
   private async loadSavedFilters() {
-    const data = await this.plugin.loadData() || {};
+    const data = (await this.plugin.loadData()) || {};
     this.savedFilters = data.savedFilters || [];
   }
 
   private async saveSavedFilters() {
-    const data = await this.plugin.loadData() || {};
+    const data = (await this.plugin.loadData()) || {};
     data.savedFilters = this.savedFilters;
     await this.plugin.saveData(data);
   }
 
-  private registerEvents() {
-  }
+  private registerEvents() {}
 
   handleCreateVersion() {
     if (this.selectedAppId) {
@@ -135,8 +143,8 @@ export class AppVersionManagerView extends ItemView {
       today.setHours(0, 0, 0, 0);
       const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
 
-      const completed = todos.filter(t => t.completed).length;
-      const overdue = todos.filter(t => !t.completed && t.dueDate && t.dueDate < todayStr).length;
+      const completed = todos.filter((t) => t.completed).length;
+      const overdue = todos.filter((t) => !t.completed && t.dueDate && t.dueDate < todayStr).length;
 
       return { total: todos.length, completed, overdue };
     } catch (error) {
@@ -183,9 +191,10 @@ export class AppVersionManagerView extends ItemView {
 
     // Tab 切换栏
     const tabBar = this.headerEl.createDiv({ cls: 'avm-tab-bar' });
-    const tabs: { key: 'projects' | 'plans'; label: string }[] = [
+    const tabs: { key: 'projects' | 'plans' | 'archived'; label: string }[] = [
       { key: 'projects', label: '项目' },
-      { key: 'plans', label: '规划' }
+      { key: 'plans', label: '规划' },
+      { key: 'archived', label: '已归档' },
     ];
     tabs.forEach(({ key, label }) => {
       const tabEl = tabBar.createDiv({ cls: 'avm-tab' + (this.currentTab === key ? ' avm-tab-active' : '') });
@@ -208,31 +217,36 @@ export class AppVersionManagerView extends ItemView {
       return;
     }
 
+    if (this.currentTab === 'archived') {
+      // 已归档 Tab：只显示搜索
+      return;
+    }
+
     const topBar = this.headerEl.createDiv({ cls: 'avm-top-bar' });
-    
+
     const appSelector = topBar.createDiv({ cls: 'avm-app-selector' });
     const select = appSelector.createEl('select', { cls: 'avm-select' });
-    
-    this.apps.forEach(app => {
+
+    this.apps.forEach((app) => {
       const option = select.createEl('option', { value: app.id, text: app.name });
       if (app.id === this.selectedAppId) {
         option.selected = true;
       }
     });
-    
+
     select.addEventListener('change', async (e) => {
       this.selectedAppId = (e.target as HTMLSelectElement).value;
       this.selectedVersionId = null;
       await this.refresh();
     });
-    
+
     const appActions = appSelector.createDiv({ cls: 'avm-app-actions' });
-    
+
     new ButtonComponent(appActions)
       .setIcon('plus')
       .setTooltip('新建APP')
       .onClick(() => this.showCreateAppModal());
-    
+
     new ButtonComponent(appActions)
       .setIcon('pencil')
       .setTooltip('重命名APP')
@@ -242,7 +256,7 @@ export class AppVersionManagerView extends ItemView {
           this.showRenameAppModal();
         }
       });
-    
+
     new ButtonComponent(appActions)
       .setIcon('trash')
       .setTooltip('删除APP')
@@ -252,16 +266,16 @@ export class AppVersionManagerView extends ItemView {
           this.confirmDeleteApp();
         }
       });
-    
+
     const viewSwitcher = topBar.createDiv({ cls: 'avm-view-switcher' });
-    
+
     const viewTypes: { type: ViewType; label: string; icon: string }[] = [
       { type: 'dual', label: '双栏视图', icon: 'layout' },
       { type: 'kanban', label: '看板视图', icon: 'trello' },
-      { type: 'table', label: '表格视图', icon: 'table' }
+      { type: 'table', label: '表格视图', icon: 'table' },
       // { type: 'gantt', label: '甘特图', icon: 'calendar' }
     ];
-    
+
     viewTypes.forEach(({ type, label, icon }) => {
       const btn = new ButtonComponent(viewSwitcher)
         .setIcon(icon)
@@ -274,12 +288,12 @@ export class AppVersionManagerView extends ItemView {
         btn.setClass('avm-view-btn-active');
       }
     });
-    
+
     const filterBar = this.headerEl.createDiv({ cls: 'avm-filter-bar' });
-    
+
     const searchInput = filterBar.createEl('input', {
       cls: 'avm-search-input',
-      attr: { type: 'text', placeholder: '搜索项目、项目经理、项目需求...' }
+      attr: { type: 'text', placeholder: '搜索项目、项目经理、项目需求...' },
     });
     searchInput.value = this.currentFilter.keyword;
     searchInput.addEventListener('input', (e) => {
@@ -291,11 +305,11 @@ export class AppVersionManagerView extends ItemView {
         this.renderMainView();
       }, 180);
     });
-    
+
     const progressFilter = filterBar.createEl('select', { cls: 'avm-select' });
     progressFilter.createEl('option', { value: '', text: '全部进度' });
     const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
-    progressOrder.forEach(progress => {
+    progressOrder.forEach((progress) => {
       const option = progressFilter.createEl('option', { value: progress, text: progress });
       if (progress === this.currentFilter.progress) {
         option.selected = true;
@@ -303,21 +317,21 @@ export class AppVersionManagerView extends ItemView {
     });
     progressFilter.addEventListener('change', (e) => {
       const value = (e.target as HTMLSelectElement).value;
-      this.currentFilter.progress = value as ProjectProgress || null;
+      this.currentFilter.progress = (value as ProjectProgress) || null;
       this.renderMainView();
     });
-    
+
     const filterActions = filterBar.createDiv({ cls: 'avm-filter-actions' });
-    
+
     new ButtonComponent(filterActions)
       .setIcon('save')
       .setTooltip('保存筛选条件')
       .onClick(() => this.showSaveFilterModal());
-    
+
     if (this.savedFilters.length > 0) {
       const savedFilterSelect = filterActions.createEl('select', { cls: 'avm-select avm-saved-filter' });
       savedFilterSelect.createEl('option', { value: '', text: '已保存的筛选' });
-      this.savedFilters.forEach(filter => {
+      this.savedFilters.forEach((filter) => {
         savedFilterSelect.createEl('option', { value: filter.id, text: filter.name });
       });
       savedFilterSelect.addEventListener('change', (e) => {
@@ -326,7 +340,7 @@ export class AppVersionManagerView extends ItemView {
           this.applySavedFilter(filterId);
         }
       });
-      
+
       new ButtonComponent(filterActions)
         .setIcon('trash')
         .setTooltip('删除筛选')
@@ -335,22 +349,27 @@ export class AppVersionManagerView extends ItemView {
             new Notice('没有可删除的筛选条件');
             return;
           }
-          new DeleteFilterModal(this.app, this.savedFilters, async (filterId) => {
-            this.savedFilters = this.savedFilters.filter(f => f.id !== filterId);
-            await this.saveSavedFilters();
-          }, () => {
-            this.render();
-          }).open();
+          new DeleteFilterModal(
+            this.app,
+            this.savedFilters,
+            async (filterId) => {
+              this.savedFilters = this.savedFilters.filter((f) => f.id !== filterId);
+              await this.saveSavedFilters();
+            },
+            () => {
+              this.render();
+            },
+          ).open();
         });
     }
-    
+
     const actionButtons = filterBar.createDiv({ cls: 'avm-action-buttons' });
-    
+
     new ButtonComponent(actionButtons)
       .setIcon('download')
       .setTooltip('导出数据')
       .onClick(() => this.showExportModal());
-    
+
     new ButtonComponent(actionButtons)
       .setIcon('upload')
       .setTooltip('导入数据')
@@ -369,12 +388,15 @@ export class AppVersionManagerView extends ItemView {
       this.renderPlansView();
       return;
     }
-    
+
+    if (this.currentTab === 'archived') {
+      this.renderArchivedView();
+      return;
+    }
+
     const appFilteredProjects = this.getFilteredProjects({ versionId: '' });
-    const filteredVersions = this.selectedAppId 
-      ? this.versions.filter(v => v.appId === this.selectedAppId)
-      : [];
-    
+    const filteredVersions = this.selectedAppId ? this.versions.filter((v) => v.appId === this.selectedAppId) : [];
+
     switch (this.currentView) {
       case 'dual':
         new DualPaneView(
@@ -392,7 +414,7 @@ export class AppVersionManagerView extends ItemView {
           () => this.showCreateProjectModal(),
           () => this.refresh(),
           (projectId) => this.getTodoStats(projectId),
-          (projectId, projectName) => this.onOpenTodos(projectId, projectName)
+          (projectId, projectName) => this.onOpenTodos(projectId, projectName),
         );
         break;
       case 'kanban':
@@ -404,7 +426,7 @@ export class AppVersionManagerView extends ItemView {
           this.apps,
           () => this.refresh(),
           (projectId) => this.getTodoStats(projectId),
-          (projectId, projectName) => this.onOpenTodos(projectId, projectName)
+          (projectId, projectName) => this.onOpenTodos(projectId, projectName),
         );
         break;
       case 'table':
@@ -416,7 +438,7 @@ export class AppVersionManagerView extends ItemView {
           this.apps,
           () => this.refresh(),
           (projectId) => this.getTodoStats(projectId),
-          (projectId, projectName) => this.onOpenTodos(projectId, projectName)
+          (projectId, projectName) => this.onOpenTodos(projectId, projectName),
         );
         break;
       /* // 甘特图视图已禁用
@@ -438,22 +460,29 @@ export class AppVersionManagerView extends ItemView {
     // this.projects 已在 loadData() 中按 app 过滤，无需再次过滤 appVersionIds
     let projects = this.projects;
 
+    // 排除已归档项目（最后一个进度阶段）
+    const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
+    if (lastProgress) {
+      projects = projects.filter((p) => p.progress !== lastProgress);
+    }
+
     const versionFilter = options?.versionId ?? this.selectedVersionId;
     if (versionFilter) {
-      projects = projects.filter(p => p.versionId === versionFilter);
+      projects = projects.filter((p) => p.versionId === versionFilter);
     }
 
     if (this.currentFilter.progress) {
-      projects = projects.filter(p => p.progress === this.currentFilter.progress);
+      projects = projects.filter((p) => p.progress === this.currentFilter.progress);
     }
 
     if (this.currentFilter.keyword) {
       const keyword = this.currentFilter.keyword.toLowerCase();
-      projects = projects.filter(p =>
-        p.name.toLowerCase().includes(keyword) ||
-        p.manager.toLowerCase().includes(keyword) ||
-        p.features.toLowerCase().includes(keyword) ||
-        p.requirements.toLowerCase().includes(keyword)
+      projects = projects.filter(
+        (p) =>
+          p.name.toLowerCase().includes(keyword) ||
+          p.manager.toLowerCase().includes(keyword) ||
+          p.features.toLowerCase().includes(keyword) ||
+          p.requirements.toLowerCase().includes(keyword),
       );
     }
 
@@ -472,9 +501,9 @@ export class AppVersionManagerView extends ItemView {
   }
 
   private showRenameAppModal() {
-    const app = this.apps.find(a => a.id === this.selectedAppId);
+    const app = this.apps.find((a) => a.id === this.selectedAppId);
     if (!app) return;
-    
+
     new RenameAppModal(this.app, app.name, async (newName) => {
       try {
         await this.plugin.dataService.updateApp(this.selectedAppId!, newName, app.version);
@@ -486,7 +515,7 @@ export class AppVersionManagerView extends ItemView {
   }
 
   private async confirmDeleteApp() {
-    const app = this.apps.find(a => a.id === this.selectedAppId);
+    const app = this.apps.find((a) => a.id === this.selectedAppId);
     if (!app) return;
 
     new ConfirmModal(
@@ -496,25 +525,25 @@ export class AppVersionManagerView extends ItemView {
       async () => {
         try {
           await this.plugin.dataService.deleteApp(this.selectedAppId!);
-          this.selectedAppId = this.apps.length > 1 ? this.apps.find(a => a.id !== this.selectedAppId)?.id || null : null;
+          this.selectedAppId = this.apps.length > 1 ? this.apps.find((a) => a.id !== this.selectedAppId)?.id || null : null;
           await this.refresh();
         } catch (error) {
           new Notice(error instanceof Error ? error.message : String(error));
         }
       },
       undefined,
-      true
+      true,
     ).open();
   }
 
   private showCreateVersionModal() {
     if (!this.selectedAppId) return;
-    
+
     new CreateVersionModal(this.app, async (data) => {
       try {
         await this.plugin.dataService.createVersion({
           appId: this.selectedAppId!,
-          ...data
+          ...data,
         });
         await this.refresh();
       } catch (error) {
@@ -525,7 +554,7 @@ export class AppVersionManagerView extends ItemView {
 
   private showCreateProjectModal() {
     if (!this.selectedVersionId) return;
-    
+
     new CreateProjectModal(this.app, this.selectedVersionId, this.plugin.settings.progressStages, async (data) => {
       try {
         await this.plugin.dataService.createProject(data);
@@ -539,14 +568,14 @@ export class AppVersionManagerView extends ItemView {
   private async showSaveFilterModal() {
     const keyword = this.currentFilter.keyword.trim();
     if (!keyword) return;
-    
+
     const filter: SavedFilter = {
       id: Date.now().toString(),
       name: keyword,
       appId: this.selectedAppId,
       versionId: this.selectedVersionId,
       progress: this.currentFilter.progress,
-      keyword: this.currentFilter.keyword
+      keyword: this.currentFilter.keyword,
     };
     this.savedFilters.push(filter);
     await this.saveSavedFilters();
@@ -554,31 +583,26 @@ export class AppVersionManagerView extends ItemView {
   }
 
   private async applySavedFilter(filterId: string) {
-    const filter = this.savedFilters.find(f => f.id === filterId);
+    const filter = this.savedFilters.find((f) => f.id === filterId);
     if (!filter) return;
-    
+
     this.selectedAppId = filter.appId;
     this.selectedVersionId = filter.versionId;
     this.currentFilter.progress = filter.progress;
     this.currentFilter.keyword = filter.keyword;
-    
+
     await this.refresh();
   }
 
   private async deleteSavedFilter(filterId: string) {
-    const filter = this.savedFilters.find(f => f.id === filterId);
+    const filter = this.savedFilters.find((f) => f.id === filterId);
     if (!filter) return;
 
-    new ConfirmModal(
-      this.app,
-      '删除筛选条件',
-      `确定要删除筛选条件 "${filter.name}" 吗？`,
-      async () => {
-        this.savedFilters = this.savedFilters.filter(f => f.id !== filterId);
-        await this.saveSavedFilters();
-        this.render();
-      }
-    ).open();
+    new ConfirmModal(this.app, '删除筛选条件', `确定要删除筛选条件 "${filter.name}" 吗？`, async () => {
+      this.savedFilters = this.savedFilters.filter((f) => f.id !== filterId);
+      await this.saveSavedFilters();
+      this.render();
+    }).open();
   }
 
   private showExportModal() {
@@ -625,25 +649,19 @@ export class AppVersionManagerView extends ItemView {
       return;
     }
 
-    const appVersions = this.versions.filter(v => v.appId === this.selectedAppId);
+    const appVersions = this.versions.filter((v) => v.appId === this.selectedAppId);
 
-    new ConvertPlanModal(
-      this.app,
-      plan,
-      appVersions,
-      this.plugin.dataService,
-      async () => {
-        new Notice('已转为正式项目');
-        this.currentTab = 'projects';
-        await this.refresh();
-        // 自动选中新创建项目对应的版本
-        const allProjects = await this.plugin.dataService.getAllProjects();
-        const newProject = allProjects.find(p => p.versionId && appVersions.some(v => v.id === p.versionId));
-        if (newProject) {
-          this.selectedVersionId = newProject.versionId;
-        }
+    new ConvertPlanModal(this.app, plan, appVersions, this.plugin.dataService, async () => {
+      new Notice('已转为正式项目');
+      this.currentTab = 'projects';
+      await this.refresh();
+      // 自动选中新创建项目对应的版本
+      const allProjects = await this.plugin.dataService.getAllProjects();
+      const newProject = allProjects.find((p) => p.versionId && appVersions.some((v) => v.id === p.versionId));
+      if (newProject) {
+        this.selectedVersionId = newProject.versionId;
       }
-    ).open();
+    }).open();
   }
 
   private async confirmDeletePlan(plan: Plan) {
@@ -660,7 +678,7 @@ export class AppVersionManagerView extends ItemView {
         }
       },
       undefined,
-      true
+      true,
     ).open();
   }
 
@@ -672,7 +690,7 @@ export class AppVersionManagerView extends ItemView {
     if (plans.length === 0) {
       this.mainEl.createDiv({
         cls: 'avm-empty-state',
-        text: '暂无规划，点击左上角「新建规划」创建'
+        text: '暂无规划，点击左上角「新建规划」创建',
       });
       return;
     }
@@ -683,13 +701,13 @@ export class AppVersionManagerView extends ItemView {
     // 表头
     const thead = table.createEl('thead');
     const headerRow = thead.createEl('tr');
-    ['项目主题', '项目经理', '提测时间', '发布时间', '操作'].forEach(text => {
+    ['项目主题', '项目经理', '提测时间', '发布时间', '操作'].forEach((text) => {
       headerRow.createEl('th', { text });
     });
 
     // 表体
     const tbody = table.createEl('tbody');
-    plans.forEach(plan => {
+    plans.forEach((plan) => {
       const row = tbody.createEl('tr');
 
       row.createEl('td', { cls: 'avm-cell-name', text: plan.topic });
@@ -721,6 +739,98 @@ export class AppVersionManagerView extends ItemView {
         .setClass('avm-btn-icon')
         .onClick(() => this.handleConvertPlan(plan));
     });
+  }
+
+  private getArchivedProjects(): Project[] {
+    const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
+    if (!lastProgress) return [];
+    return this.projects.filter((p) => p.progress === lastProgress);
+  }
+
+  private renderArchivedView() {
+    const archivedProjects = this.getArchivedProjects();
+
+    if (archivedProjects.length === 0) {
+      this.mainEl.createDiv({
+        cls: 'avm-empty-state',
+        text: '暂无已归档项目',
+      });
+      return;
+    }
+
+    const searchBar = this.mainEl.createDiv({ cls: 'avm-archived-search-bar' });
+    const searchInput = searchBar.createEl('input', {
+      cls: 'avm-search-input',
+      attr: { type: 'text', placeholder: '搜索已归档项目...' },
+    });
+    let searchKeyword = '';
+    searchInput.addEventListener('input', (e) => {
+      searchKeyword = (e.target as HTMLInputElement).value.toLowerCase();
+      this.renderArchivedList(archivedProjects, searchKeyword);
+    });
+
+    const listContainer = this.mainEl.createDiv({ cls: 'avm-archived-list' });
+    this.renderArchivedList(archivedProjects, searchKeyword, listContainer);
+  }
+
+  private renderArchivedList(archivedProjects: Project[], keyword: string, listContainer?: HTMLElement) {
+    const container = listContainer || this.mainEl.querySelector('.avm-archived-list') || this.mainEl;
+    const existingList = container.querySelector('.avm-archived-items');
+    if (existingList) existingList.remove();
+
+    const filtered = keyword
+      ? archivedProjects.filter(
+          (p) =>
+            p.name.toLowerCase().includes(keyword) ||
+            p.manager.toLowerCase().includes(keyword) ||
+            p.features.toLowerCase().includes(keyword),
+        )
+      : archivedProjects;
+
+    if (filtered.length === 0) {
+      const empty = container.createDiv({ cls: 'avm-empty-state', text: '没有找到匹配的项目' });
+      return;
+    }
+
+    const itemsEl = container.createDiv({ cls: 'avm-archived-items' });
+    filtered.forEach((project) => {
+      const item = itemsEl.createDiv({ cls: 'avm-archived-item' });
+      item.createEl('span', { cls: 'avm-archived-name', text: project.name });
+      item.createEl('span', { cls: 'avm-archived-manager', text: project.manager || '-' });
+      if (project.actualReleaseTime) {
+        item.createEl('span', { cls: 'avm-archived-date', text: `发布于 ${project.actualReleaseTime}` });
+      }
+
+      const version = this.versions.find((v) => v.id === project.versionId);
+      const app = version ? this.apps.find((a) => a.id === version.appId) : null;
+      if (app) {
+        item.createEl('span', { cls: 'avm-archived-app', text: `${app.name} / ${version?.versionNumber || '-'}` });
+      }
+
+      const actions = item.createDiv({ cls: 'avm-archived-actions' });
+      new ButtonComponent(actions)
+        .setIcon('eye')
+        .setTooltip('查看详情')
+        .setClass('avm-btn-icon')
+        .onClick(() => this.showArchivedProjectDetail(project));
+    });
+  }
+
+  private showArchivedProjectDetail(project: Project) {
+    const version = this.versions.find((v) => v.id === project.versionId);
+    const app = version ? this.apps.find((a) => a.id === version.appId) : null;
+
+    const info = [
+      `APP: ${app?.name || '-'}`,
+      `版本: ${version?.versionNumber || '-'}`,
+      `项目经理: ${project.manager || '-'}`,
+      `发布时间: ${project.actualReleaseTime || '-'}`,
+      `功能: ${project.features || '-'}`,
+      ``,
+      `已在"已归档"视图，可通过项目列表恢复状态`,
+    ].join('\n');
+
+    new Notice(info, 4000);
   }
 
   async onClose() {

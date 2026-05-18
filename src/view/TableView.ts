@@ -1,6 +1,17 @@
 import { Menu, Modal, App as ObsidianApp, Setting, TFile, normalizePath, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, TEST_STAGES, parseDateInput, getLastProgress, getNextStageInfo } from '../types';
+import {
+  Project,
+  Version,
+  ProjectProgress,
+  getProgressOrder,
+  getProgressColors,
+  App,
+  TEST_STAGES,
+  parseDateInput,
+  getLastProgress,
+  getNextStageInfo,
+} from '../types';
 import { ConfirmModal } from './ConfirmModal';
 import { createActionButtons } from './ModalUtils';
 import { TestPlanModal } from './TestPlanModal';
@@ -30,7 +41,7 @@ export class TableView {
   getTodoStats: (projectId: string) => Promise<{ total: number; completed: number; overdue: number }>;
   onOpenTodos: (projectId: string, projectName: string) => void;
   private sortState: SortState = { column: null, direction: 'asc' };
-  
+
   constructor(
     containerEl: HTMLElement,
     plugin: AppVersionManagerPlugin,
@@ -39,7 +50,7 @@ export class TableView {
     apps: App[],
     onRefresh: () => void = () => {},
     getTodoStats: (projectId: string) => Promise<{ total: number; completed: number; overdue: number }>,
-    onOpenTodos: (projectId: string, projectName: string) => void
+    onOpenTodos: (projectId: string, projectName: string) => void,
   ) {
     this.containerEl = containerEl;
     this.plugin = plugin;
@@ -49,10 +60,10 @@ export class TableView {
     this.onRefresh = onRefresh;
     this.getTodoStats = getTodoStats;
     this.onOpenTodos = onOpenTodos;
-    
+
     this.render();
   }
-  
+
   private applySorting(projects: Project[]): Project[] {
     if (!this.sortState.column) {
       return sortProjectsByPriority(projects, this.plugin.settings.progressStages);
@@ -67,8 +78,8 @@ export class TableView {
 
       switch (column) {
         case 'versionNumber': {
-          const versionA = this.versions.find(v => v.id === a.versionId);
-          const versionB = this.versions.find(v => v.id === b.versionId);
+          const versionA = this.versions.find((v) => v.id === a.versionId);
+          const versionB = this.versions.find((v) => v.id === b.versionId);
           const aStr = versionA?.versionNumber || '';
           const bStr = versionB?.versionNumber || '';
           if (aStr === '' && bStr === '') break;
@@ -126,24 +137,24 @@ export class TableView {
     if (this.sortState.column === column) {
       this.sortState = {
         column,
-        direction: this.sortState.direction === 'asc' ? 'desc' : 'asc'
+        direction: this.sortState.direction === 'asc' ? 'desc' : 'asc',
       };
     } else {
       this.sortState = { column, direction: 'asc' };
     }
     this.render();
   }
-  
+
   private render() {
     this.containerEl.empty();
     this.containerEl.addClass('avm-table-view');
-    
+
     const tableWrapper = this.containerEl.createDiv({ cls: 'avm-table-wrapper' });
     const table = tableWrapper.createEl('table', { cls: 'avm-table' });
-    
+
     const thead = table.createEl('thead');
     const headerRow = thead.createEl('tr');
-    
+
     const columns: TableColumn[] = [
       { key: 'name', label: '项目名称', width: '150px' },
       { key: 'versionNumber', label: '版本号', width: '100px', sortable: true },
@@ -154,10 +165,10 @@ export class TableView {
       { key: 'nextStage', label: '下一阶段', width: '120px' },
       { key: 'nextStageTime', label: '下一阶段时间', width: '120px', sortable: true },
       { key: 'links', label: '链接', width: '120px' },
-      { key: 'todos', label: '待办', width: '100px' }
+      { key: 'todos', label: '待办', width: '100px' },
     ];
 
-    columns.forEach(col => {
+    columns.forEach((col) => {
       const th = headerRow.createEl('th');
       th.style.width = col.width;
 
@@ -175,59 +186,59 @@ export class TableView {
         }
       }
     });
-    
+
     const tbody = table.createEl('tbody');
-    
+
     const sortedProjects = this.applySorting(this.projects);
-    
+
     if (sortedProjects.length === 0) {
       const emptyRow = tbody.createEl('tr');
       const emptyCell = emptyRow.createEl('td', { attr: { colspan: columns.length.toString() } });
       emptyCell.createDiv({ cls: 'avm-empty-state', text: '暂无数据' });
     } else {
-      sortedProjects.forEach(project => {
+      sortedProjects.forEach((project) => {
         this.renderRow(tbody, project, columns);
       });
     }
   }
-  
+
   private isProjectHighlighted(project: Project): boolean {
     return isProjectHighlighted(project, this.plugin.settings.overdueWarningDays);
   }
-  
+
   private renderRow(tbody: HTMLElement, project: Project, columns: TableColumn[]) {
     const row = tbody.createEl('tr');
-    
+
     // 添加高亮样式
     if (this.isProjectHighlighted(project)) {
       row.addClass('avm-highlighted-row');
     }
-    
+
     const isOverdue = this.checkOverdue(project);
     if (isOverdue) {
       row.addClass('avm-overdue-row');
     }
-    
-    const version = this.versions.find(v => v.id === project.versionId);
-    
+
+    const version = this.versions.find((v) => v.id === project.versionId);
+
     const nextStageInfo = getNextStageInfo(project);
-    
-    columns.forEach(col => {
+
+    columns.forEach((col) => {
       const td = row.createEl('td');
-      
+
       switch (col.key) {
         case 'name':
           td.createDiv({ cls: 'avm-cell-name', text: project.name });
           break;
-          
+
         case 'versionNumber':
           td.createDiv({ text: version?.versionNumber || '-' });
           break;
-          
+
         case 'manager':
           td.createDiv({ text: project.manager || '-' });
           break;
-          
+
         case 'features':
           td.createDiv({ cls: 'avm-cell-features', text: project.features || '-' });
           break;
@@ -235,8 +246,8 @@ export class TableView {
         case 'spec':
           td.createDiv({ cls: 'avm-cell-spec', text: project.spec || '-' });
           break;
-          
-        case 'progress':
+
+        case 'progress': {
           const progressColors = getProgressColors(this.plugin.settings.progressStages);
           const badge = td.createDiv({ cls: 'avm-progress-badge-small avm-clickable', text: project.progress });
           badge.style.backgroundColor = progressColors[project.progress] || '#64748b';
@@ -245,34 +256,40 @@ export class TableView {
             this.handleProgressClick(project);
           });
           break;
-
-        case 'todos':
+        }
+        case 'todos': {
           const todoBadge = td.createDiv({ cls: 'avm-todo-badge', text: '📋' });
           todoBadge.addEventListener('click', (e) => {
             e.stopPropagation();
             this.onOpenTodos(project.id, project.name);
           });
-          this.getTodoStats(project.id).then(stats => {
-            if (stats.total > 0) {
-              todoBadge.setText(`${stats.completed}/${stats.total}`);
-              if (stats.overdue > 0) todoBadge.addClass('has-overdue');
-            }
-          }).catch(console.error);
+          this.getTodoStats(project.id)
+            .then((stats) => {
+              if (stats.total > 0) {
+                todoBadge.setText(`${stats.completed}/${stats.total}`);
+                if (stats.overdue > 0) todoBadge.addClass('has-overdue');
+              }
+            })
+            .catch(console.error);
           break;
-          
+        }
         case 'nextStage':
           td.createDiv({ text: nextStageInfo.stage });
           break;
-          
+
         case 'nextStageTime':
           td.createDiv({ text: nextStageInfo.time });
           break;
-          
-        case 'links':
+
+        case 'links': {
           const linksContainer = td.createDiv({ cls: 'avm-cell-links' });
-          
+
           if (project.projectLink) {
-            const link = linksContainer.createEl('a', { cls: 'avm-link-small', text: '项目', attr: { href: project.projectLink, target: '_blank', rel: 'noopener noreferrer' } });
+            const link = linksContainer.createEl('a', {
+              cls: 'avm-link-small',
+              text: '项目',
+              attr: { href: project.projectLink, target: '_blank', rel: 'noopener noreferrer' },
+            });
             link.addEventListener('click', (e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -281,21 +298,26 @@ export class TableView {
           }
 
           if (project.componentLink) {
-            const link = linksContainer.createEl('a', { cls: 'avm-link-small', text: '组件', attr: { href: project.componentLink, target: '_blank', rel: 'noopener noreferrer' } });
+            const link = linksContainer.createEl('a', {
+              cls: 'avm-link-small',
+              text: '组件',
+              attr: { href: project.componentLink, target: '_blank', rel: 'noopener noreferrer' },
+            });
             link.addEventListener('click', (e) => {
               e.preventDefault();
               e.stopPropagation();
               openExternalLink(project.componentLink);
             });
           }
-          
+
           if (!project.projectLink && !project.componentLink) {
             td.createDiv({ text: '-' });
           }
           break;
+        }
       }
     });
-    
+
     row.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       this.showRowContextMenu(project, e);
@@ -311,70 +333,70 @@ export class TableView {
   private checkOverdue(project: Project): boolean {
     return checkOverdue(project, this.plugin.settings.progressStages, this.plugin.settings.overdueWarningDays);
   }
-  
+
   private showRowContextMenu(project: Project, event: MouseEvent) {
     const menu = new Menu();
-    
-    menu.addItem(item => item
-      .setTitle('编辑')
-      .setIcon('pencil')
-      .onClick(() => this.showEditProjectModal(project)));
-    
-    menu.addItem(item => item
-      .setTitle('提测计划')
-      .setIcon('calendar')
-      .onClick(() => this.showTestPlanModal(project)));
-    
+
+    menu.addItem((item) =>
+      item
+        .setTitle('编辑')
+        .setIcon('pencil')
+        .onClick(() => this.showEditProjectModal(project)),
+    );
+
+    menu.addItem((item) =>
+      item
+        .setTitle('提测计划')
+        .setIcon('calendar')
+        .onClick(() => this.showTestPlanModal(project)),
+    );
+
     menu.addSeparator();
-    
-    menu.addItem(item => item
-      .setTitle('删除')
-      .setIcon('trash')
-      .onClick(() => {
-        new ConfirmModal(
-          this.plugin.app,
-          '删除项目',
-          `确定要删除项目 "${project.name}" 吗？`,
-          async () => {
-            try {
-              await this.plugin.dataService.deleteProject(project.id);
-              setTimeout(() => this.onRefresh(), 100);
-            } catch (error) {
-              new Notice(error instanceof Error ? error.message : String(error));
-            }
-          },
-          undefined,
-          true
-        ).open();
-      }));
-    
+
+    menu.addItem((item) =>
+      item
+        .setTitle('删除')
+        .setIcon('trash')
+        .onClick(() => {
+          new ConfirmModal(
+            this.plugin.app,
+            '删除项目',
+            `确定要删除项目 "${project.name}" 吗？`,
+            async () => {
+              try {
+                await this.plugin.dataService.deleteProject(project.id);
+                setTimeout(() => this.onRefresh(), 100);
+              } catch (error) {
+                new Notice(error instanceof Error ? error.message : String(error));
+              }
+            },
+            undefined,
+            true,
+          ).open();
+        }),
+    );
+
     menu.showAtMouseEvent(event);
   }
-  
+
   private handleProgressClick(project: Project) {
     const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
     const currentIndex = progressOrder.indexOf(project.progress);
     if (currentIndex === -1 || currentIndex >= progressOrder.length - 1) {
       return;
     }
-    
+
     const nextProgress = progressOrder[currentIndex + 1];
-    new ProgressConfirmModal(
-      this.plugin.app,
-      project,
-      nextProgress,
-      this.plugin.settings.progressStages,
-      async () => {
-        try {
-          await this.plugin.dataService.updateProject(project.id, { progress: nextProgress }, project.version);
-          this.onRefresh();
-        } catch (error) {
-          new Notice(error instanceof Error ? error.message : String(error));
-        }
+    new ProgressConfirmModal(this.plugin.app, project, nextProgress, this.plugin.settings.progressStages, async () => {
+      try {
+        await this.plugin.dataService.updateProject(project.id, { progress: nextProgress }, project.version);
+        this.onRefresh();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : String(error));
       }
-    ).open();
+    }).open();
   }
-  
+
   private showEditProjectModal(project: Project) {
     new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
@@ -385,7 +407,7 @@ export class TableView {
       }
     }).open();
   }
-  
+
   private showTestPlanModal(project: Project) {
     new TestPlanModal(this.plugin.app, project, async (data) => {
       try {
@@ -403,13 +425,13 @@ class ProgressConfirmModal extends Modal {
   nextProgress: ProjectProgress;
   progressStages: { name: string; color: string }[];
   onConfirm: () => void;
-  
+
   constructor(
     app: ObsidianApp,
     project: Project,
     nextProgress: ProjectProgress,
     progressStages: { name: string; color: string }[],
-    onConfirm: () => void
+    onConfirm: () => void,
   ) {
     super(app);
     this.project = project;
@@ -417,49 +439,46 @@ class ProgressConfirmModal extends Modal {
     this.progressStages = progressStages;
     this.onConfirm = onConfirm;
   }
-  
+
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass('avm-modal');
     contentEl.addClass('avm-progress-confirm-modal');
-    
+
     contentEl.createEl('h2', { text: '确认更改进度' });
-    
+
     const progressColors = getProgressColors(this.progressStages);
-    
+
     const infoContainer = contentEl.createDiv({ cls: 'avm-confirm-info' });
-    
+
     const projectInfo = infoContainer.createDiv({ cls: 'avm-confirm-project' });
     projectInfo.createEl('span', { cls: 'avm-confirm-label', text: '项目：' });
     projectInfo.createEl('span', { text: this.project.name });
-    
+
     const progressContainer = infoContainer.createDiv({ cls: 'avm-confirm-progress' });
-    
+
     const currentDiv = progressContainer.createDiv({ cls: 'avm-progress-item' });
     currentDiv.createEl('div', { cls: 'avm-confirm-label', text: '当前进度' });
     const currentBadge = currentDiv.createDiv({ cls: 'avm-progress-badge-small', text: this.project.progress });
     currentBadge.style.backgroundColor = progressColors[this.project.progress] || '#64748b';
-    
+
     const arrow = progressContainer.createDiv({ cls: 'avm-progress-arrow' });
     arrow.createEl('span', { text: '→' });
-    
+
     const nextDiv = progressContainer.createDiv({ cls: 'avm-progress-item' });
     nextDiv.createEl('div', { cls: 'avm-confirm-label', text: '下一进度' });
     const nextBadge = nextDiv.createDiv({ cls: 'avm-progress-badge-small', text: this.nextProgress });
     nextBadge.style.backgroundColor = progressColors[this.nextProgress] || '#64748b';
-    
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: '确认更改',
-        cancelText: '取消',
-        onConfirm: () => {
-          this.onConfirm();
-          this.close();
-        },
-        onCancel: () => this.close()
-      }
-    );
+
+    createActionButtons(contentEl, {
+      confirmText: '确认更改',
+      cancelText: '取消',
+      onConfirm: () => {
+        this.onConfirm();
+        this.close();
+      },
+      onCancel: () => this.close(),
+    });
   }
 
   onClose() {

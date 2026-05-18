@@ -27,16 +27,12 @@ export class TodoService {
 
   private getProjectsFolder(): string {
     const dataPath = this.getDataPath();
-    return this.isAbsolutePath()
-      ? join(dataPath, 'projects')
-      : `${dataPath}/projects`;
+    return this.isAbsolutePath() ? join(dataPath, 'projects') : `${dataPath}/projects`;
   }
 
   private getTodosFilePath(projectId: string): string {
     const folder = this.getProjectsFolder();
-    return this.isAbsolutePath()
-      ? join(folder, `todos__${projectId}.md`)
-      : normalizePath(`${folder}/todos__${projectId}.md`);
+    return this.isAbsolutePath() ? join(folder, `todos__${projectId}.md`) : normalizePath(`${folder}/todos__${projectId}.md`);
   }
 
   async getByProjectId(projectId: string): Promise<Todo[]> {
@@ -86,7 +82,7 @@ export class TodoService {
 
   async update(projectId: string, todo: Todo, expectedVersion?: number): Promise<Todo> {
     const todos = await this.getByProjectId(projectId);
-    const index = todos.findIndex(t => t.id === todo.id);
+    const index = todos.findIndex((t) => t.id === todo.id);
     if (index === -1) throw new Error(`Todo not found: ${todo.id}`);
 
     const existing = todos[index];
@@ -103,7 +99,7 @@ export class TodoService {
 
   async delete(projectId: string, todoId: string): Promise<void> {
     const todos = await this.getByProjectId(projectId);
-    const filtered = todos.filter(t => t.id !== todoId);
+    const filtered = todos.filter((t) => t.id !== todoId);
     if (filtered.length === todos.length) return;
     await this.saveTodos(projectId, filtered);
   }

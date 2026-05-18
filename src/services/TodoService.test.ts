@@ -101,7 +101,7 @@ describe('TodoService (absolute path)', () => {
     it('returns parsed todos from existing file', async () => {
       (existsSync as any).mockReturnValueOnce(true);
       (readFileSync as any).mockReturnValueOnce(
-        '---\ntodos: [{"id":"1","content":"test","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n'
+        '---\ntodos: [{"id":"1","content":"test","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n',
       );
       const todos = await service.getByProjectId('project-with-todos');
       expect(todos).toHaveLength(1);
@@ -112,7 +112,7 @@ describe('TodoService (absolute path)', () => {
     it('returns cached result on second call', async () => {
       (existsSync as any).mockReturnValueOnce(true);
       (readFileSync as any).mockReturnValueOnce(
-        '---\ntodos: [{"id":"1","content":"cached","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n'
+        '---\ntodos: [{"id":"1","content":"cached","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n',
       );
       await service.getByProjectId('cached-project');
       await service.getByProjectId('cached-project');
@@ -147,7 +147,7 @@ describe('TodoService (absolute path)', () => {
     it('appends to existing todos', async () => {
       (existsSync as any).mockReturnValueOnce(true);
       (readFileSync as any).mockReturnValueOnce(
-        '---\ntodos: [{"id":"existing","content":"old","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n'
+        '---\ntodos: [{"id":"existing","content":"old","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n',
       );
       await service.create('p1', { content: 'new task' });
       const writeCall = (writeFileSync as any).mock.calls[0];
@@ -159,14 +159,18 @@ describe('TodoService (absolute path)', () => {
     it('updates an existing todo', async () => {
       (existsSync as any).mockReturnValueOnce(true);
       (readFileSync as any).mockReturnValueOnce(
-        '---\ntodos: [{"id":"1","content":"original","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n'
+        '---\ntodos: [{"id":"1","content":"original","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n',
       );
       const existing = (await service.getByProjectId('p1'))[0];
-      const updated = await service.update('p1', {
-        ...existing,
-        content: 'updated',
-        completed: true,
-      }, existing.version);
+      const updated = await service.update(
+        'p1',
+        {
+          ...existing,
+          content: 'updated',
+          completed: true,
+        },
+        existing.version,
+      );
       expect(updated.content).toBe('updated');
       expect(updated.completed).toBe(true);
       expect(updated.version).toBe(2);
@@ -176,12 +180,10 @@ describe('TodoService (absolute path)', () => {
     it('throws ConcurrencyConflictError on version mismatch', async () => {
       (existsSync as any).mockReturnValueOnce(true);
       (readFileSync as any).mockReturnValueOnce(
-        '---\ntodos: [{"id":"1","content":"original","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":3}]\n---\n'
+        '---\ntodos: [{"id":"1","content":"original","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":3}]\n---\n',
       );
       const existing = (await service.getByProjectId('p1'))[0];
-      await expect(
-        service.update('p1', existing, 1)
-      ).rejects.toThrow(ConcurrencyConflictError);
+      await expect(service.update('p1', existing, 1)).rejects.toThrow(ConcurrencyConflictError);
     });
 
     it('throws when todo not found', async () => {
@@ -198,7 +200,7 @@ describe('TodoService (absolute path)', () => {
           createdAt: '',
           updatedAt: '',
           version: 1,
-        })
+        }),
       ).rejects.toThrow('Todo not found');
     });
   });
@@ -207,7 +209,7 @@ describe('TodoService (absolute path)', () => {
     it('removes a todo by id', async () => {
       (existsSync as any).mockReturnValueOnce(true);
       (readFileSync as any).mockReturnValueOnce(
-        '---\ntodos: [{"id":"1","content":"keep","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1},{"id":"2","content":"delete-me","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n'
+        '---\ntodos: [{"id":"1","content":"keep","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1},{"id":"2","content":"delete-me","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n',
       );
       await service.delete('p1', '2');
       expect(writeFileSync).toHaveBeenCalledTimes(1);
@@ -216,7 +218,7 @@ describe('TodoService (absolute path)', () => {
     it('does nothing when todo not found', async () => {
       (existsSync as any).mockReturnValueOnce(true);
       (readFileSync as any).mockReturnValueOnce(
-        '---\ntodos: [{"id":"1","content":"keep","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n'
+        '---\ntodos: [{"id":"1","content":"keep","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n',
       );
       await service.delete('p1', 'nonexistent');
       expect(writeFileSync).not.toHaveBeenCalled();
@@ -257,7 +259,7 @@ describe('TodoService (vault path)', () => {
     it('returns parsed todos from existing vault file', async () => {
       mocks.getAbstractFileByPath.mockReturnValueOnce(new TFile());
       mocks.vaultRead.mockResolvedValueOnce(
-        '---\ntodos: [{"id":"1","content":"vault task","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n'
+        '---\ntodos: [{"id":"1","content":"vault task","completed":false,"link":"","dueDate":"","projectId":"p1","createdAt":"2026-01-01","updatedAt":"2026-01-01","version":1}]\n---\n',
       );
       const todos = await service.getByProjectId('existing');
       expect(todos).toHaveLength(1);

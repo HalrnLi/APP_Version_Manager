@@ -14,7 +14,7 @@ export class ConfirmModal extends Modal {
     messageText: string,
     onConfirmCallback: () => Promise<void> | void,
     onCancelCallback?: () => void,
-    danger: boolean = false
+    danger: boolean = false,
   ) {
     super(app);
     this.titleText = titleText;
@@ -49,12 +49,10 @@ export class ConfirmModal extends Modal {
         return btn;
       })
       .addButton((btn: ButtonComponent) =>
-        btn
-          .setButtonText('取消')
-          .onClick(() => {
-            this.close();
-            this.onCancelCallback?.();
-          })
+        btn.setButtonText('取消').onClick(() => {
+          this.close();
+          this.onCancelCallback?.();
+        }),
       );
   }
 

@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  parseFrontmatter,
-  createFrontmatter,
-  parseProgressHistory,
-  parseNumericField,
-} from '../../src/utils/frontmatter';
+import { parseFrontmatter, createFrontmatter, parseProgressHistory, parseNumericField } from '../../src/utils/frontmatter';
 
 describe('parseFrontmatter', () => {
   it('returns empty object for no frontmatter', () => {
@@ -172,18 +167,12 @@ describe('parseProgressHistory', () => {
   });
 
   it('parses object format', () => {
-    const result = parseProgressHistory([
-      { progress: '已发布', changedAt: '9999999999' },
-    ]);
+    const result = parseProgressHistory([{ progress: '已发布', changedAt: '9999999999' }]);
     expect(result).toEqual([{ progress: '已发布', changedAt: '9999999999' }]);
   });
 
   it('skips invalid items', () => {
-    const result = parseProgressHistory([
-      'no-at-sign',
-      { notProgress: 'x' },
-      'valid@123',
-    ]);
+    const result = parseProgressHistory(['no-at-sign', { notProgress: 'x' }, 'valid@123']);
     expect(result).toEqual([{ progress: 'valid', changedAt: '123' }]);
   });
 });

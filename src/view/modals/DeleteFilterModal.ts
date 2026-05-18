@@ -19,28 +19,25 @@ export class DeleteFilterModal extends Modal {
 
     contentEl.createEl('h2', { text: '删除筛选条件' });
 
-    this.filters.forEach(filter => {
-      new Setting(contentEl)
-        .setName(filter.name)
-        .addButton(btn => btn
+    this.filters.forEach((filter) => {
+      new Setting(contentEl).setName(filter.name).addButton((btn) =>
+        btn
           .setButtonText('删除')
           .setWarning()
           .onClick(() => {
             this.doDelete(filter.id);
-          }));
+          }),
+      );
     });
 
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('关闭')
-        .onClick(() => this.close()));
+    new Setting(contentEl).addButton((btn) => btn.setButtonText('关闭').onClick(() => this.close()));
   }
 
   private async doDelete(filterId: string) {
-    const filter = this.filters.find(f => f.id === filterId);
+    const filter = this.filters.find((f) => f.id === filterId);
     if (!filter) return;
 
-    this.filters = this.filters.filter(f => f.id !== filterId);
+    this.filters = this.filters.filter((f) => f.id !== filterId);
     await this.onSubmit(filterId);
 
     if (this.filters.length === 0) {

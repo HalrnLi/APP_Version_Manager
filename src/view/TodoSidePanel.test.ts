@@ -51,7 +51,7 @@ describe('TodoSidePanel', () => {
       panel.open('proj-1', 'Test Project');
 
       // Wait for requestAnimationFrame
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const overlay = containerEl.querySelector('.avm-todo-overlay');
       const panelEl = containerEl.querySelector('.avm-todo-panel');
@@ -64,7 +64,7 @@ describe('TodoSidePanel', () => {
 
     it('closes the panel', async () => {
       panel.open('proj-1', 'Test Project');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       panel.close();
 
@@ -76,7 +76,7 @@ describe('TodoSidePanel', () => {
 
     it('shows project name in header', async () => {
       panel.open('proj-1', 'My Project');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const title = containerEl.querySelector('.avm-todo-panel-title');
       expect(title?.textContent).toContain('My Project');
@@ -87,7 +87,7 @@ describe('TodoSidePanel', () => {
     it('shows empty state when no todos', async () => {
       mocks.todoService.getByProjectId.mockResolvedValueOnce([]);
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const empty = containerEl.querySelector('.avm-todo-empty');
       expect(empty).not.toBeNull();
@@ -97,18 +97,30 @@ describe('TodoSidePanel', () => {
     it('renders todo items', async () => {
       mocks.todoService.getByProjectId.mockResolvedValueOnce([
         {
-          id: '1', content: 'Task 1', link: '', dueDate: '',
-          completed: false, projectId: 'proj-1',
-          createdAt: '', updatedAt: '', version: 1,
+          id: '1',
+          content: 'Task 1',
+          link: '',
+          dueDate: '',
+          completed: false,
+          projectId: 'proj-1',
+          createdAt: '',
+          updatedAt: '',
+          version: 1,
         },
         {
-          id: '2', content: 'Task 2', link: '', dueDate: '2026-05-10',
-          completed: false, projectId: 'proj-1',
-          createdAt: '', updatedAt: '', version: 1,
+          id: '2',
+          content: 'Task 2',
+          link: '',
+          dueDate: '2026-05-10',
+          completed: false,
+          projectId: 'proj-1',
+          createdAt: '',
+          updatedAt: '',
+          version: 1,
         },
       ]);
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const items = containerEl.querySelectorAll('.avm-todo-item');
       expect(items).toHaveLength(2);
@@ -121,13 +133,19 @@ describe('TodoSidePanel', () => {
     it('adds completed class for completed items', async () => {
       mocks.todoService.getByProjectId.mockResolvedValueOnce([
         {
-          id: '1', content: 'Done', link: '', dueDate: '',
-          completed: true, projectId: 'proj-1',
-          createdAt: '', updatedAt: '', version: 1,
+          id: '1',
+          content: 'Done',
+          link: '',
+          dueDate: '',
+          completed: true,
+          projectId: 'proj-1',
+          createdAt: '',
+          updatedAt: '',
+          version: 1,
         },
       ]);
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const item = containerEl.querySelector('.avm-todo-item');
       expect(item?.classList.contains('completed')).toBe(true);
@@ -136,13 +154,19 @@ describe('TodoSidePanel', () => {
     it('adds overdue class for past-due todos', async () => {
       mocks.todoService.getByProjectId.mockResolvedValueOnce([
         {
-          id: '1', content: 'Overdue task', link: '', dueDate: '2020-01-01',
-          completed: false, projectId: 'proj-1',
-          createdAt: '', updatedAt: '', version: 1,
+          id: '1',
+          content: 'Overdue task',
+          link: '',
+          dueDate: '2020-01-01',
+          completed: false,
+          projectId: 'proj-1',
+          createdAt: '',
+          updatedAt: '',
+          version: 1,
         },
       ]);
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const item = containerEl.querySelector('.avm-todo-item');
       expect(item?.classList.contains('overdue')).toBe(true);
@@ -151,13 +175,19 @@ describe('TodoSidePanel', () => {
     it('renders link element when todo has link', async () => {
       mocks.todoService.getByProjectId.mockResolvedValueOnce([
         {
-          id: '1', content: 'With link', link: 'https://example.com', dueDate: '',
-          completed: false, projectId: 'proj-1',
-          createdAt: '', updatedAt: '', version: 1,
+          id: '1',
+          content: 'With link',
+          link: 'https://example.com',
+          dueDate: '',
+          completed: false,
+          projectId: 'proj-1',
+          createdAt: '',
+          updatedAt: '',
+          version: 1,
         },
       ]);
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const link = containerEl.querySelector('.avm-todo-link');
       expect(link).not.toBeNull();
@@ -169,18 +199,30 @@ describe('TodoSidePanel', () => {
     it('sorts incomplete before completed', async () => {
       mocks.todoService.getByProjectId.mockResolvedValueOnce([
         {
-          id: '1', content: 'Completed', link: '', dueDate: '',
-          completed: true, projectId: 'proj-1',
-          createdAt: '', updatedAt: '', version: 1,
+          id: '1',
+          content: 'Completed',
+          link: '',
+          dueDate: '',
+          completed: true,
+          projectId: 'proj-1',
+          createdAt: '',
+          updatedAt: '',
+          version: 1,
         },
         {
-          id: '2', content: 'Active', link: '', dueDate: '',
-          completed: false, projectId: 'proj-1',
-          createdAt: '', updatedAt: '', version: 1,
+          id: '2',
+          content: 'Active',
+          link: '',
+          dueDate: '',
+          completed: false,
+          projectId: 'proj-1',
+          createdAt: '',
+          updatedAt: '',
+          version: 1,
         },
       ]);
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const items = containerEl.querySelectorAll('.avm-todo-item');
       // Active (incomplete) should be first
@@ -192,7 +234,7 @@ describe('TodoSidePanel', () => {
   describe('close via overlay click', () => {
     it('closes when overlay is clicked', async () => {
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const overlay = containerEl.querySelector('.avm-todo-overlay') as HTMLElement;
       overlay?.click();
@@ -204,7 +246,7 @@ describe('TodoSidePanel', () => {
   describe('close via close button', () => {
     it('closes when X button is clicked', async () => {
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const closeBtn = containerEl.querySelector('.avm-todo-panel-close') as HTMLElement;
       closeBtn?.click();
@@ -217,7 +259,7 @@ describe('TodoSidePanel', () => {
   describe('input elements', () => {
     it('renders input fields for adding todos', async () => {
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const input = containerEl.querySelector('.avm-todo-input') as HTMLInputElement;
       const linkInput = containerEl.querySelector('.avm-todo-input-link') as HTMLInputElement;
@@ -232,7 +274,7 @@ describe('TodoSidePanel', () => {
 
     it('date input is empty by default', async () => {
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       const dateInput = containerEl.querySelector('.avm-todo-input-date') as HTMLInputElement;
       expect(dateInput.value).toBe('');
@@ -242,7 +284,7 @@ describe('TodoSidePanel', () => {
   describe('destroy', () => {
     it('removes overlay and panel elements', async () => {
       panel.open('proj-1', 'Test');
-      await new Promise(r => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
 
       panel.destroy();
 

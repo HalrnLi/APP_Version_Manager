@@ -19,8 +19,7 @@ export class TodoSidePanel {
   }
 
   isOpen(): boolean {
-    return this.overlayEl !== null && this.panelEl !== null &&
-      this.overlayEl.classList.contains('open');
+    return this.overlayEl !== null && this.panelEl !== null && this.overlayEl.classList.contains('open');
   }
 
   detachFromDOM(): void {
@@ -85,18 +84,18 @@ export class TodoSidePanel {
     const inputRow = footer.createDiv({ cls: 'avm-todo-input-row' });
     const input = inputRow.createEl('input', {
       cls: 'avm-todo-input',
-      attr: { placeholder: '添加新待办...', type: 'text' }
+      attr: { placeholder: '添加新待办...', type: 'text' },
     });
     const addBtn = inputRow.createEl('button', { cls: 'avm-todo-add-btn', text: '添加' });
 
     const extraRow = footer.createDiv({ cls: 'avm-todo-extra-row' });
     const linkInput = extraRow.createEl('input', {
       cls: 'avm-todo-input-link',
-      attr: { placeholder: '链接 (可选)', type: 'url' }
+      attr: { placeholder: '链接 (可选)', type: 'url' },
     });
     const dateInput = extraRow.createEl('input', {
       cls: 'avm-todo-input-date',
-      attr: { type: 'date' }
+      attr: { type: 'date' },
     });
 
     const addTodo = async () => {
@@ -161,15 +160,19 @@ export class TodoSidePanel {
       // Checkbox
       const checkbox = item.createEl('input', {
         cls: 'avm-todo-checkbox',
-        attr: { type: 'checkbox' }
+        attr: { type: 'checkbox' },
       });
       checkbox.checked = todo.completed;
       checkbox.addEventListener('change', async () => {
         try {
-          await this.plugin.todoService.update(this.currentProjectId!, {
-            ...todo,
-            completed: checkbox.checked
-          }, todo.version);
+          await this.plugin.todoService.update(
+            this.currentProjectId!,
+            {
+              ...todo,
+              completed: checkbox.checked,
+            },
+            todo.version,
+          );
           await this.renderTodoList(listEl);
         } catch (error) {
           console.error('Failed to update todo:', error);
@@ -197,7 +200,7 @@ export class TodoSidePanel {
         linkEl = displayWrap.createEl('a', {
           cls: 'avm-todo-link',
           text: '🔗',
-          attr: { href: normalized, target: '_blank', rel: 'noopener noreferrer' }
+          attr: { href: normalized, target: '_blank', rel: 'noopener noreferrer' },
         });
       }
 
@@ -223,7 +226,7 @@ export class TodoSidePanel {
             }
           },
           undefined,
-          true
+          true,
         ).open();
       });
     }
@@ -235,7 +238,7 @@ export class TodoSidePanel {
     editBtn: HTMLElement,
     deleteBtn: HTMLElement,
     todo: Todo,
-    listEl: HTMLElement
+    listEl: HTMLElement,
   ): void {
     // Hide display elements and buttons
     displayWrap.hide();
@@ -247,20 +250,20 @@ export class TodoSidePanel {
 
     const contentInput = editContainer.createEl('input', {
       cls: 'avm-todo-edit-content',
-      attr: { type: 'text', placeholder: '待办内容' }
+      attr: { type: 'text', placeholder: '待办内容' },
     });
     contentInput.value = todo.content;
 
     const row = editContainer.createDiv({ cls: 'avm-todo-edit-row' });
     const linkInput = row.createEl('input', {
       cls: 'avm-todo-input-link',
-      attr: { type: 'url', placeholder: '链接 (可选)' }
+      attr: { type: 'url', placeholder: '链接 (可选)' },
     });
     linkInput.value = todo.link;
 
     const dateInput = row.createEl('input', {
       cls: 'avm-todo-input-date',
-      attr: { type: 'date' }
+      attr: { type: 'date' },
     });
     dateInput.value = todo.dueDate;
 
@@ -282,12 +285,16 @@ export class TodoSidePanel {
       if (!newContent) return;
 
       try {
-        await this.plugin.todoService.update(this.currentProjectId!, {
-          ...todo,
-          content: newContent,
-          link: linkInput.value.trim(),
-          dueDate: dateInput.value,
-        }, todo.version);
+        await this.plugin.todoService.update(
+          this.currentProjectId!,
+          {
+            ...todo,
+            content: newContent,
+            link: linkInput.value.trim(),
+            dueDate: dateInput.value,
+          },
+          todo.version,
+        );
         await this.renderTodoList(listEl);
       } catch (error) {
         console.error('Failed to update todo:', error);

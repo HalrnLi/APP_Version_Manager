@@ -4,7 +4,7 @@ export {};
 (HTMLElement.prototype as any).createDiv = function (opts?: { cls?: string; text?: string; attr?: Record<string, string> }) {
   const div = document.createElement('div');
   if (opts?.cls) {
-    opts.cls.split(' ').forEach(c => div.classList.add(c));
+    opts.cls.split(' ').forEach((c) => div.classList.add(c));
   }
   if (opts?.text) div.textContent = opts.text;
   if (opts?.attr) {
@@ -17,7 +17,7 @@ export {};
 (HTMLElement.prototype as any).createEl = function (tag: string, opts?: { cls?: string; text?: string; attr?: Record<string, string> }) {
   const el = document.createElement(tag);
   if (opts?.cls) {
-    opts.cls.split(' ').forEach(c => el.classList.add(c));
+    opts.cls.split(' ').forEach((c) => el.classList.add(c));
   }
   if (opts?.text) el.textContent = opts.text;
   if (opts?.attr) {
@@ -30,7 +30,7 @@ export {};
 (HTMLElement.prototype as any).createSpan = function (opts?: { cls?: string; text?: string; attr?: Record<string, string> }) {
   const span = document.createElement('span');
   if (opts?.cls) {
-    opts.cls.split(' ').forEach(c => span.classList.add(c));
+    opts.cls.split(' ').forEach((c) => span.classList.add(c));
   }
   if (opts?.text) span.textContent = opts.text;
   if (opts?.attr) {

@@ -103,86 +103,183 @@ export class Setting {
     this.settingEl = document.createElement('div');
   }
 
-  setName(_name: string) { return this; }
-  setDesc(_desc: string) { return this; }
-  setClass(_cls: string) { return this; }
-  addText(cb: (text: any) => void) { cb(new TextComponent()); return this; }
-  addDropdown(cb: (dropdown: any) => void) { cb(new DropdownComponent()); return this; }
-  addSlider(cb: (slider: any) => void) { cb(new SliderComponent()); return this; }
-  addToggle(cb: (toggle: any) => void) { cb(new ToggleComponent()); return this; }
-  addButton(cb: (btn: any) => void) { cb(new ButtonComponent()); return this; }
-  addColorPicker(cb: (picker: any) => void) { cb(new ColorPickerComponent()); return this; }
-  addTextArea(cb: (textarea: any) => void) { cb(new TextAreaComponent()); return this; }
-  addExtraButton(cb: (btn: any) => void) { cb(new ExtraButtonComponent()); return this; }
+  setName(_name: string) {
+    return this;
+  }
+  setDesc(_desc: string) {
+    return this;
+  }
+  setClass(_cls: string) {
+    return this;
+  }
+  addText(cb: (text: any) => void) {
+    cb(new TextComponent());
+    return this;
+  }
+  addDropdown(cb: (dropdown: any) => void) {
+    cb(new DropdownComponent());
+    return this;
+  }
+  addSlider(cb: (slider: any) => void) {
+    cb(new SliderComponent());
+    return this;
+  }
+  addToggle(cb: (toggle: any) => void) {
+    cb(new ToggleComponent());
+    return this;
+  }
+  addButton(cb: (btn: any) => void) {
+    cb(new ButtonComponent());
+    return this;
+  }
+  addColorPicker(cb: (picker: any) => void) {
+    cb(new ColorPickerComponent());
+    return this;
+  }
+  addTextArea(cb: (textarea: any) => void) {
+    cb(new TextAreaComponent());
+    return this;
+  }
+  addExtraButton(cb: (btn: any) => void) {
+    cb(new ExtraButtonComponent());
+    return this;
+  }
 }
 
 export class TextComponent {
-  setValue = vi.fn(function (this: any) { return this; });
-  setPlaceholder = vi.fn(function (this: any) { return this; });
-  onChange = vi.fn(function (this: any) { return this; });
+  setValue = vi.fn(function (this: any) {
+    return this;
+  });
+  setPlaceholder = vi.fn(function (this: any) {
+    return this;
+  });
+  onChange = vi.fn(function (this: any) {
+    return this;
+  });
   inputEl = document.createElement('input');
 }
 
 export class DropdownComponent {
-  addOption = vi.fn(function (this: any) { return this; });
-  setValue = vi.fn(function (this: any) { return this; });
-  onChange = vi.fn(function (this: any) { return this; });
+  addOption = vi.fn(function (this: any) {
+    return this;
+  });
+  setValue = vi.fn(function (this: any) {
+    return this;
+  });
+  onChange = vi.fn(function (this: any) {
+    return this;
+  });
   selectEl = document.createElement('select');
 }
 
 export class SliderComponent {
-  setLimits = vi.fn(function (this: any) { return this; });
-  setValue = vi.fn(function (this: any) { return this; });
-  setDynamicTooltip = vi.fn(function (this: any) { return this; });
-  onChange = vi.fn(function (this: any) { return this; });
+  setLimits = vi.fn(function (this: any) {
+    return this;
+  });
+  setValue = vi.fn(function (this: any) {
+    return this;
+  });
+  setDynamicTooltip = vi.fn(function (this: any) {
+    return this;
+  });
+  onChange = vi.fn(function (this: any) {
+    return this;
+  });
 }
 
 export class ToggleComponent {
-  setValue = vi.fn(function (this: any) { return this; });
-  onChange = vi.fn(function (this: any) { return this; });
+  setValue = vi.fn(function (this: any) {
+    return this;
+  });
+  onChange = vi.fn(function (this: any) {
+    return this;
+  });
 }
 
 export class ButtonComponent {
-  setIcon = vi.fn(function (this: any) { return this; });
-  setTooltip = vi.fn(function (this: any) { return this; });
-  setDisabled = vi.fn(function (this: any) { return this; });
-  setButtonText = vi.fn(function (this: any) { return this; });
-  setWarning = vi.fn(function (this: any) { return this; });
-  setClass = vi.fn(function (this: any) { return this; });
-  setCta = vi.fn(function (this: any) { return this; });
-  onClick = vi.fn(function (this: any) { return this; });
+  setIcon = vi.fn(function (this: any) {
+    return this;
+  });
+  setTooltip = vi.fn(function (this: any) {
+    return this;
+  });
+  setDisabled = vi.fn(function (this: any) {
+    return this;
+  });
+  setButtonText = vi.fn(function (this: any) {
+    return this;
+  });
+  setWarning = vi.fn(function (this: any) {
+    return this;
+  });
+  setClass = vi.fn(function (this: any) {
+    return this;
+  });
+  setCta = vi.fn(function (this: any) {
+    return this;
+  });
+  onClick = vi.fn(function (this: any) {
+    return this;
+  });
   buttonEl = document.createElement('button');
 }
 
 export class ColorPickerComponent {
-  setValue = vi.fn(function (this: any) { return this; });
-  onChange = vi.fn(function (this: any) { return this; });
+  setValue = vi.fn(function (this: any) {
+    return this;
+  });
+  onChange = vi.fn(function (this: any) {
+    return this;
+  });
 }
 
 export class TextAreaComponent {
-  setValue = vi.fn(function (this: any) { return this; });
-  setPlaceholder = vi.fn(function (this: any) { return this; });
-  onChange = vi.fn(function (this: any) { return this; });
+  setValue = vi.fn(function (this: any) {
+    return this;
+  });
+  setPlaceholder = vi.fn(function (this: any) {
+    return this;
+  });
+  onChange = vi.fn(function (this: any) {
+    return this;
+  });
   inputEl = document.createElement('textarea');
 }
 
 export class ExtraButtonComponent {
-  setIcon = vi.fn(function (this: any) { return this; });
-  setTooltip = vi.fn(function (this: any) { return this; });
-  onClick = vi.fn(function (this: any) { return this; });
+  setIcon = vi.fn(function (this: any) {
+    return this;
+  });
+  setTooltip = vi.fn(function (this: any) {
+    return this;
+  });
+  onClick = vi.fn(function (this: any) {
+    return this;
+  });
 }
 
 export class Menu {
-  addItem = vi.fn(function (this: Menu, cb: (item: any) => void) { cb(new MenuItem()); return this; });
-  addSeparator = vi.fn(function (this: any) { return this; });
+  addItem = vi.fn(function (this: Menu, cb: (item: any) => void) {
+    cb(new MenuItem());
+    return this;
+  });
+  addSeparator = vi.fn(function (this: any) {
+    return this;
+  });
   showAtMouseEvent = vi.fn();
   showAtPosition = vi.fn();
 }
 
 export class MenuItem {
-  setTitle = vi.fn(function (this: any) { return this; });
-  setIcon = vi.fn(function (this: any) { return this; });
-  onClick = vi.fn(function (this: any) { return this; });
+  setTitle = vi.fn(function (this: any) {
+    return this;
+  });
+  setIcon = vi.fn(function (this: any) {
+    return this;
+  });
+  onClick = vi.fn(function (this: any) {
+    return this;
+  });
 }
 
 export class Modal {

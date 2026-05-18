@@ -59,11 +59,11 @@ export class ImportExportService {
       'B4系统测试时间',
       '实际发布时间',
       '创建时间',
-      '更新时间'
+      '更新时间',
     ];
-    
-    const rows = projects.map(project => {
-      const version = versions.find(v => v.id === project.versionId);
+
+    const rows = projects.map((project) => {
+      const version = versions.find((v) => v.id === project.versionId);
       return [
         project.name,
         version?.versionNumber || '',
@@ -86,15 +86,12 @@ export class ImportExportService {
         project.b4SystemTestTime,
         project.actualReleaseTime,
         project.createdAt,
-        project.updatedAt
+        project.updatedAt,
       ];
     });
-    
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => this.escapeCSV(cell)).join(','))
-    ].join('\n');
-    
+
+    const csvContent = [headers.join(','), ...rows.map((row) => row.map((cell) => this.escapeCSV(cell)).join(','))].join('\n');
+
     return csvContent;
   }
 
@@ -111,33 +108,33 @@ export class ImportExportService {
   async importFromCSV(content: string, appId: string): Promise<{ success: number; errors: string[] }> {
     const lines = content.split(/\r?\n/);
     const headers = this.parseCSVLine(lines[0]);
-    
+
     const result = { success: 0, errors: [] as string[] };
-    
+
     const existingProjects = await this.plugin.dataService.getAllProjects();
-    const projectByName = new Map(existingProjects.map(p => [p.name, p]));
-    
+    const projectByName = new Map(existingProjects.map((p) => [p.name, p]));
+
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue;
-      
+
       try {
         const values = this.parseCSVLine(lines[i]);
         const rowData: Record<string, string> = {};
-        
+
         headers.forEach((header, index) => {
           rowData[header] = values[index] || '';
         });
-        
-        let version = await this.findOrCreateVersion(appId, rowData);
-        
+
+        const version = await this.findOrCreateVersion(appId, rowData);
+
         const projectName = rowData['项目名称'];
         if (!projectName) {
           result.errors.push(`第 ${i + 1} 行: 缺少项目名称`);
           continue;
         }
-        
+
         const existingProject = projectByName.get(projectName);
-        
+
         const projectData = {
           name: projectName,
           versionId: version.id,
@@ -147,23 +144,23 @@ export class ImportExportService {
           features: rowData['特性'] || '',
           requirements: (rowData['项目需求'] || '').replace(/\\n/g, '\n'),
           progress: this.parseProgress(rowData['项目进度']),
-          actualReleaseTime: rowData['实际发布时间'] || ''
+          actualReleaseTime: rowData['实际发布时间'] || '',
         };
-        
+
         if (existingProject) {
           await this.plugin.dataService.updateProject(existingProject.id, projectData);
         } else {
           const created = await this.plugin.dataService.createProject(projectData);
           projectByName.set(created.name, created);
         }
-        
+
         result.success++;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         result.errors.push(`第 ${i + 1} 行: ${errorMessage}`);
       }
     }
-    
+
     return result;
   }
 
@@ -171,10 +168,10 @@ export class ImportExportService {
     const result: string[] = [];
     let current = '';
     let inQuotes = false;
-    
+
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
-      
+
       if (char === '"') {
         if (inQuotes && line[i + 1] === '"') {
           current += '"';
@@ -189,7 +186,7 @@ export class ImportExportService {
         current += char;
       }
     }
-    
+
     result.push(current);
     return result;
   }
@@ -199,10 +196,10 @@ export class ImportExportService {
     if (!versionNumber) {
       throw new Error('缺少版本号');
     }
-    
+
     const versions = await this.plugin.dataService.getVersionsByAppId(appId);
-    let version = versions.find(v => v.versionNumber === versionNumber);
-    
+    let version = versions.find((v) => v.versionNumber === versionNumber);
+
     if (!version) {
       version = await this.plugin.dataService.createVersion({
         appId,
@@ -210,18 +207,19 @@ export class ImportExportService {
         bllVersion: rowData['BLL版本'] || '',
         ippVersion: rowData['IPP版本'] || '',
         webVersion: rowData['Web版本'] || '',
-        updateContent: ''
+        updateContent: '',
       });
     } else {
       if (rowData['BLL版本'] || rowData['IPP版本'] || rowData['Web版本']) {
-        version = await this.plugin.dataService.updateVersion(version.id, {
-          bllVersion: rowData['BLL版本'] || version.bllVersion,
-          ippVersion: rowData['IPP版本'] || version.ippVersion,
-          webVersion: rowData['Web版本'] || version.webVersion
-        }) || version;
+        version =
+          (await this.plugin.dataService.updateVersion(version.id, {
+            bllVersion: rowData['BLL版本'] || version.bllVersion,
+            ippVersion: rowData['IPP版本'] || version.ippVersion,
+            webVersion: rowData['Web版本'] || version.webVersion,
+          })) || version;
       }
     }
-    
+
     return version;
   }
 
@@ -235,73 +233,73 @@ export class ImportExportService {
 
   async exportToExcel(projects: Project[], versions: Version[]): Promise<ArrayBuffer> {
     const XLSX = await import('xlsx');
-    
-    const data = projects.map(project => {
-      const version = versions.find(v => v.id === project.versionId);
+
+    const data = projects.map((project) => {
+      const version = versions.find((v) => v.id === project.versionId);
       return {
-        '项目名称': project.name,
-        'APP版本号': version?.versionNumber || '',
-        'BLL版本': version?.bllVersion || '',
-        'IPP版本': version?.ippVersion || '',
-        'Web版本': version?.webVersion || '',
-        '项目经理': project.manager,
-        '项目链接': project.projectLink,
-        '组件库链接': project.componentLink,
-        '特性': project.features || '',
-        '项目需求': project.requirements || '',
-        '项目进度': project.progress,
-        'B1集成测试时间': project.b1IntegrationTestTime,
-        'B1系统测试时间': project.b1SystemTestTime,
-        'B2集成测试时间': project.b2IntegrationTestTime,
-        'B2系统测试时间': project.b2SystemTestTime,
-        'B3集成测试时间': project.b3IntegrationTestTime,
-        'B3系统测试时间': project.b3SystemTestTime,
-        'B4集成测试时间': project.b4IntegrationTestTime,
-        'B4系统测试时间': project.b4SystemTestTime,
-        '实际发布时间': project.actualReleaseTime,
-        '创建时间': project.createdAt,
-        '更新时间': project.updatedAt
+        项目名称: project.name,
+        APP版本号: version?.versionNumber || '',
+        BLL版本: version?.bllVersion || '',
+        IPP版本: version?.ippVersion || '',
+        Web版本: version?.webVersion || '',
+        项目经理: project.manager,
+        项目链接: project.projectLink,
+        组件库链接: project.componentLink,
+        特性: project.features || '',
+        项目需求: project.requirements || '',
+        项目进度: project.progress,
+        B1集成测试时间: project.b1IntegrationTestTime,
+        B1系统测试时间: project.b1SystemTestTime,
+        B2集成测试时间: project.b2IntegrationTestTime,
+        B2系统测试时间: project.b2SystemTestTime,
+        B3集成测试时间: project.b3IntegrationTestTime,
+        B3系统测试时间: project.b3SystemTestTime,
+        B4集成测试时间: project.b4IntegrationTestTime,
+        B4系统测试时间: project.b4SystemTestTime,
+        实际发布时间: project.actualReleaseTime,
+        创建时间: project.createdAt,
+        更新时间: project.updatedAt,
       };
     });
-    
+
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Projects');
-    
+
     return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
   }
 
   async importFromExcel(buffer: ArrayBuffer, appId: string): Promise<{ success: number; errors: string[] }> {
     const XLSX = await import('xlsx');
-    
+
     const wb = XLSX.read(buffer, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(ws) as Record<string, any>[];
-    
+
     const result = { success: 0, errors: [] as string[] };
-    
+
     const existingProjects = await this.plugin.dataService.getAllProjects();
-    const projectByName = new Map(existingProjects.map(p => [p.name, p]));
-    
+    const projectByName = new Map(existingProjects.map((p) => [p.name, p]));
+
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      
+
       try {
-        let version = await this.findOrCreateVersion(appId, {
-          'APP版本号': row['APP版本号'] || '',
-          'BLL版本': row['BLL版本'] || '',
-          'IPP版本': row['IPP版本'] || '',
-          'Web版本': row['Web版本'] || ''
+        const version = await this.findOrCreateVersion(appId, {
+          APP版本号: row['APP版本号'] || '',
+          BLL版本: row['BLL版本'] || '',
+          IPP版本: row['IPP版本'] || '',
+          Web版本: row['Web版本'] || '',
         });
-        
+
         const projectName = row['项目名称'];
         if (!projectName) {
           result.errors.push(`第 ${i + 2} 行: 缺少项目名称`);
           continue;
         }
-        
+
         const existingProject = projectByName.get(projectName);
-        
+
         const projectData = {
           name: projectName,
           versionId: version.id,
@@ -311,23 +309,23 @@ export class ImportExportService {
           features: row['特性'] || '',
           requirements: row['项目需求'] || '',
           progress: this.parseProgress(row['项目进度']),
-          actualReleaseTime: row['实际发布时间'] || ''
+          actualReleaseTime: row['实际发布时间'] || '',
         };
-        
+
         if (existingProject) {
           await this.plugin.dataService.updateProject(existingProject.id, projectData);
         } else {
           const created = await this.plugin.dataService.createProject(projectData);
           projectByName.set(created.name, created);
         }
-        
+
         result.success++;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         result.errors.push(`第 ${i + 2} 行: ${errorMessage}`);
       }
     }
-    
+
     return result;
   }
 
@@ -336,9 +334,9 @@ export class ImportExportService {
       return '[]';
     }
 
-    const versionMap = new Map(versions.map(v => [v.id, v]));
+    const versionMap = new Map(versions.map((v) => [v.id, v]));
 
-    const data: ExportProjectJson[] = projects.map(project => {
+    const data: ExportProjectJson[] = projects.map((project) => {
       const version = versionMap.get(project.versionId);
       return {
         projectName: project.name,
@@ -362,7 +360,7 @@ export class ImportExportService {
         b4SystemTestTime: project.b4SystemTestTime,
         actualReleaseTime: project.actualReleaseTime,
         createdAt: project.createdAt,
-        updatedAt: project.updatedAt
+        updatedAt: project.updatedAt,
       };
     });
 

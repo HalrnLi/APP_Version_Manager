@@ -1,6 +1,17 @@
 import { Menu, Modal, App as ObsidianApp, Setting, ButtonComponent, TFile, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Version, Project, ProjectProgress, getProgressOrder, getProgressColors, App, parseDateInput, getNextStageInfo, getLastProgress, ProgressStage } from '../types';
+import {
+  Version,
+  Project,
+  ProjectProgress,
+  getProgressOrder,
+  getProgressColors,
+  App,
+  parseDateInput,
+  getNextStageInfo,
+  getLastProgress,
+  ProgressStage,
+} from '../types';
 import { ConfirmModal } from './ConfirmModal';
 import { createSaveButtons, createActionButtons } from './ModalUtils';
 import { TestPlanModal } from './TestPlanModal';
@@ -21,7 +32,7 @@ export class DualPaneView {
   onRefresh: () => void;
   getTodoStats: (projectId: string) => Promise<{ total: number; completed: number; overdue: number }>;
   onOpenTodos: (projectId: string, projectName: string) => void;
-  
+
   constructor(
     containerEl: HTMLElement,
     plugin: AppVersionManagerPlugin,
@@ -34,7 +45,7 @@ export class DualPaneView {
     onCreateProject: () => void,
     onRefresh: () => void,
     getTodoStats: (projectId: string) => Promise<{ total: number; completed: number; overdue: number }>,
-    onOpenTodos: (projectId: string, projectName: string) => void
+    onOpenTodos: (projectId: string, projectName: string) => void,
   ) {
     this.containerEl = containerEl;
     this.plugin = plugin;
@@ -48,66 +59,66 @@ export class DualPaneView {
     this.onRefresh = onRefresh;
     this.getTodoStats = getTodoStats;
     this.onOpenTodos = onOpenTodos;
-    
+
     this.render();
   }
-  
+
   private render() {
     this.containerEl.empty();
     this.containerEl.addClass('avm-dual-pane');
-    
+
     const leftPane = this.containerEl.createDiv({ cls: 'avm-left-pane' });
     this.renderVersionList(leftPane);
-    
+
     const rightPane = this.containerEl.createDiv({ cls: 'avm-right-pane' });
     this.renderProjectList(rightPane);
   }
-  
+
   private renderVersionList(container: HTMLElement) {
     container.empty();
-    
+
     const header = container.createDiv({ cls: 'avm-pane-header' });
     header.createEl('h3', { text: '版本列表' });
-    
+
     new ButtonComponent(header)
       .setIcon('plus')
       .setTooltip('新建版本')
       .onClick(() => {
         this.onCreateVersion();
       });
-    
+
     const versionList = container.createDiv({ cls: 'avm-version-list' });
-    
-    const activeVersions = this.versions.filter(v => !v.isArchived);
-    const archivedVersions = this.versions.filter(v => v.isArchived);
-    
-    activeVersions.forEach(version => {
+
+    const activeVersions = this.versions.filter((v) => !v.isArchived);
+    const archivedVersions = this.versions.filter((v) => v.isArchived);
+
+    activeVersions.forEach((version) => {
       this.renderVersionItem(versionList, version);
     });
-    
+
     if (archivedVersions.length > 0) {
       const archivedHeader = versionList.createDiv({ cls: 'avm-archived-header' });
       archivedHeader.createEl('span', { text: `已归档 (${archivedVersions.length})` });
-      
-      archivedVersions.forEach(version => {
+
+      archivedVersions.forEach((version) => {
         this.renderVersionItem(versionList, version, true);
       });
     }
-    
+
     if (this.versions.length === 0) {
       versionList.createDiv({ cls: 'avm-empty-state', text: '暂无版本，点击右上角添加' });
     }
   }
-  
+
   private renderVersionItem(container: HTMLElement, version: Version, isArchived: boolean = false) {
     const item = container.createDiv({
-      cls: `avm-version-item ${this.selectedVersionId === version.id ? 'avm-selected' : ''} ${isArchived ? 'avm-archived' : ''}`
+      cls: `avm-version-item ${this.selectedVersionId === version.id ? 'avm-selected' : ''} ${isArchived ? 'avm-archived' : ''}`,
     });
 
     item.createDiv({ cls: 'avm-version-number', text: version.versionNumber });
 
     const meta = item.createDiv({ cls: 'avm-version-meta' });
-    const versionProjects = this.projects.filter(p => p.versionId === version.id);
+    const versionProjects = this.projects.filter((p) => p.versionId === version.id);
     const projectCount = versionProjects.length;
     meta.createSpan({ text: `${projectCount} 个项目` });
 
@@ -118,7 +129,7 @@ export class DualPaneView {
     if (stats.overdue > 0) {
       const overdueBadge = meta.createSpan({
         cls: 'avm-version-badge avm-version-badge-overdue',
-        text: `${stats.overdue} 延期`
+        text: `${stats.overdue} 延期`,
       });
       overdueBadge.style.color = '#ef4444';
       overdueBadge.style.fontWeight = '500';
@@ -128,7 +139,7 @@ export class DualPaneView {
     if (stats.warning > 0) {
       const warningBadge = meta.createSpan({
         cls: 'avm-version-badge avm-version-badge-warning',
-        text: `${stats.warning} 预警`
+        text: `${stats.warning} 预警`,
       });
       warningBadge.style.color = '#f59e0b';
       warningBadge.style.fontWeight = '500';
@@ -144,59 +155,67 @@ export class DualPaneView {
       this.showVersionContextMenu(version, e, isArchived);
     });
   }
-  
+
   private showVersionContextMenu(version: Version, event: MouseEvent, isArchived: boolean) {
     const menu = new Menu();
-    
-    menu.addItem(item => item
-      .setTitle('编辑')
-      .setIcon('pencil')
-      .onClick(() => this.showEditVersionModal(version)));
-    
+
+    menu.addItem((item) =>
+      item
+        .setTitle('编辑')
+        .setIcon('pencil')
+        .onClick(() => this.showEditVersionModal(version)),
+    );
+
     if (isArchived) {
-      menu.addItem(item => item
-        .setTitle('取消归档')
-        .setIcon('archive')
-        .onClick(async () => {
-          await this.plugin.dataService.unarchiveVersion(version.id);
-          this.onRefresh();
-        }));
+      menu.addItem((item) =>
+        item
+          .setTitle('取消归档')
+          .setIcon('archive')
+          .onClick(async () => {
+            await this.plugin.dataService.unarchiveVersion(version.id);
+            this.onRefresh();
+          }),
+      );
     } else {
-      menu.addItem(item => item
-        .setTitle('归档')
-        .setIcon('archive')
-        .onClick(async () => {
-          await this.plugin.dataService.archiveVersion(version.id);
-          this.onRefresh();
-        }));
+      menu.addItem((item) =>
+        item
+          .setTitle('归档')
+          .setIcon('archive')
+          .onClick(async () => {
+            await this.plugin.dataService.archiveVersion(version.id);
+            this.onRefresh();
+          }),
+      );
     }
-    
+
     menu.addSeparator();
-    
-    menu.addItem(item => item
-      .setTitle('删除')
-      .setIcon('trash')
-      .onClick(() => {
-        new ConfirmModal(
-          this.plugin.app,
-          '删除版本',
-          `确定要删除版本 ${version.versionNumber} 吗？\n关联的项目将保留但解除关联。`,
-          async () => {
-            try {
-              await this.plugin.dataService.deleteVersion(version.id);
-              this.onRefresh();
-            } catch (error) {
-              new Notice(error instanceof Error ? error.message : String(error));
-            }
-          },
-          undefined,
-          true
-        ).open();
-      }));
-    
+
+    menu.addItem((item) =>
+      item
+        .setTitle('删除')
+        .setIcon('trash')
+        .onClick(() => {
+          new ConfirmModal(
+            this.plugin.app,
+            '删除版本',
+            `确定要删除版本 ${version.versionNumber} 吗？\n关联的项目将保留但解除关联。`,
+            async () => {
+              try {
+                await this.plugin.dataService.deleteVersion(version.id);
+                this.onRefresh();
+              } catch (error) {
+                new Notice(error instanceof Error ? error.message : String(error));
+              }
+            },
+            undefined,
+            true,
+          ).open();
+        }),
+    );
+
     menu.showAtMouseEvent(event);
   }
-  
+
   private showEditVersionModal(version: Version) {
     new EditVersionModal(this.plugin.app, version, async (data) => {
       try {
@@ -207,13 +226,13 @@ export class DualPaneView {
       }
     }).open();
   }
-  
+
   private renderProjectList(container: HTMLElement) {
     container.empty();
-    
+
     const header = container.createDiv({ cls: 'avm-pane-header' });
     header.createEl('h3', { text: '项目列表' });
-    
+
     if (this.selectedVersionId) {
       new ButtonComponent(header)
         .setIcon('plus')
@@ -222,51 +241,51 @@ export class DualPaneView {
           this.onCreateProject();
         });
     }
-    
+
     const projectList = container.createDiv({ cls: 'avm-project-list' });
-    
+
     if (!this.selectedVersionId) {
       projectList.createDiv({ cls: 'avm-empty-state', text: '请选择一个版本查看项目' });
       return;
     }
-    
-    const versionProjects = this.projects.filter(p => p.versionId === this.selectedVersionId);
-    
+
+    const versionProjects = this.projects.filter((p) => p.versionId === this.selectedVersionId);
+
     if (versionProjects.length === 0) {
       projectList.createDiv({ cls: 'avm-empty-state', text: '暂无项目，点击右上角添加' });
       return;
     }
-    
+
     const sortedProjects = this.applySorting(versionProjects);
-    
-    sortedProjects.forEach(project => {
+
+    sortedProjects.forEach((project) => {
       this.renderProjectItem(projectList, project);
     });
   }
-  
+
   private isProjectHighlighted(project: Project): boolean {
     return isProjectHighlighted(project, this.plugin.settings.overdueWarningDays);
   }
-  
+
   private applySorting(projects: Project[]): Project[] {
     return sortProjectsByPriority(projects, this.plugin.settings.progressStages);
   }
-  
+
   private renderProjectItem(container: HTMLElement, project: Project) {
     const item = container.createDiv({ cls: 'avm-project-item' });
-    
+
     // 添加高亮样式（今天或明天）
     if (this.isProjectHighlighted(project)) {
       item.addClass('avm-highlighted-row');
     }
-    
+
     const header = item.createDiv({ cls: 'avm-project-header' });
     header.createDiv({ cls: 'avm-project-name', text: project.name });
-    
+
     const progressColors = getProgressColors(this.plugin.settings.progressStages);
     const progressBadge = header.createDiv({
       cls: 'avm-progress-badge',
-      text: project.progress
+      text: project.progress,
     });
     progressBadge.style.backgroundColor = progressColors[project.progress] || '#64748b';
 
@@ -276,12 +295,14 @@ export class DualPaneView {
       e.stopPropagation();
       this.onOpenTodos(project.id, project.name);
     });
-    this.getTodoStats(project.id).then(stats => {
-      if (stats.total > 0) {
-        todoBadge.setText(`${stats.completed}/${stats.total}`);
-        if (stats.overdue > 0) todoBadge.addClass('has-overdue');
-      }
-    }).catch(console.error);
+    this.getTodoStats(project.id)
+      .then((stats) => {
+        if (stats.total > 0) {
+          todoBadge.setText(`${stats.completed}/${stats.total}`);
+          if (stats.overdue > 0) todoBadge.addClass('has-overdue');
+        }
+      })
+      .catch(console.error);
 
     if (project.features) {
       const featuresEl = item.createDiv({ cls: 'avm-project-features' });
@@ -307,9 +328,13 @@ export class DualPaneView {
     }
 
     const links = item.createDiv({ cls: 'avm-project-links' });
-    
+
     if (project.projectLink) {
-      const link = links.createEl('a', { cls: 'avm-link', text: '项目链接', attr: { href: project.projectLink, target: '_blank', rel: 'noopener noreferrer' } });
+      const link = links.createEl('a', {
+        cls: 'avm-link',
+        text: '项目链接',
+        attr: { href: project.projectLink, target: '_blank', rel: 'noopener noreferrer' },
+      });
       link.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -318,21 +343,24 @@ export class DualPaneView {
     }
 
     if (project.componentLink) {
-      const link = links.createEl('a', { cls: 'avm-link', text: '组件库', attr: { href: project.componentLink, target: '_blank', rel: 'noopener noreferrer' } });
+      const link = links.createEl('a', {
+        cls: 'avm-link',
+        text: '组件库',
+        attr: { href: project.componentLink, target: '_blank', rel: 'noopener noreferrer' },
+      });
       link.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         openExternalLink(project.componentLink);
       });
     }
-    
-    
+
     if (project.requirements) {
       const req = item.createDiv({ cls: 'avm-project-requirements' });
       req.createEl('strong', { text: '需求:' });
       req.createSpan({ text: project.requirements.substring(0, 100) + (project.requirements.length > 100 ? '...' : '') });
     }
-    
+
     item.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       this.showProjectContextMenu(project, e);
@@ -348,51 +376,59 @@ export class DualPaneView {
   private checkOverdue(project: Project): boolean {
     return checkOverdue(project, this.plugin.settings.progressStages, this.plugin.settings.overdueWarningDays);
   }
-  
+
   private showProjectContextMenu(project: Project, event: MouseEvent) {
     const menu = new Menu();
-    
-    menu.addItem(item => item
-      .setTitle('编辑')
-      .setIcon('pencil')
-      .onClick(() => this.showEditProjectModal(project)));
-    
-    menu.addItem(item => item
-      .setTitle('提测计划')
-      .setIcon('calendar')
-      .onClick(() => this.showTestPlanModal(project)));
 
-    menu.addItem(item => item
-      .setTitle('待办事项')
-      .setIcon('checkmark')
-      .onClick(() => this.onOpenTodos(project.id, project.name)));
+    menu.addItem((item) =>
+      item
+        .setTitle('编辑')
+        .setIcon('pencil')
+        .onClick(() => this.showEditProjectModal(project)),
+    );
+
+    menu.addItem((item) =>
+      item
+        .setTitle('提测计划')
+        .setIcon('calendar')
+        .onClick(() => this.showTestPlanModal(project)),
+    );
+
+    menu.addItem((item) =>
+      item
+        .setTitle('待办事项')
+        .setIcon('checkmark')
+        .onClick(() => this.onOpenTodos(project.id, project.name)),
+    );
 
     menu.addSeparator();
-    
-    menu.addItem(item => item
-      .setTitle('删除')
-      .setIcon('trash')
-      .onClick(() => {
-        new ConfirmModal(
-          this.plugin.app,
-          '删除项目',
-          `确定要删除项目 "${project.name}" 吗？`,
-          async () => {
-            try {
-              await this.plugin.dataService.deleteProject(project.id);
-              setTimeout(() => this.onRefresh(), 100);
-            } catch (error) {
-              new Notice(error instanceof Error ? error.message : String(error));
-            }
-          },
-          undefined,
-          true
-        ).open();
-      }));
-    
+
+    menu.addItem((item) =>
+      item
+        .setTitle('删除')
+        .setIcon('trash')
+        .onClick(() => {
+          new ConfirmModal(
+            this.plugin.app,
+            '删除项目',
+            `确定要删除项目 "${project.name}" 吗？`,
+            async () => {
+              try {
+                await this.plugin.dataService.deleteProject(project.id);
+                setTimeout(() => this.onRefresh(), 100);
+              } catch (error) {
+                new Notice(error instanceof Error ? error.message : String(error));
+              }
+            },
+            undefined,
+            true,
+          ).open();
+        }),
+    );
+
     menu.showAtMouseEvent(event);
   }
-  
+
   private showEditProjectModal(project: Project) {
     new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
       try {
@@ -403,7 +439,7 @@ export class DualPaneView {
       }
     }).open();
   }
-  
+
   private showTestPlanModal(project: Project) {
     new TestPlanModal(this.plugin.app, project, async (data) => {
       try {
@@ -419,57 +455,47 @@ export class DualPaneView {
 class EditVersionModal extends Modal {
   version: Version;
   onSubmit: (data: Partial<Version>) => void;
-  
+
   constructor(app: ObsidianApp, version: Version, onSubmit: (data: Partial<Version>) => void) {
     super(app);
     this.version = version;
     this.onSubmit = onSubmit;
   }
-  
+
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass('avm-modal');
-    
+
     contentEl.createEl('h2', { text: '编辑版本' });
-    
+
     const data = {
       versionNumber: this.version.versionNumber,
       bllVersion: this.version.bllVersion,
       ippVersion: this.version.ippVersion,
       webVersion: this.version.webVersion,
-      updateContent: this.version.updateContent
+      updateContent: this.version.updateContent,
     };
-    
+
     new Setting(contentEl)
       .setName('APP版本号 *')
-      .addText(text => text
-        .setValue(data.versionNumber)
-        .onChange(value => data.versionNumber = value));
-    
+      .addText((text) => text.setValue(data.versionNumber).onChange((value) => (data.versionNumber = value)));
+
     new Setting(contentEl)
       .setName('BLL版本 *')
-      .addText(text => text
-        .setValue(data.bllVersion)
-        .onChange(value => data.bllVersion = value));
-    
+      .addText((text) => text.setValue(data.bllVersion).onChange((value) => (data.bllVersion = value)));
+
     new Setting(contentEl)
       .setName('IPP版本 *')
-      .addText(text => text
-        .setValue(data.ippVersion)
-        .onChange(value => data.ippVersion = value));
-    
+      .addText((text) => text.setValue(data.ippVersion).onChange((value) => (data.ippVersion = value)));
+
     new Setting(contentEl)
       .setName('Web版本 *')
-      .addText(text => text
-        .setValue(data.webVersion)
-        .onChange(value => data.webVersion = value));
-    
+      .addText((text) => text.setValue(data.webVersion).onChange((value) => (data.webVersion = value)));
+
     new Setting(contentEl)
       .setName('更新内容')
-      .addTextArea(text => text
-        .setValue(data.updateContent)
-        .onChange(value => data.updateContent = value));
-    
+      .addTextArea((text) => text.setValue(data.updateContent).onChange((value) => (data.updateContent = value)));
+
     createSaveButtons(
       contentEl,
       () => {
@@ -478,10 +504,10 @@ class EditVersionModal extends Modal {
           this.close();
         }
       },
-      () => this.close()
+      () => this.close(),
     );
   }
-  
+
   onClose() {
     this.contentEl.empty();
   }

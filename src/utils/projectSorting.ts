@@ -7,9 +7,9 @@ export interface SortableProject {
 }
 
 export interface OverdueStats {
-  overdue: number;   // 已延期（超过截止日期）
-  warning: number;    // 即将到期（预警天数内）
-  onTrack: number;    // 正常
+  overdue: number; // 已延期（超过截止日期）
+  warning: number; // 即将到期（预警天数内）
+  onTrack: number; // 正常
 }
 
 export function calculateOverdueStats(projects: Project[], stages: ProgressStage[], warningDays: number = 3): OverdueStats {
@@ -51,7 +51,7 @@ export function sortProjectsByPriority(projects: Project[], stages: ProgressStag
   const lastProgress = getLastProgress(stages);
   const progressOrder = getProgressOrder(stages);
 
-  const projectsWithPriority = projects.map(project => {
+  const projectsWithPriority = projects.map((project) => {
     const nextStageInfo = getNextStageInfo(project);
 
     let priority = 4;
@@ -93,7 +93,7 @@ export function sortProjectsByPriority(projects: Project[], stages: ProgressStag
       }
       return a.sortTime - b.sortTime;
     })
-    .map(item => item.project);
+    .map((item) => item.project);
 }
 
 export function isProjectHighlighted(project: Project, warningDays: number = 3): boolean {

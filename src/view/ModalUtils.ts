@@ -13,20 +13,11 @@ export interface ActionButtonsOptions {
  * @param container - 按钮容器元素
  * @param options - 按钮选项
  */
-export function createActionButtons(
-  container: HTMLElement,
-  options: ActionButtonsOptions
-): void {
-  const {
-    confirmText = '确定',
-    cancelText = '取消',
-    onConfirm,
-    onCancel,
-    isCta = true
-  } = options;
+export function createActionButtons(container: HTMLElement, options: ActionButtonsOptions): void {
+  const { confirmText = '确定', cancelText = '取消', onConfirm, onCancel, isCta = true } = options;
 
   new Setting(container)
-    .addButton(button => {
+    .addButton((button) => {
       const btn = button.setButtonText(confirmText);
       if (isCta) {
         btn.setCta();
@@ -34,25 +25,17 @@ export function createActionButtons(
       btn.onClick(onConfirm);
       return btn;
     })
-    .addButton(button =>
-      button
-        .setButtonText(cancelText)
-        .onClick(() => onCancel?.())
-    );
+    .addButton((button) => button.setButtonText(cancelText).onClick(() => onCancel?.()));
 }
 
 /**
  * 创建保存/取消按钮（用于编辑模态框）
  */
-export function createSaveButtons(
-  container: HTMLElement,
-  onSave: () => void,
-  onCancel?: () => void
-): void {
+export function createSaveButtons(container: HTMLElement, onSave: () => void, onCancel?: () => void): void {
   createActionButtons(container, {
     confirmText: '保存',
     cancelText: '取消',
     onConfirm: onSave,
-    onCancel: onCancel
+    onCancel: onCancel,
   });
 }

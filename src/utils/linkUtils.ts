@@ -14,15 +14,11 @@ export function openExternalLink(rawUrl: string): void {
   }
 }
 
-export async function openProjectNote(
-  app: ObsidianApp,
-  memoPath: string,
-  isAbsolutePath: boolean
-): Promise<void> {
+export async function openProjectNote(app: ObsidianApp, memoPath: string, isAbsolutePath: boolean): Promise<void> {
   let file = app.vault.getAbstractFileByPath(memoPath);
 
   if (!file && isAbsolutePath) {
-    const adapter = (app.vault.adapter as any);
+    const adapter = app.vault.adapter as any;
     const basePath = typeof adapter?.getBasePath === 'function' ? adapter.getBasePath() : undefined;
     if (basePath) {
       const normalizedMemoPath = normalizePath(memoPath.replace(/\\/g, '/'));

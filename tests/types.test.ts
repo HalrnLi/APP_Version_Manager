@@ -93,8 +93,8 @@ describe('getProgressColors', () => {
       { name: '已发布', color: '#10b981' },
     ];
     expect(getProgressColors(stages)).toEqual({
-      '需求分解': '#6366f1',
-      '已发布': '#10b981',
+      需求分解: '#6366f1',
+      已发布: '#10b981',
     });
   });
 });

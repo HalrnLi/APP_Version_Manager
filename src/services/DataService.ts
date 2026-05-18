@@ -3,7 +3,17 @@ import { existsSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSy
 import { promises as fsPromises } from 'fs';
 import { join, isAbsolute, basename, extname } from 'path';
 import AppVersionManagerPlugin from '../main';
-import { App, Version, Project, Plan, ProjectProgress, ProgressHistoryItem, ConcurrencyConflictError, getProgressOrder, getFirstProgress } from '../types';
+import {
+  App,
+  Version,
+  Project,
+  Plan,
+  ProjectProgress,
+  ProgressHistoryItem,
+  ConcurrencyConflictError,
+  getProgressOrder,
+  getFirstProgress,
+} from '../types';
 import { DataCache } from '../utils/DataCache';
 import { parseFrontmatter, createFrontmatter, parseNumericField, parseProgressHistory } from '../utils/frontmatter';
 import { generateId, sanitizeFileName, compareVersions } from '../utils/idUtils';
@@ -124,12 +134,12 @@ export class DataService {
     await this.initializeDataFolders();
     const apps: App[] = [];
     const files = await this.getMarkdownFiles(this.getAppsFolder());
-    
+
     for (const file of files) {
       const app = await this.parseAppFile(file);
       if (app) apps.push(app);
     }
-    
+
     const result = apps.sort((a, b) => a.name.localeCompare(b.name));
     this.cache.set(cacheKey, result);
     return result;
@@ -140,22 +150,22 @@ export class DataService {
       let content: string;
       const ctime = file.stat.ctime;
       const mtime = file.stat.mtime;
-      
+
       if ('readContent' in file) {
         content = await file.readContent();
       } else {
         content = await this.app.vault.read(file);
       }
-      
+
       const frontmatter = parseFrontmatter(content);
       if (!frontmatter) return null;
-      
+
       return {
         id: frontmatter.id ?? file.basename,
         name: frontmatter.name ?? file.basename,
         createdAt: frontmatter.createdAt ?? ctime.toString(),
         updatedAt: frontmatter.updatedAt ?? mtime.toString(),
-        version: parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1),
       };
     } catch (error) {
       console.error('[AppVersionManager] Failed to parse app file:', file.path, error);
@@ -168,16 +178,16 @@ export class DataService {
       let content: string;
       const ctime = file.stat.ctime;
       const mtime = file.stat.mtime;
-      
+
       if ('readContent' in file) {
         content = await file.readContent();
       } else {
         content = await this.app.vault.read(file);
       }
-      
+
       const frontmatter = parseFrontmatter(content);
       if (!frontmatter) return null;
-      
+
       return {
         id: frontmatter.id ?? file.basename,
         topic: frontmatter.topic ?? '',
@@ -187,7 +197,7 @@ export class DataService {
         requirements: frontmatter.requirements ?? '',
         createdAt: frontmatter.createdAt ?? ctime.toString(),
         updatedAt: frontmatter.updatedAt ?? mtime.toString(),
-        version: parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1),
       };
     } catch (error) {
       console.error('[AppVersionManager] Failed to parse plan file:', file.path, error);
@@ -202,7 +212,7 @@ export class DataService {
         if (!existsSync(folderPath)) return [];
         const items = readdirSync(folderPath);
         const files: CustomFile[] = [];
-        
+
         for (const item of items) {
           const fullPath = join(folderPath, item);
           const stat = statSync(fullPath);
@@ -213,9 +223,9 @@ export class DataService {
               extension: 'md',
               stat: {
                 ctime: stat.ctime.getTime(),
-                mtime: stat.mtime.getTime()
+                mtime: stat.mtime.getTime(),
               },
-              readContent: () => fsPromises.readFile(fullPath, 'utf-8')
+              readContent: () => fsPromises.readFile(fullPath, 'utf-8'),
             });
           }
         }
@@ -235,7 +245,7 @@ export class DataService {
   private async findEntityFileById<T extends { id: string }>(
     folderPath: string,
     parser: (file: TFile | CustomFile) => Promise<T | null>,
-    id: string
+    id: string,
   ): Promise<TFile | CustomFile | null> {
     const files = await this.getMarkdownFiles(folderPath);
     // 快速路径：文件名格式为 {name}__{id}.md，通过文件名直接匹配 ID
@@ -262,58 +272,58 @@ export class DataService {
 
   async createApp(name: string): Promise<App> {
     await this.initializeDataFolders();
-    
+
     const apps = await this.getAllApps();
-    if (apps.some(a => a.name === name)) {
+    if (apps.some((a) => a.name === name)) {
       throw new Error('APP name already exists');
     }
-    
+
     const id = generateId();
     const now = Date.now().toString();
     const app: App = { id, name, createdAt: now, updatedAt: now, version: 1 };
-    
+
     const frontmatter = createFrontmatter({
       id: app.id,
       name: app.name,
       createdAt: app.createdAt,
       updatedAt: app.updatedAt,
-      version: app.version
+      version: app.version,
     });
-    
+
     const fileName = sanitizeFileName(name);
-    const filePath = this.isAbsolutePath() 
+    const filePath = this.isAbsolutePath()
       ? join(this.getAppsFolder(), `${fileName}__${id}.md`)
       : normalizePath(`${this.getAppsFolder()}/${fileName}__${id}.md`);
-    
+
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate('apps:all');
-    
+
     return app;
   }
 
   async updateApp(id: string, name: string, expectedVersion?: number): Promise<App | null> {
     const apps = await this.getAllApps();
-    const app = apps.find(a => a.id === id);
+    const app = apps.find((a) => a.id === id);
     if (!app) return null;
-    
+
     if (expectedVersion !== undefined && app.version !== expectedVersion) {
       throw new ConcurrencyConflictError(`APP: ${app.name}`, app.version, expectedVersion);
     }
-    
-    if (apps.some(a => a.name === name && a.id !== id)) {
+
+    if (apps.some((a) => a.name === name && a.id !== id)) {
       throw new Error('APP name already exists');
     }
-    
+
     const oldName = app.name;
     app.name = name;
     app.updatedAt = Date.now().toString();
     app.version = (app.version ?? 1) + 1;
-    
+
     const oldFileName = sanitizeFileName(oldName);
     const newFileName = sanitizeFileName(name);
-    
+
     let file: TFile | CustomFile | null = null;
-    
+
     if (this.isAbsolutePath()) {
       // 对于绝对路径，我们需要手动查找文件
       const files = await this.getMarkdownFiles(this.getAppsFolder());
@@ -328,24 +338,23 @@ export class DataService {
       // 对于相对路径，使用原来的逻辑
       const oldPath = normalizePath(`${this.getAppsFolder()}/${oldFileName}__${id}.md`);
       const legacyOldPath = normalizePath(`${this.getAppsFolder()}/${oldFileName}.md`);
-      const fallbackFile =
-        this.app.vault.getAbstractFileByPath(oldPath)
-        ?? this.app.vault.getAbstractFileByPath(legacyOldPath);
-      file = (await this.findEntityFileById<App>(this.getAppsFolder(), this.parseAppFile, id))
-        ?? (fallbackFile instanceof TFile ? fallbackFile : null);
+      const fallbackFile = this.app.vault.getAbstractFileByPath(oldPath) ?? this.app.vault.getAbstractFileByPath(legacyOldPath);
+      file =
+        (await this.findEntityFileById<App>(this.getAppsFolder(), this.parseAppFile, id)) ??
+        (fallbackFile instanceof TFile ? fallbackFile : null);
     }
-    
+
     if (file) {
       const frontmatter = createFrontmatter({
         id: app.id,
         name: app.name,
         createdAt: app.createdAt,
         updatedAt: app.updatedAt,
-        version: app.version
+        version: app.version,
       });
-      
+
       await this.modifyFile(file, frontmatter);
-      
+
       if (oldFileName !== newFileName) {
         const newPath = this.isAbsolutePath()
           ? join(this.getAppsFolder(), `${newFileName}__${app.id}.md`)
@@ -353,21 +362,21 @@ export class DataService {
         await this.renameFile(file, newPath);
       }
     }
-    
+
     this.cache.invalidate('apps:all');
     return app;
   }
 
   async deleteApp(id: string): Promise<boolean> {
     const apps = await this.getAllApps();
-    const app = apps.find(a => a.id === id);
+    const app = apps.find((a) => a.id === id);
     if (!app) return false;
-    
+
     // 第一阶段：收集所有操作，验证它们都能执行
     const versions = await this.getVersionsByAppId(id);
     const versionFiles: (TFile | CustomFile)[] = [];
     const versionProjectUpdates: { projectId: string; versionId: string }[] = [];
-    
+
     // 收集版本文件和需要更新的项目
     for (const version of versions) {
       const file = await this.findEntityFileById<Version>(this.getVersionsFolder(), this.parseVersionFile, version.id);
@@ -379,7 +388,7 @@ export class DataService {
         versionProjectUpdates.push({ projectId: project.id, versionId: '' });
       }
     }
-    
+
     // 收集 App 文件
     const fileName = sanitizeFileName(app.name);
     let appFile: TFile | CustomFile | null = null;
@@ -395,29 +404,28 @@ export class DataService {
     } else {
       const filePath = normalizePath(`${this.getAppsFolder()}/${fileName}__${id}.md`);
       const legacyFilePath = normalizePath(`${this.getAppsFolder()}/${fileName}.md`);
-      const fallbackFile =
-        this.app.vault.getAbstractFileByPath(filePath)
-        ?? this.app.vault.getAbstractFileByPath(legacyFilePath);
-      appFile = (await this.findEntityFileById<App>(this.getAppsFolder(), this.parseAppFile, id))
-        ?? (fallbackFile instanceof TFile ? fallbackFile : null);
+      const fallbackFile = this.app.vault.getAbstractFileByPath(filePath) ?? this.app.vault.getAbstractFileByPath(legacyFilePath);
+      appFile =
+        (await this.findEntityFileById<App>(this.getAppsFolder(), this.parseAppFile, id)) ??
+        (fallbackFile instanceof TFile ? fallbackFile : null);
     }
-    
+
     // 第二阶段：执行所有操作（原子性：如果任何操作失败，已执行的操作不会回滚，但会抛出错误）
     // 清空所有关联项目的 versionId
     for (const update of versionProjectUpdates) {
       await this.updateProject(update.projectId, { versionId: update.versionId });
     }
-    
+
     // 删除所有版本文件
     for (const file of versionFiles) {
       await this.deleteFile(file);
     }
-    
+
     // 删除 App 文件
     if (appFile) {
       await this.deleteFile(appFile);
     }
-    
+
     this.cache.invalidate('apps:all');
     return true;
   }
@@ -430,14 +438,14 @@ export class DataService {
     await this.initializeDataFolders();
     const versions: Version[] = [];
     const files = await this.getMarkdownFiles(this.getVersionsFolder());
-    
+
     for (const file of files) {
       const version = await this.parseVersionFile(file);
       if (version && version.appId === appId) {
         versions.push(version);
       }
     }
-    
+
     const result = versions.sort((a, b) => compareVersions(b.versionNumber, a.versionNumber));
     this.cache.set(cacheKey, result);
     return result;
@@ -448,16 +456,16 @@ export class DataService {
       let content: string;
       const ctime = file.stat.ctime;
       const mtime = file.stat.mtime;
-      
+
       if ('readContent' in file) {
         content = await file.readContent();
       } else {
         content = await this.app.vault.read(file);
       }
-      
+
       const frontmatter = parseFrontmatter(content);
       if (!frontmatter || !frontmatter.appId) return null;
-      
+
       return {
         id: frontmatter.id ?? file.basename,
         appId: frontmatter.appId,
@@ -469,7 +477,7 @@ export class DataService {
         isArchived: frontmatter.isArchived === true,
         createdAt: frontmatter.createdAt ?? ctime.toString(),
         updatedAt: frontmatter.updatedAt ?? mtime.toString(),
-        version: parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1),
       };
     } catch (error) {
       console.error('[AppVersionManager] Failed to parse version file:', file.path, error);
@@ -486,12 +494,12 @@ export class DataService {
     updateContent?: string;
   }): Promise<Version> {
     await this.initializeDataFolders();
-    
+
     const existingVersions = await this.getVersionsByAppId(data.appId);
-    if (existingVersions.some(v => v.versionNumber === data.versionNumber)) {
+    if (existingVersions.some((v) => v.versionNumber === data.versionNumber)) {
       throw new Error('Version number already exists for this APP');
     }
-    
+
     const id = generateId();
     const now = Date.now().toString();
     const version: Version = {
@@ -501,9 +509,9 @@ export class DataService {
       isArchived: false,
       createdAt: now,
       updatedAt: now,
-      version: 1
+      version: 1,
     };
-    
+
     const frontmatter = createFrontmatter({
       id: version.id,
       appId: version.appId,
@@ -515,48 +523,48 @@ export class DataService {
       isArchived: version.isArchived,
       createdAt: version.createdAt,
       updatedAt: version.updatedAt,
-      version: version.version
+      version: version.version,
     });
-    
-    const app = (await this.getAllApps()).find(a => a.id === data.appId);
+
+    const app = (await this.getAllApps()).find((a) => a.id === data.appId);
     const appName = app ? sanitizeFileName(app.name) : 'unknown';
     const versionNum = sanitizeFileName(data.versionNumber);
     const fileName = `${appName}_${versionNum}__${id}`;
     const filePath = this.isAbsolutePath()
       ? join(this.getVersionsFolder(), `${fileName}.md`)
       : normalizePath(`${this.getVersionsFolder()}/${fileName}.md`);
-    
+
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate(`versions:${data.appId}`);
-    
+
     return version;
   }
 
   async updateVersion(id: string, data: Partial<Version>, expectedVersion?: number): Promise<Version | null> {
     const allVersions = await this.getAllVersions();
-    const version = allVersions.find(v => v.id === id);
+    const version = allVersions.find((v) => v.id === id);
     if (!version) return null;
-    
+
     if (expectedVersion !== undefined && version.version !== expectedVersion) {
       throw new ConcurrencyConflictError(`版本: ${version.versionNumber}`, version.version, expectedVersion);
     }
-    
+
     if (data.versionNumber && data.versionNumber !== version.versionNumber) {
       const appVersions = await this.getVersionsByAppId(version.appId);
-      if (appVersions.some(v => v.versionNumber === data.versionNumber && v.id !== id)) {
+      if (appVersions.some((v) => v.versionNumber === data.versionNumber && v.id !== id)) {
         throw new Error('Version number already exists for this APP');
       }
     }
-    
+
     Object.assign(version, data, { updatedAt: Date.now().toString() });
     version.version = (version.version ?? 1) + 1;
-    
-    const app = (await this.getAllApps()).find(a => a.id === version.appId);
+
+    const app = (await this.getAllApps()).find((a) => a.id === version.appId);
     const appName = app ? sanitizeFileName(app.name) : 'unknown';
     const versionNum = sanitizeFileName(version.versionNumber);
     const fileName = `${appName}_${versionNum}__${version.id}`;
     const file = await this.findEntityFileById<Version>(this.getVersionsFolder(), this.parseVersionFile, id);
-    
+
     if (file) {
       const frontmatter = createFrontmatter({
         id: version.id,
@@ -569,11 +577,11 @@ export class DataService {
         isArchived: version.isArchived,
         createdAt: version.createdAt,
         updatedAt: version.updatedAt,
-        version: version.version
+        version: version.version,
       });
-      
+
       await this.modifyFile(file, frontmatter);
-      
+
       if (file.basename !== fileName) {
         const newPath = this.isAbsolutePath()
           ? join(this.getVersionsFolder(), `${fileName}.md`)
@@ -581,34 +589,33 @@ export class DataService {
         await this.renameFile(file, newPath);
       }
     }
-    
+
     this.cache.invalidate(`versions:${version.appId}`);
     return version;
   }
 
   async deleteVersion(id: string): Promise<boolean> {
     const allVersions = await this.getAllVersions();
-    const version = allVersions.find(v => v.id === id);
+    const version = allVersions.find((v) => v.id === id);
     if (!version) return false;
-    
+
     const appId = version.appId;
-    
+
     // 第一阶段：收集所有操作
     const projects = await this.getProjectsByVersionId(id);
-    const projectUpdates: { projectId: string; versionId: string }[] = 
-      projects.map(p => ({ projectId: p.id, versionId: '' }));
-    
+    const projectUpdates: { projectId: string; versionId: string }[] = projects.map((p) => ({ projectId: p.id, versionId: '' }));
+
     const file = await this.findEntityFileById<Version>(this.getVersionsFolder(), this.parseVersionFile, id);
-    
+
     // 第二阶段：执行所有操作
     for (const update of projectUpdates) {
       await this.updateProject(update.projectId, { versionId: update.versionId });
     }
-    
+
     if (file) {
       await this.deleteFile(file);
     }
-    
+
     this.cache.invalidate(`versions:${appId}`);
     return true;
   }
@@ -641,7 +648,7 @@ export class DataService {
 
   async getProjectsByVersionId(versionId: string): Promise<Project[]> {
     const allProjects = await this.getAllProjects();
-    const filtered = allProjects.filter(p => p.versionId === versionId);
+    const filtered = allProjects.filter((p) => p.versionId === versionId);
     const progressOrder = getProgressOrder(this.plugin.settings.progressStages);
     return filtered.sort((a, b) => progressOrder.indexOf(a.progress) - progressOrder.indexOf(b.progress));
   }
@@ -651,16 +658,16 @@ export class DataService {
       let content: string;
       const ctime = file.stat.ctime;
       const mtime = file.stat.mtime;
-      
+
       if ('readContent' in file) {
         content = await file.readContent();
       } else {
         content = await this.app.vault.read(file);
       }
-      
+
       const frontmatter = parseFrontmatter(content);
       if (!frontmatter) return null;
-      
+
       return {
         id: frontmatter.id ?? file.basename,
         name: frontmatter.name ?? '',
@@ -684,7 +691,7 @@ export class DataService {
         actualReleaseTime: frontmatter.actualReleaseTime ?? '',
         createdAt: frontmatter.createdAt ?? ctime.toString(),
         updatedAt: frontmatter.updatedAt ?? mtime.toString(),
-        version: parseNumericField(frontmatter.version, 1)
+        version: parseNumericField(frontmatter.version, 1),
       };
     } catch (error) {
       console.error('[AppVersionManager] Failed to parse project file:', file.path, error);
@@ -714,12 +721,12 @@ export class DataService {
     actualReleaseTime?: string;
   }): Promise<Project> {
     await this.initializeDataFolders();
-    
+
     const existingProjects = await this.getAllProjects();
-    if (existingProjects.some(p => p.name === data.name)) {
+    if (existingProjects.some((p) => p.name === data.name)) {
       throw new Error('Project name already exists');
     }
-    
+
     const id = generateId();
     const now = Date.now().toString();
     const project: Project = {
@@ -733,10 +740,12 @@ export class DataService {
       spec: data.spec || '',
       requirements: data.requirements || '',
       progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
-      progressHistory: [{
-        progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
-        changedAt: now
-      }],
+      progressHistory: [
+        {
+          progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
+          changedAt: now,
+        },
+      ],
       b1IntegrationTestTime: data.b1IntegrationTestTime || '',
       b1SystemTestTime: data.b1SystemTestTime || '',
       b2IntegrationTestTime: data.b2IntegrationTestTime || '',
@@ -748,9 +757,9 @@ export class DataService {
       actualReleaseTime: data.actualReleaseTime || '',
       createdAt: now,
       updatedAt: now,
-      version: 1
+      version: 1,
     };
-    
+
     const frontmatter = createFrontmatter({
       id: project.id,
       name: project.name,
@@ -762,7 +771,7 @@ export class DataService {
       spec: project.spec,
       requirements: project.requirements,
       progress: project.progress,
-      progressHistory: project.progressHistory.map(h => `${h.progress}@${h.changedAt}`),
+      progressHistory: project.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
       b1IntegrationTestTime: project.b1IntegrationTestTime,
       b1SystemTestTime: project.b1SystemTestTime,
       b2IntegrationTestTime: project.b2IntegrationTestTime,
@@ -774,9 +783,9 @@ export class DataService {
       actualReleaseTime: project.actualReleaseTime,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
-      version: project.version
+      version: project.version,
     });
-    
+
     const fileName = sanitizeFileName(data.name);
     const projectFilePath = this.isAbsolutePath()
       ? join(this.getProjectsFolder(), `${fileName}__${id}.md`)
@@ -784,7 +793,7 @@ export class DataService {
     const memoFilePath = this.isAbsolutePath()
       ? join(this.getMemosFolder(), `${fileName}.md`)
       : normalizePath(`${this.getMemosFolder()}/${fileName}.md`);
-    
+
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, '');
     this.cache.invalidate('projects:all');
@@ -808,19 +817,19 @@ export class DataService {
 
   async updateProject(id: string, data: Partial<Project>, expectedVersion?: number): Promise<Project | null> {
     const allProjects = await this.getAllProjects();
-    const project = allProjects.find(p => p.id === id);
+    const project = allProjects.find((p) => p.id === id);
     if (!project) return null;
-    
+
     if (expectedVersion !== undefined && project.version !== expectedVersion) {
       throw new ConcurrencyConflictError(`项目: ${project.name}`, project.version, expectedVersion);
     }
-    
+
     if (data.name && data.name !== project.name) {
-      if (allProjects.some(p => p.name === data.name && p.id !== id)) {
+      if (allProjects.some((p) => p.name === data.name && p.id !== id)) {
         throw new Error('Project name already exists');
       }
     }
-    
+
     const oldName = project.name;
     const progressChanged = data.progress && data.progress !== project.progress;
 
@@ -828,12 +837,9 @@ export class DataService {
     updatedProject.version = (project.version ?? 1) + 1;
 
     if (progressChanged && data.progress) {
-      updatedProject.progressHistory = [
-        ...project.progressHistory,
-        { progress: data.progress, changedAt: Date.now().toString() }
-      ];
+      updatedProject.progressHistory = [...project.progressHistory, { progress: data.progress, changedAt: Date.now().toString() }];
     }
-    
+
     const frontmatter = createFrontmatter({
       id: updatedProject.id,
       name: updatedProject.name,
@@ -845,7 +851,7 @@ export class DataService {
       spec: updatedProject.spec,
       requirements: updatedProject.requirements,
       progress: updatedProject.progress,
-      progressHistory: updatedProject.progressHistory.map(h => `${h.progress}@${h.changedAt}`),
+      progressHistory: updatedProject.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
       b1IntegrationTestTime: updatedProject.b1IntegrationTestTime,
       b1SystemTestTime: updatedProject.b1SystemTestTime,
       b2IntegrationTestTime: updatedProject.b2IntegrationTestTime,
@@ -857,14 +863,14 @@ export class DataService {
       actualReleaseTime: updatedProject.actualReleaseTime,
       createdAt: updatedProject.createdAt,
       updatedAt: updatedProject.updatedAt,
-      version: updatedProject.version
+      version: updatedProject.version,
     });
-    
+
     const oldFileName = sanitizeFileName(oldName);
     const newFileName = sanitizeFileName(updatedProject.name);
-    
+
     let file: TFile | CustomFile | null = null;
-    
+
     if (this.isAbsolutePath()) {
       // 对于绝对路径，我们需要手动查找文件
       const files = await this.getMarkdownFiles(this.getProjectsFolder());
@@ -879,23 +885,24 @@ export class DataService {
       // 对于相对路径，使用原来的逻辑
       const oldPath = normalizePath(`${this.getProjectsFolder()}/${oldFileName}.md`);
       const fallbackFile = this.app.vault.getAbstractFileByPath(oldPath);
-      file = (await this.findEntityFileById<Project>(this.getProjectsFolder(), this.parseProjectFile, id))
-        ?? (fallbackFile instanceof TFile ? fallbackFile : null);
+      file =
+        (await this.findEntityFileById<Project>(this.getProjectsFolder(), this.parseProjectFile, id)) ??
+        (fallbackFile instanceof TFile ? fallbackFile : null);
     }
-    
+
     if (file) {
       await this.modifyFile(file, frontmatter);
-      
+
       if (oldFileName !== newFileName) {
         const newPath = this.isAbsolutePath()
           ? join(this.getProjectsFolder(), `${newFileName}__${project.id}.md`)
           : normalizePath(`${this.getProjectsFolder()}/${newFileName}__${project.id}.md`);
         await this.renameFile(file, newPath);
-        
+
         if (this.isAbsolutePath()) {
           const oldMemoPath = join(this.getMemosFolder(), `${oldFileName}.md`);
           const newMemoPath = join(this.getMemosFolder(), `${newFileName}.md`);
-          
+
           if (existsSync(oldMemoPath)) {
             renameSync(oldMemoPath, newMemoPath);
           }
@@ -909,23 +916,23 @@ export class DataService {
         }
       }
     }
-    
+
     this.cache.invalidate('projects:all');
     return updatedProject;
   }
 
   async deleteProject(id: string, expectedVersion?: number): Promise<boolean> {
     const allProjects = await this.getAllProjects();
-    const project = allProjects.find(p => p.id === id);
+    const project = allProjects.find((p) => p.id === id);
     if (!project) return false;
     if (expectedVersion !== undefined && project.version !== expectedVersion) {
       throw new ConcurrencyConflictError(`项目: ${project.name}`, project.version, expectedVersion);
     }
-    
+
     const fileName = sanitizeFileName(project.name);
     let file: TFile | CustomFile | null = null;
     let memoFile: TFile | CustomFile | null = null;
-    
+
     if (this.isAbsolutePath()) {
       // 对于绝对路径，我们需要手动查找文件
       const files = await this.getMarkdownFiles(this.getProjectsFolder());
@@ -936,7 +943,7 @@ export class DataService {
           break;
         }
       }
-      
+
       const memoPath = this.getProjectMemoPath(project.name);
       if (existsSync(memoPath)) {
         memoFile = {
@@ -945,33 +952,34 @@ export class DataService {
           extension: 'md',
           stat: {
             ctime: statSync(memoPath).ctime.getTime(),
-            mtime: statSync(memoPath).mtime.getTime()
+            mtime: statSync(memoPath).mtime.getTime(),
           },
-          readContent: () => fsPromises.readFile(memoPath, 'utf-8')
+          readContent: () => fsPromises.readFile(memoPath, 'utf-8'),
         } as CustomFile;
       }
     } else {
       const filePath = normalizePath(`${this.getProjectsFolder()}/${fileName}.md`);
       const fallbackFile = this.app.vault.getAbstractFileByPath(filePath);
-      file = (await this.findEntityFileById<Project>(this.getProjectsFolder(), this.parseProjectFile, id))
-        ?? (fallbackFile instanceof TFile ? fallbackFile : null);
-      
+      file =
+        (await this.findEntityFileById<Project>(this.getProjectsFolder(), this.parseProjectFile, id)) ??
+        (fallbackFile instanceof TFile ? fallbackFile : null);
+
       const memoPath = this.getProjectMemoPath(project.name);
       const memoFallbackFile = this.app.vault.getAbstractFileByPath(memoPath);
       memoFile = memoFallbackFile instanceof TFile ? memoFallbackFile : null;
     }
-    
+
     if (file) {
       await this.deleteFile(file);
     }
-    
+
     // Delete associated todos
     await this.plugin.todoService.deleteByProjectId(id);
-    
+
     if (memoFile) {
       await this.deleteFile(memoFile);
     }
-    
+
     this.cache.invalidate('projects:all');
     return true;
   }
@@ -984,12 +992,12 @@ export class DataService {
     await this.initializeDataFolders();
     const projects: Project[] = [];
     const files = await this.getMarkdownFiles(this.getProjectsFolder());
-    
+
     for (const file of files) {
       const project = await this.parseProjectFile(file);
       if (project) projects.push(project);
     }
-    
+
     this.cache.set(cacheKey, projects);
     return projects;
   }
@@ -997,27 +1005,28 @@ export class DataService {
   async searchProjects(keyword: string): Promise<Project[]> {
     const allProjects = await this.getAllProjects();
     const lowerKeyword = keyword.toLowerCase();
-    
-    return allProjects.filter(p => 
-      p.name.toLowerCase().includes(lowerKeyword) ||
-      p.manager.toLowerCase().includes(lowerKeyword) ||
-      p.requirements.toLowerCase().includes(lowerKeyword)
+
+    return allProjects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(lowerKeyword) ||
+        p.manager.toLowerCase().includes(lowerKeyword) ||
+        p.requirements.toLowerCase().includes(lowerKeyword),
     );
   }
 
   async getProjectById(id: string): Promise<Project | null> {
     const allProjects = await this.getAllProjects();
-    return allProjects.find(p => p.id === id) || null;
+    return allProjects.find((p) => p.id === id) || null;
   }
 
   async getVersionById(id: string): Promise<Version | null> {
     const allVersions = await this.getAllVersions();
-    return allVersions.find(v => v.id === id) || null;
+    return allVersions.find((v) => v.id === id) || null;
   }
 
   async getAppById(id: string): Promise<App | null> {
     const allApps = await this.getAllApps();
-    return allApps.find(a => a.id === id) || null;
+    return allApps.find((a) => a.id === id) || null;
   }
 
   getProjectMemoPath(projectName: string, projectId?: string): string {
@@ -1029,7 +1038,7 @@ export class DataService {
   async ensureMemoFile(projectName: string): Promise<string> {
     await this.ensureFolder(this.getMemosFolder());
     const memoPath = this.getProjectMemoPath(projectName);
-    
+
     if (this.isAbsolutePath()) {
       if (!existsSync(memoPath)) {
         writeFileSync(memoPath, '', 'utf-8');
@@ -1044,7 +1053,7 @@ export class DataService {
         }
       }
     }
-    
+
     return memoPath;
   }
 
@@ -1094,7 +1103,7 @@ export class DataService {
       : normalizePath(`${this.getProjectsFolder()}/${fileName}__${record.id}.md`);
     const frontmatter = createFrontmatter({
       ...record,
-      progressHistory: record.progressHistory.map(h => `${h.progress}@${h.changedAt}`)
+      progressHistory: record.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
     } as Record<string, unknown>);
     const existingFile = await this.findEntityFileById<Project>(this.getProjectsFolder(), this.parseProjectFile, record.id);
     if (existingFile) {
@@ -1125,12 +1134,12 @@ export class DataService {
     await this.initializeDataFolders();
     const plans: Plan[] = [];
     const files = await this.getMarkdownFiles(this.getPlansFolder());
-    
+
     for (const file of files) {
       const plan = await this.parsePlanFile(file);
       if (plan) plans.push(plan);
     }
-    
+
     const result = plans.sort((a, b) => a.topic.localeCompare(b.topic));
     this.cache.set(cacheKey, result);
     return result;
@@ -1138,12 +1147,12 @@ export class DataService {
 
   async createPlan(data: Partial<Plan>): Promise<Plan> {
     await this.initializeDataFolders();
-    
+
     const plans = await this.getAllPlans();
-    if (data.topic && plans.some(p => p.topic === data.topic)) {
+    if (data.topic && plans.some((p) => p.topic === data.topic)) {
       throw new Error('Plan topic already exists');
     }
-    
+
     const id = generateId();
     const now = Date.now().toString();
     const plan: Plan = {
@@ -1155,9 +1164,9 @@ export class DataService {
       requirements: data.requirements || '',
       createdAt: now,
       updatedAt: now,
-      version: 1
+      version: 1,
     };
-    
+
     const frontmatter = createFrontmatter({
       id: plan.id,
       topic: plan.topic,
@@ -1167,44 +1176,44 @@ export class DataService {
       requirements: plan.requirements,
       createdAt: plan.createdAt,
       updatedAt: plan.updatedAt,
-      version: plan.version
+      version: plan.version,
     });
-    
+
     const fileName = sanitizeFileName(plan.topic);
-    const filePath = this.isAbsolutePath() 
+    const filePath = this.isAbsolutePath()
       ? join(this.getPlansFolder(), `${fileName}__${id}.md`)
       : normalizePath(`${this.getPlansFolder()}/${fileName}__${id}.md`);
-    
+
     await this.writeFile(filePath, frontmatter);
     this.cache.invalidate('plans:all');
-    
+
     return plan;
   }
 
   async updatePlan(id: string, data: Partial<Plan>, expectedVersion?: number): Promise<Plan | null> {
     const plans = await this.getAllPlans();
-    const plan = plans.find(p => p.id === id);
+    const plan = plans.find((p) => p.id === id);
     if (!plan) return null;
-    
+
     if (expectedVersion !== undefined && plan.version !== expectedVersion) {
       throw new ConcurrencyConflictError(`规划: ${plan.topic}`, plan.version, expectedVersion);
     }
-    
+
     if (data.topic && data.topic !== plan.topic) {
-      if (plans.some(p => p.topic === data.topic && p.id !== id)) {
+      if (plans.some((p) => p.topic === data.topic && p.id !== id)) {
         throw new Error('Plan topic already exists');
       }
     }
-    
+
     const oldTopic = plan.topic;
     Object.assign(plan, data, { updatedAt: Date.now().toString() });
     plan.version = (plan.version ?? 1) + 1;
-    
+
     const oldFileName = sanitizeFileName(oldTopic);
     const newFileName = sanitizeFileName(plan.topic);
-    
+
     let file: TFile | CustomFile | null = null;
-    
+
     if (this.isAbsolutePath()) {
       const files = await this.getMarkdownFiles(this.getPlansFolder());
       for (const f of files) {
@@ -1217,13 +1226,12 @@ export class DataService {
     } else {
       const oldPath = normalizePath(`${this.getPlansFolder()}/${oldFileName}__${id}.md`);
       const legacyOldPath = normalizePath(`${this.getPlansFolder()}/${oldFileName}.md`);
-      const fallbackFile =
-        this.app.vault.getAbstractFileByPath(oldPath)
-        ?? this.app.vault.getAbstractFileByPath(legacyOldPath);
-      file = (await this.findEntityFileById<Plan>(this.getPlansFolder(), this.parsePlanFile, id))
-        ?? (fallbackFile instanceof TFile ? fallbackFile : null);
+      const fallbackFile = this.app.vault.getAbstractFileByPath(oldPath) ?? this.app.vault.getAbstractFileByPath(legacyOldPath);
+      file =
+        (await this.findEntityFileById<Plan>(this.getPlansFolder(), this.parsePlanFile, id)) ??
+        (fallbackFile instanceof TFile ? fallbackFile : null);
     }
-    
+
     if (file) {
       const frontmatter = createFrontmatter({
         id: plan.id,
@@ -1234,11 +1242,11 @@ export class DataService {
         requirements: plan.requirements,
         createdAt: plan.createdAt,
         updatedAt: plan.updatedAt,
-        version: plan.version
+        version: plan.version,
       });
-      
+
       await this.modifyFile(file, frontmatter);
-      
+
       if (oldFileName !== newFileName) {
         const newPath = this.isAbsolutePath()
           ? join(this.getPlansFolder(), `${newFileName}__${plan.id}.md`)
@@ -1246,19 +1254,19 @@ export class DataService {
         await this.renameFile(file, newPath);
       }
     }
-    
+
     this.cache.invalidate('plans:all');
     return plan;
   }
 
   async deletePlan(id: string): Promise<boolean> {
     const plans = await this.getAllPlans();
-    const plan = plans.find(p => p.id === id);
+    const plan = plans.find((p) => p.id === id);
     if (!plan) return false;
-    
+
     const fileName = sanitizeFileName(plan.topic);
     let file: TFile | CustomFile | null = null;
-    
+
     if (this.isAbsolutePath()) {
       const files = await this.getMarkdownFiles(this.getPlansFolder());
       for (const f of files) {
@@ -1271,17 +1279,16 @@ export class DataService {
     } else {
       const filePath = normalizePath(`${this.getPlansFolder()}/${fileName}__${id}.md`);
       const legacyFilePath = normalizePath(`${this.getPlansFolder()}/${fileName}.md`);
-      const fallbackFile =
-        this.app.vault.getAbstractFileByPath(filePath)
-        ?? this.app.vault.getAbstractFileByPath(legacyFilePath);
-      file = (await this.findEntityFileById<Plan>(this.getPlansFolder(), this.parsePlanFile, id))
-        ?? (fallbackFile instanceof TFile ? fallbackFile : null);
+      const fallbackFile = this.app.vault.getAbstractFileByPath(filePath) ?? this.app.vault.getAbstractFileByPath(legacyFilePath);
+      file =
+        (await this.findEntityFileById<Plan>(this.getPlansFolder(), this.parsePlanFile, id)) ??
+        (fallbackFile instanceof TFile ? fallbackFile : null);
     }
-    
+
     if (file) {
       await this.deleteFile(file);
     }
-    
+
     this.cache.invalidate('plans:all');
     return true;
   }

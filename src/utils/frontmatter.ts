@@ -47,11 +47,20 @@ export function parseFrontmatter(content: string): Record<string, any> | null {
               }
             }
             items.push(inner.substring(start).trim());
-            value = items.map(v => {
-              try { return JSON.parse(v); } catch { return v; }
-            }).filter((v: any) => v);
+            value = items
+              .map((v) => {
+                try {
+                  return JSON.parse(v);
+                } catch {
+                  return v;
+                }
+              })
+              .filter((v: any) => v);
           } else {
-            value = inner.split(',').map((v: string) => v.trim()).filter((v: string) => v);
+            value = inner
+              .split(',')
+              .map((v: string) => v.trim())
+              .filter((v: string) => v);
           }
         }
       } else if (value === 'true') {
@@ -126,8 +135,8 @@ export function parseProgressHistory(raw: unknown): ProgressHistoryItem[] {
         history.push({ progress, changedAt });
       }
     } else if (item && typeof item === 'object') {
-      const progress = (item as any).progress;  // eslint-disable-line @typescript-eslint/no-explicit-any
-      const changedAt = (item as any).changedAt;  // eslint-disable-line @typescript-eslint/no-explicit-any
+      const progress = (item as any).progress; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const changedAt = (item as any).changedAt; // eslint-disable-line @typescript-eslint/no-explicit-any
       if (typeof progress === 'string' && typeof changedAt === 'string') {
         history.push({ progress, changedAt });
       }

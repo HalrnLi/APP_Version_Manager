@@ -36,7 +36,7 @@ export class GanttView {
     projects: Project[],
     versions: Version[],
     apps: App[],
-    onRefresh: () => void = () => {}
+    onRefresh: () => void = () => {},
   ) {
     this.containerEl = containerEl;
     this.plugin = plugin;
@@ -61,7 +61,7 @@ export class GanttView {
   }
 
   private getProjectVersion(versionId: string): Version | undefined {
-    return this.versions.find(v => v.id === versionId);
+    return this.versions.find((v) => v.id === versionId);
   }
 
   private getTimelineDays(): number {
@@ -166,12 +166,12 @@ export class GanttView {
     if (sortedProjects.length === 0) {
       timelineContainer.createDiv({
         cls: 'avm-gantt-empty',
-        text: '暂无项目数据'
+        text: '暂无项目数据',
       });
       return;
     }
 
-    sortedProjects.forEach(project => {
+    sortedProjects.forEach((project) => {
       this.renderProjectRow(project, sidebar, timelineContainer);
     });
   }
@@ -196,8 +196,8 @@ export class GanttView {
 
   private sortProjectsByNextStage(): Project[] {
     return [...this.projects]
-      .filter(p => p.progress !== '已发布')
-      .filter(p => this.hasTestDateInRange(p))
+      .filter((p) => p.progress !== '已发布')
+      .filter((p) => this.hasTestDateInRange(p))
       .sort((a, b) => {
         const nextA = getNextStageInfo(a);
         const nextB = getNextStageInfo(b);
@@ -277,7 +277,7 @@ export class GanttView {
           date: testDate,
           label: stage.label,
           color: this.stageColors[index] || '#64748b',
-          index: this.getIndexFromDate(testDate)
+          index: this.getIndexFromDate(testDate),
         });
       }
 
@@ -307,7 +307,7 @@ export class GanttView {
       startDate: effectiveEarliest,
       endDate: latestDate!,
       markers,
-      color: '#6366f1'
+      color: '#6366f1',
     };
   }
 
@@ -337,7 +337,7 @@ export class GanttView {
 
     // 在条形上渲染每个测试日期的菱形标记
     // 使用绝对像素定位确保与日期列对齐
-    bar.markers.forEach(marker => {
+    bar.markers.forEach((marker) => {
       const markerIndex = this.getIndexFromDate(marker.date);
       // 只渲染在可见范围内的标记
       if (markerIndex >= visibleStartIndex && markerIndex <= visibleEndIndex) {
@@ -352,7 +352,7 @@ export class GanttView {
     });
 
     // tooltip
-    const markerDates = bar.markers.map(m => `${m.label}: ${this.formatDate(m.date)}`).join('\n');
+    const markerDates = bar.markers.map((m) => `${m.label}: ${this.formatDate(m.date)}`).join('\n');
     barEl.setAttribute('title', `${bar.project.name}\n${markerDates}`);
 
     // 右键菜单
@@ -365,19 +365,23 @@ export class GanttView {
   private showProjectBarContextMenu(bar: ProjectBar, event: MouseEvent) {
     const menu = new Menu();
 
-    menu.addItem(item => item
-      .setTitle(bar.project.name)
-      .setIcon('document')
-      .onClick(() => { }));
+    menu.addItem((item) =>
+      item
+        .setTitle(bar.project.name)
+        .setIcon('document')
+        .onClick(() => {}),
+    );
 
     menu.addSeparator();
 
-    menu.addItem(item => item
-      .setTitle('编辑项目')
-      .setIcon('pencil')
-      .onClick(() => {
-        // TODO: 触发编辑项目
-      }));
+    menu.addItem((item) =>
+      item
+        .setTitle('编辑项目')
+        .setIcon('pencil')
+        .onClick(() => {
+          // TODO: 触发编辑项目
+        }),
+    );
 
     menu.showAtMouseEvent(event);
   }
