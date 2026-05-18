@@ -422,6 +422,8 @@ version: 3
       expect(projects[0].progressHistory).toHaveLength(2);
       expect(projects[0].b1IntegrationTestTime).toBe('2026-02-01');
       expect(projects[0].version).toBe(3);
+      // isArchived 默认为 false（YAML 中未设置）
+      expect(projects[0].isArchived).toBe(false);
     });
   });
 
@@ -452,6 +454,35 @@ version: 1
       expect(updated!.progress).toBe('组件上传');
       expect(updated!.progressHistory).toHaveLength(2); // original + new entry
       expect(updated!.version).toBe(2);
+      // 非最后阶段，不归档
+      expect(updated!.isArchived).toBe(false);
+    });
+
+    it('auto-archives when progress reaches last stage', async () => {
+      const projectYaml = `---
+id: proj-1
+name: ToLastStage
+versionId: ver-1
+progress: 待提测
+progressHistory: ["需求分解@2026-01-01T00:00:00.000Z"]
+version: 1
+---`;
+      const projFile = makeTFile('ToLastStage__proj-1', projectYaml);
+      const folder = new TFolder();
+      folder.path = 'app-version-manager/projects';
+      folder.children = [projFile];
+      mocks.getAbstractFileByPath.mockImplementation((path: string) => {
+        if (path === 'app-version-manager/projects' || path === 'app-version-manager') return folder;
+        if (path === projFile.path || path === projFile.name) return projFile;
+        return null;
+      });
+      mocks.vaultRead.mockResolvedValue(projectYaml);
+
+      // 推进到最后阶段（已发布）
+      const updated = await service.updateProject('proj-1', { progress: '已发布' }, 1);
+      expect(updated).not.toBeNull();
+      expect(updated!.progress).toBe('已发布');
+      expect(updated!.isArchived).toBe(true);
     });
   });
 
@@ -528,9 +559,11 @@ version: 1
 
       await service.createProject({ name: 'NewProj', versionId: 'v1' });
 
-      // Read again — should miss cache and re-read
-      await service.getAllProjects();
-      expect(mocks.vaultRead.mock.calls.length).toBeGreaterThan(readCountAfterFirstPopulate);
+      // Read again — should hit in-place updated cache, no vault re-read
+      const secondBatch = await service.getAllProjects();
+      expect(secondBatch).toHaveLength(2); // original + new
+      // vaultRead count unchanged because cache was updated in-place
+      expect(mocks.vaultRead.mock.calls.length).toBe(readCountAfterFirstPopulate);
     });
   });
 });

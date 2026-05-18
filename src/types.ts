@@ -45,6 +45,7 @@ export interface Project {
   requirements: string;
   progress: ProjectProgress;
   progressHistory: ProgressHistoryItem[];
+  isArchived: boolean;
   // 提测计划时间
   b1IntegrationTestTime: string;
   b1SystemTestTime: string;

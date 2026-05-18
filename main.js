@@ -33945,7 +33945,7 @@ function parseDateInput(input) {
   }
   const patterns = [
     // YYYY-MM-DD or YYYY/MM/DD
-    /^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/,
+    /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/,
     // MM/DD/YYYY or DD/MM/YYYY
     /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
     // YYYY年MM月DD日
@@ -34088,13 +34088,7 @@ var ConfirmModal = class extends import_obsidian.Modal {
 // src/view/ModalUtils.ts
 var import_obsidian2 = require("obsidian");
 function createActionButtons(container, options) {
-  const {
-    confirmText = "\u786E\u5B9A",
-    cancelText = "\u53D6\u6D88",
-    onConfirm,
-    onCancel,
-    isCta = true
-  } = options;
+  const { confirmText = "\u786E\u5B9A", cancelText = "\u53D6\u6D88", onConfirm, onCancel, isCta = true } = options;
   new import_obsidian2.Setting(container).addButton((button) => {
     const btn = button.setButtonText(confirmText);
     if (isCta) {
@@ -34102,9 +34096,7 @@ function createActionButtons(container, options) {
     }
     btn.onClick(onConfirm);
     return btn;
-  }).addButton(
-    (button) => button.setButtonText(cancelText).onClick(() => onCancel == null ? void 0 : onCancel())
-  );
+  }).addButton((button) => button.setButtonText(cancelText).onClick(() => onCancel == null ? void 0 : onCancel()));
 }
 function createSaveButtons(container, onSave, onCancel) {
   createActionButtons(container, {
@@ -34138,17 +34130,33 @@ var TestPlanModal = class extends import_obsidian3.Modal {
       b4SystemTestTime: this.project.b4SystemTestTime
     };
     contentEl.createEl("h3", { text: "B1\u9636\u6BB5" });
-    new import_obsidian3.Setting(contentEl).setName("B1\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4").addText((text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b1IntegrationTestTime).onChange((value) => data.b1IntegrationTestTime = parseDateInput(value) || ""));
-    new import_obsidian3.Setting(contentEl).setName("B1\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4").addText((text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b1SystemTestTime).onChange((value) => data.b1SystemTestTime = parseDateInput(value) || ""));
+    new import_obsidian3.Setting(contentEl).setName("B1\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4").addText(
+      (text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b1IntegrationTestTime).onChange((value) => data.b1IntegrationTestTime = parseDateInput(value) || "")
+    );
+    new import_obsidian3.Setting(contentEl).setName("B1\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4").addText(
+      (text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b1SystemTestTime).onChange((value) => data.b1SystemTestTime = parseDateInput(value) || "")
+    );
     contentEl.createEl("h3", { text: "B2\u9636\u6BB5" });
-    new import_obsidian3.Setting(contentEl).setName("B2\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4").addText((text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b2IntegrationTestTime).onChange((value) => data.b2IntegrationTestTime = parseDateInput(value) || ""));
-    new import_obsidian3.Setting(contentEl).setName("B2\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4").addText((text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b2SystemTestTime).onChange((value) => data.b2SystemTestTime = parseDateInput(value) || ""));
+    new import_obsidian3.Setting(contentEl).setName("B2\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4").addText(
+      (text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b2IntegrationTestTime).onChange((value) => data.b2IntegrationTestTime = parseDateInput(value) || "")
+    );
+    new import_obsidian3.Setting(contentEl).setName("B2\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4").addText(
+      (text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b2SystemTestTime).onChange((value) => data.b2SystemTestTime = parseDateInput(value) || "")
+    );
     contentEl.createEl("h3", { text: "B3\u9636\u6BB5" });
-    new import_obsidian3.Setting(contentEl).setName("B3\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4").addText((text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b3IntegrationTestTime).onChange((value) => data.b3IntegrationTestTime = parseDateInput(value) || ""));
-    new import_obsidian3.Setting(contentEl).setName("B3\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4").addText((text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b3SystemTestTime).onChange((value) => data.b3SystemTestTime = parseDateInput(value) || ""));
+    new import_obsidian3.Setting(contentEl).setName("B3\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4").addText(
+      (text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b3IntegrationTestTime).onChange((value) => data.b3IntegrationTestTime = parseDateInput(value) || "")
+    );
+    new import_obsidian3.Setting(contentEl).setName("B3\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4").addText(
+      (text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b3SystemTestTime).onChange((value) => data.b3SystemTestTime = parseDateInput(value) || "")
+    );
     contentEl.createEl("h3", { text: "B4\u9636\u6BB5" });
-    new import_obsidian3.Setting(contentEl).setName("B4\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4").addText((text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b4IntegrationTestTime).onChange((value) => data.b4IntegrationTestTime = parseDateInput(value) || ""));
-    new import_obsidian3.Setting(contentEl).setName("B4\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4").addText((text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b4SystemTestTime).onChange((value) => data.b4SystemTestTime = parseDateInput(value) || ""));
+    new import_obsidian3.Setting(contentEl).setName("B4\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4").addText(
+      (text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b4IntegrationTestTime).onChange((value) => data.b4IntegrationTestTime = parseDateInput(value) || "")
+    );
+    new import_obsidian3.Setting(contentEl).setName("B4\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4").addText(
+      (text) => text.setPlaceholder("YYYY-MM-DD \u6216\u5176\u4ED6\u683C\u5F0F").setValue(data.b4SystemTestTime).onChange((value) => data.b4SystemTestTime = parseDateInput(value) || "")
+    );
     createSaveButtons(
       contentEl,
       () => {
@@ -34452,37 +34460,45 @@ var DualPaneView = class {
   }
   showVersionContextMenu(version2, event, isArchived) {
     const menu = new import_obsidian6.Menu();
-    menu.addItem((item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditVersionModal(version2)));
+    menu.addItem(
+      (item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditVersionModal(version2))
+    );
     if (isArchived) {
-      menu.addItem((item) => item.setTitle("\u53D6\u6D88\u5F52\u6863").setIcon("archive").onClick(async () => {
-        await this.plugin.dataService.unarchiveVersion(version2.id);
-        this.onRefresh();
-      }));
+      menu.addItem(
+        (item) => item.setTitle("\u53D6\u6D88\u5F52\u6863").setIcon("archive").onClick(async () => {
+          await this.plugin.dataService.unarchiveVersion(version2.id);
+          this.onRefresh();
+        })
+      );
     } else {
-      menu.addItem((item) => item.setTitle("\u5F52\u6863").setIcon("archive").onClick(async () => {
-        await this.plugin.dataService.archiveVersion(version2.id);
-        this.onRefresh();
-      }));
+      menu.addItem(
+        (item) => item.setTitle("\u5F52\u6863").setIcon("archive").onClick(async () => {
+          await this.plugin.dataService.archiveVersion(version2.id);
+          this.onRefresh();
+        })
+      );
     }
     menu.addSeparator();
-    menu.addItem((item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
-      new ConfirmModal(
-        this.plugin.app,
-        "\u5220\u9664\u7248\u672C",
-        `\u786E\u5B9A\u8981\u5220\u9664\u7248\u672C ${version2.versionNumber} \u5417\uFF1F
+    menu.addItem(
+      (item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
+        new ConfirmModal(
+          this.plugin.app,
+          "\u5220\u9664\u7248\u672C",
+          `\u786E\u5B9A\u8981\u5220\u9664\u7248\u672C ${version2.versionNumber} \u5417\uFF1F
 \u5173\u8054\u7684\u9879\u76EE\u5C06\u4FDD\u7559\u4F46\u89E3\u9664\u5173\u8054\u3002`,
-        async () => {
-          try {
-            await this.plugin.dataService.deleteVersion(version2.id);
-            this.onRefresh();
-          } catch (error) {
-            new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
-          }
-        },
-        void 0,
-        true
-      ).open();
-    }));
+          async () => {
+            try {
+              await this.plugin.dataService.deleteVersion(version2.id);
+              this.onRefresh();
+            } catch (error) {
+              new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+            }
+          },
+          void 0,
+          true
+        ).open();
+      })
+    );
     menu.showAtMouseEvent(event);
   }
   showEditVersionModal(version2) {
@@ -34570,7 +34586,11 @@ var DualPaneView = class {
     }
     const links = item.createDiv({ cls: "avm-project-links" });
     if (project.projectLink) {
-      const link = links.createEl("a", { cls: "avm-link", text: "\u9879\u76EE\u94FE\u63A5", attr: { href: project.projectLink, target: "_blank", rel: "noopener noreferrer" } });
+      const link = links.createEl("a", {
+        cls: "avm-link",
+        text: "\u9879\u76EE\u94FE\u63A5",
+        attr: { href: project.projectLink, target: "_blank", rel: "noopener noreferrer" }
+      });
       link.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -34578,7 +34598,11 @@ var DualPaneView = class {
       });
     }
     if (project.componentLink) {
-      const link = links.createEl("a", { cls: "avm-link", text: "\u7EC4\u4EF6\u5E93", attr: { href: project.componentLink, target: "_blank", rel: "noopener noreferrer" } });
+      const link = links.createEl("a", {
+        cls: "avm-link",
+        text: "\u7EC4\u4EF6\u5E93",
+        attr: { href: project.componentLink, target: "_blank", rel: "noopener noreferrer" }
+      });
       link.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -34605,27 +34629,35 @@ var DualPaneView = class {
   }
   showProjectContextMenu(project, event) {
     const menu = new import_obsidian6.Menu();
-    menu.addItem((item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project)));
-    menu.addItem((item) => item.setTitle("\u63D0\u6D4B\u8BA1\u5212").setIcon("calendar").onClick(() => this.showTestPlanModal(project)));
-    menu.addItem((item) => item.setTitle("\u5F85\u529E\u4E8B\u9879").setIcon("checkmark").onClick(() => this.onOpenTodos(project.id, project.name)));
+    menu.addItem(
+      (item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project))
+    );
+    menu.addItem(
+      (item) => item.setTitle("\u63D0\u6D4B\u8BA1\u5212").setIcon("calendar").onClick(() => this.showTestPlanModal(project))
+    );
+    menu.addItem(
+      (item) => item.setTitle("\u5F85\u529E\u4E8B\u9879").setIcon("checkmark").onClick(() => this.onOpenTodos(project.id, project.name))
+    );
     menu.addSeparator();
-    menu.addItem((item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
-      new ConfirmModal(
-        this.plugin.app,
-        "\u5220\u9664\u9879\u76EE",
-        `\u786E\u5B9A\u8981\u5220\u9664\u9879\u76EE "${project.name}" \u5417\uFF1F`,
-        async () => {
-          try {
-            await this.plugin.dataService.deleteProject(project.id);
-            setTimeout(() => this.onRefresh(), 100);
-          } catch (error) {
-            new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
-          }
-        },
-        void 0,
-        true
-      ).open();
-    }));
+    menu.addItem(
+      (item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
+        new ConfirmModal(
+          this.plugin.app,
+          "\u5220\u9664\u9879\u76EE",
+          `\u786E\u5B9A\u8981\u5220\u9664\u9879\u76EE "${project.name}" \u5417\uFF1F`,
+          async () => {
+            try {
+              await this.plugin.dataService.deleteProject(project.id);
+              setTimeout(() => this.onRefresh(), 100);
+            } catch (error) {
+              new import_obsidian6.Notice(error instanceof Error ? error.message : String(error));
+            }
+          },
+          void 0,
+          true
+        ).open();
+      })
+    );
     menu.showAtMouseEvent(event);
   }
   showEditProjectModal(project) {
@@ -34779,10 +34811,18 @@ var KanbanView = class {
     }
     const links = card.createDiv({ cls: "avm-card-links" });
     if (project.projectLink) {
-      links.createEl("a", { cls: "avm-link", text: "\u9879\u76EE\u94FE\u63A5", attr: { href: this.ensureProtocol(project.projectLink), target: "_blank", rel: "noopener noreferrer" } });
+      links.createEl("a", {
+        cls: "avm-link",
+        text: "\u9879\u76EE\u94FE\u63A5",
+        attr: { href: this.ensureProtocol(project.projectLink), target: "_blank", rel: "noopener noreferrer" }
+      });
     }
     if (project.componentLink) {
-      links.createEl("a", { cls: "avm-link", text: "\u7EC4\u4EF6\u5E93", attr: { href: this.ensureProtocol(project.componentLink), target: "_blank", rel: "noopener noreferrer" } });
+      links.createEl("a", {
+        cls: "avm-link",
+        text: "\u7EC4\u4EF6\u5E93",
+        attr: { href: this.ensureProtocol(project.componentLink), target: "_blank", rel: "noopener noreferrer" }
+      });
     }
     if (project.features) {
       card.createDiv({ cls: "avm-card-features", text: project.features.substring(0, 60) + (project.features.length > 60 ? "..." : "") });
@@ -34811,36 +34851,52 @@ var KanbanView = class {
   }
   showCardContextMenu(project, event) {
     const menu = new import_obsidian7.Menu();
-    menu.addItem((item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project)));
-    menu.addItem((item) => item.setTitle("\u66F4\u6539\u8FDB\u5EA6").setIcon("arrow-right").onClick(() => this.showProgressChangeModal(project)));
-    menu.addItem((item) => item.setTitle("\u5F85\u529E\u4E8B\u9879").setIcon("checkmark").onClick(() => this.onOpenTodos(project.id, project.name)));
+    menu.addItem(
+      (item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project))
+    );
+    menu.addItem(
+      (item) => item.setTitle("\u66F4\u6539\u8FDB\u5EA6").setIcon("arrow-right").onClick(() => this.showProgressChangeModal(project))
+    );
+    menu.addItem(
+      (item) => item.setTitle("\u5F85\u529E\u4E8B\u9879").setIcon("checkmark").onClick(() => this.onOpenTodos(project.id, project.name))
+    );
     menu.addSeparator();
-    menu.addItem((item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
-      new ConfirmModal(
-        this.plugin.app,
-        "\u5220\u9664\u9879\u76EE",
-        `\u786E\u5B9A\u8981\u5220\u9664\u9879\u76EE "${project.name}" \u5417\uFF1F`,
-        async () => {
-          await this.plugin.dataService.deleteProject(project.id);
-          setTimeout(() => this.onRefresh(), 100);
-        },
-        void 0,
-        true
-      ).open();
-    }));
+    menu.addItem(
+      (item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
+        new ConfirmModal(
+          this.plugin.app,
+          "\u5220\u9664\u9879\u76EE",
+          `\u786E\u5B9A\u8981\u5220\u9664\u9879\u76EE "${project.name}" \u5417\uFF1F`,
+          async () => {
+            await this.plugin.dataService.deleteProject(project.id);
+            setTimeout(() => this.onRefresh(), 100);
+          },
+          void 0,
+          true
+        ).open();
+      })
+    );
     menu.showAtMouseEvent(event);
   }
   showEditProjectModal(project) {
-    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
-      try {
-        await this.plugin.dataService.updateProject(project.id, data, project.version);
-        this.onRefresh();
-      } catch (error) {
-        new import_obsidian7.Notice(error instanceof Error ? error.message : String(error));
+    new EditProjectModal(
+      this.plugin.app,
+      project,
+      this.apps,
+      this.versions,
+      this.plugin.settings.progressStages,
+      async (data) => {
+        try {
+          await this.plugin.dataService.updateProject(project.id, data, project.version);
+          this.onRefresh();
+        } catch (error) {
+          new import_obsidian7.Notice(error instanceof Error ? error.message : String(error));
+        }
+      },
+      {
+        versionLabelFn: (v, app) => app ? `${app.name} - ${v.versionNumber}` : v.versionNumber
       }
-    }, {
-      versionLabelFn: (v, app) => app ? `${app.name} - ${v.versionNumber}` : v.versionNumber
-    }).open();
+    ).open();
   }
   showProgressChangeModal(project) {
     new ProgressChangeModal(this.plugin.app, project, this.plugin.settings.progressStages, async (newProgress) => {
@@ -34873,18 +34929,15 @@ var ProgressChangeModal = class extends import_obsidian7.Modal {
       dropdown.setValue(this.project.progress);
       dropdown.onChange((value) => newProgress = value);
     });
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u786E\u8BA4",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          this.onSubmit(newProgress);
-          this.close();
-        },
-        onCancel: () => this.close()
-      }
-    );
+    createActionButtons(contentEl, {
+      confirmText: "\u786E\u8BA4",
+      cancelText: "\u53D6\u6D88",
+      onConfirm: () => {
+        this.onSubmit(newProgress);
+        this.close();
+      },
+      onCancel: () => this.close()
+    });
   }
   onClose() {
     this.contentEl.empty();
@@ -35071,7 +35124,7 @@ var TableView = class {
         case "spec":
           td.createDiv({ cls: "avm-cell-spec", text: project.spec || "-" });
           break;
-        case "progress":
+        case "progress": {
           const progressColors = getProgressColors(this.plugin.settings.progressStages);
           const badge = td.createDiv({ cls: "avm-progress-badge-small avm-clickable", text: project.progress });
           badge.style.backgroundColor = progressColors[project.progress] || "#64748b";
@@ -35080,7 +35133,8 @@ var TableView = class {
             this.handleProgressClick(project);
           });
           break;
-        case "todos":
+        }
+        case "todos": {
           const todoBadge = td.createDiv({ cls: "avm-todo-badge", text: "\u{1F4CB}" });
           todoBadge.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -35094,16 +35148,21 @@ var TableView = class {
             }
           }).catch(console.error);
           break;
+        }
         case "nextStage":
           td.createDiv({ text: nextStageInfo.stage });
           break;
         case "nextStageTime":
           td.createDiv({ text: nextStageInfo.time });
           break;
-        case "links":
+        case "links": {
           const linksContainer = td.createDiv({ cls: "avm-cell-links" });
           if (project.projectLink) {
-            const link = linksContainer.createEl("a", { cls: "avm-link-small", text: "\u9879\u76EE", attr: { href: project.projectLink, target: "_blank", rel: "noopener noreferrer" } });
+            const link = linksContainer.createEl("a", {
+              cls: "avm-link-small",
+              text: "\u9879\u76EE",
+              attr: { href: project.projectLink, target: "_blank", rel: "noopener noreferrer" }
+            });
             link.addEventListener("click", (e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -35111,7 +35170,11 @@ var TableView = class {
             });
           }
           if (project.componentLink) {
-            const link = linksContainer.createEl("a", { cls: "avm-link-small", text: "\u7EC4\u4EF6", attr: { href: project.componentLink, target: "_blank", rel: "noopener noreferrer" } });
+            const link = linksContainer.createEl("a", {
+              cls: "avm-link-small",
+              text: "\u7EC4\u4EF6",
+              attr: { href: project.componentLink, target: "_blank", rel: "noopener noreferrer" }
+            });
             link.addEventListener("click", (e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -35122,6 +35185,7 @@ var TableView = class {
             td.createDiv({ text: "-" });
           }
           break;
+        }
       }
     });
     row.addEventListener("contextmenu", (e) => {
@@ -35139,26 +35203,32 @@ var TableView = class {
   }
   showRowContextMenu(project, event) {
     const menu = new import_obsidian8.Menu();
-    menu.addItem((item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project)));
-    menu.addItem((item) => item.setTitle("\u63D0\u6D4B\u8BA1\u5212").setIcon("calendar").onClick(() => this.showTestPlanModal(project)));
+    menu.addItem(
+      (item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditProjectModal(project))
+    );
+    menu.addItem(
+      (item) => item.setTitle("\u63D0\u6D4B\u8BA1\u5212").setIcon("calendar").onClick(() => this.showTestPlanModal(project))
+    );
     menu.addSeparator();
-    menu.addItem((item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
-      new ConfirmModal(
-        this.plugin.app,
-        "\u5220\u9664\u9879\u76EE",
-        `\u786E\u5B9A\u8981\u5220\u9664\u9879\u76EE "${project.name}" \u5417\uFF1F`,
-        async () => {
-          try {
-            await this.plugin.dataService.deleteProject(project.id);
-            setTimeout(() => this.onRefresh(), 100);
-          } catch (error) {
-            new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
-          }
-        },
-        void 0,
-        true
-      ).open();
-    }));
+    menu.addItem(
+      (item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
+        new ConfirmModal(
+          this.plugin.app,
+          "\u5220\u9664\u9879\u76EE",
+          `\u786E\u5B9A\u8981\u5220\u9664\u9879\u76EE "${project.name}" \u5417\uFF1F`,
+          async () => {
+            try {
+              await this.plugin.dataService.deleteProject(project.id);
+              setTimeout(() => this.onRefresh(), 100);
+            } catch (error) {
+              new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
+            }
+          },
+          void 0,
+          true
+        ).open();
+      })
+    );
     menu.showAtMouseEvent(event);
   }
   handleProgressClick(project) {
@@ -35168,20 +35238,14 @@ var TableView = class {
       return;
     }
     const nextProgress = progressOrder[currentIndex + 1];
-    new ProgressConfirmModal(
-      this.plugin.app,
-      project,
-      nextProgress,
-      this.plugin.settings.progressStages,
-      async () => {
-        try {
-          await this.plugin.dataService.updateProject(project.id, { progress: nextProgress }, project.version);
-          this.onRefresh();
-        } catch (error) {
-          new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
-        }
+    new ProgressConfirmModal(this.plugin.app, project, nextProgress, this.plugin.settings.progressStages, async () => {
+      try {
+        await this.plugin.dataService.updateProject(project.id, { progress: nextProgress }, project.version);
+        this.onRefresh();
+      } catch (error) {
+        new import_obsidian8.Notice(error instanceof Error ? error.message : String(error));
       }
-    ).open();
+    }).open();
   }
   showEditProjectModal(project) {
     new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
@@ -35233,18 +35297,15 @@ var ProgressConfirmModal = class extends import_obsidian8.Modal {
     nextDiv.createEl("div", { cls: "avm-confirm-label", text: "\u4E0B\u4E00\u8FDB\u5EA6" });
     const nextBadge = nextDiv.createDiv({ cls: "avm-progress-badge-small", text: this.nextProgress });
     nextBadge.style.backgroundColor = progressColors[this.nextProgress] || "#64748b";
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u786E\u8BA4\u66F4\u6539",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          this.onConfirm();
-          this.close();
-        },
-        onCancel: () => this.close()
-      }
-    );
+    createActionButtons(contentEl, {
+      confirmText: "\u786E\u8BA4\u66F4\u6539",
+      cancelText: "\u53D6\u6D88",
+      onConfirm: () => {
+        this.onConfirm();
+        this.close();
+      },
+      onCancel: () => this.close()
+    });
   }
   onClose() {
     this.contentEl.empty();
@@ -35393,10 +35454,14 @@ var TodoSidePanel = class {
       checkbox.checked = todo.completed;
       checkbox.addEventListener("change", async () => {
         try {
-          await this.plugin.todoService.update(this.currentProjectId, {
-            ...todo,
-            completed: checkbox.checked
-          }, todo.version);
+          await this.plugin.todoService.update(
+            this.currentProjectId,
+            {
+              ...todo,
+              completed: checkbox.checked
+            },
+            todo.version
+          );
           await this.renderTodoList(listEl);
         } catch (error) {
           console.error("Failed to update todo:", error);
@@ -35480,12 +35545,16 @@ var TodoSidePanel = class {
       if (!newContent)
         return;
       try {
-        await this.plugin.todoService.update(this.currentProjectId, {
-          ...todo,
-          content: newContent,
-          link: linkInput.value.trim(),
-          dueDate: dateInput.value
-        }, todo.version);
+        await this.plugin.todoService.update(
+          this.currentProjectId,
+          {
+            ...todo,
+            content: newContent,
+            link: linkInput.value.trim(),
+            dueDate: dateInput.value
+          },
+          todo.version
+        );
         await this.renderTodoList(listEl);
       } catch (error) {
         console.error("Failed to update todo:", error);
@@ -35528,48 +35597,54 @@ var ConvertPlanModal = class extends import_obsidian9.Modal {
         data.versionId = value;
       });
     });
-    new import_obsidian9.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => {
-      var _a;
-      return text.setPlaceholder("\u9009\u586B").setValue((_a = data.manager) != null ? _a : "").onChange((value) => data.manager = value || void 0);
-    });
-    new import_obsidian9.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => {
-      var _a;
-      return text.setPlaceholder("\u9009\u586B").setValue((_a = data.requirements) != null ? _a : "").onChange((value) => data.requirements = value || void 0);
-    });
+    new import_obsidian9.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText(
+      (text) => {
+        var _a;
+        return text.setPlaceholder("\u9009\u586B").setValue((_a = data.manager) != null ? _a : "").onChange((value) => data.manager = value || void 0);
+      }
+    );
+    new import_obsidian9.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea(
+      (text) => {
+        var _a;
+        return text.setPlaceholder("\u9009\u586B").setValue((_a = data.requirements) != null ? _a : "").onChange((value) => data.requirements = value || void 0);
+      }
+    );
     const buttonsEl = contentEl.createDiv({ cls: "avm-modal-buttons" });
-    new import_obsidian9.Setting(buttonsEl).addButton((button) => button.setButtonText("\u786E\u5B9A").setCta().onClick(async () => {
-      let errorMsg = "";
-      if (!data.name) {
-        errorMsg = "\u8BF7\u586B\u5199\u9879\u76EE\u540D";
-      } else if (!data.versionId) {
-        errorMsg = "\u8BF7\u9009\u62E9\u7248\u672C";
-      }
-      if (errorMsg) {
-        if (this.errorEl) {
-          this.errorEl.setText(errorMsg);
-          this.errorEl.style.display = "block";
+    new import_obsidian9.Setting(buttonsEl).addButton(
+      (button) => button.setButtonText("\u786E\u5B9A").setCta().onClick(async () => {
+        let errorMsg = "";
+        if (!data.name) {
+          errorMsg = "\u8BF7\u586B\u5199\u9879\u76EE\u540D";
+        } else if (!data.versionId) {
+          errorMsg = "\u8BF7\u9009\u62E9\u7248\u672C";
         }
-        return;
-      }
-      if (this.errorEl) {
-        this.errorEl.style.display = "none";
-      }
-      try {
-        await this.dataService.createProject({
-          name: data.name,
-          versionId: data.versionId,
-          manager: data.manager,
-          requirements: data.requirements,
-          b1IntegrationTestTime: "",
-          actualReleaseTime: ""
-        });
-        await this.dataService.deletePlan(this.plan.id);
-        this.close();
-        this.onSuccess();
-      } catch (error) {
-        new import_obsidian9.Notice(error instanceof Error ? error.message : String(error));
-      }
-    })).addButton((button) => button.setButtonText("\u53D6\u6D88").onClick(() => this.close()));
+        if (errorMsg) {
+          if (this.errorEl) {
+            this.errorEl.setText(errorMsg);
+            this.errorEl.style.display = "block";
+          }
+          return;
+        }
+        if (this.errorEl) {
+          this.errorEl.style.display = "none";
+        }
+        try {
+          await this.dataService.createProject({
+            name: data.name,
+            versionId: data.versionId,
+            manager: data.manager,
+            requirements: data.requirements,
+            b1IntegrationTestTime: "",
+            actualReleaseTime: ""
+          });
+          await this.dataService.deletePlan(this.plan.id);
+          this.close();
+          this.onSuccess();
+        } catch (error) {
+          new import_obsidian9.Notice(error instanceof Error ? error.message : String(error));
+        }
+      })
+    ).addButton((button) => button.setButtonText("\u53D6\u6D88").onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();
@@ -35634,10 +35709,7 @@ var ImportExportService = class {
         project.updatedAt
       ];
     });
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => this.escapeCSV(cell)).join(","))
-    ].join("\n");
+    const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => this.escapeCSV(cell)).join(","))].join("\n");
     return csvContent;
   }
   escapeCSV(value) {
@@ -35664,7 +35736,7 @@ var ImportExportService = class {
         headers.forEach((header, index) => {
           rowData[header] = values[index] || "";
         });
-        let version2 = await this.findOrCreateVersion(appId, rowData);
+        const version2 = await this.findOrCreateVersion(appId, rowData);
         const projectName = rowData["\u9879\u76EE\u540D\u79F0"];
         if (!projectName) {
           result.errors.push(`\u7B2C ${i + 1} \u884C: \u7F3A\u5C11\u9879\u76EE\u540D\u79F0`);
@@ -35758,28 +35830,28 @@ var ImportExportService = class {
     const data = projects.map((project) => {
       const version2 = versions.find((v) => v.id === project.versionId);
       return {
-        "\u9879\u76EE\u540D\u79F0": project.name,
-        "APP\u7248\u672C\u53F7": (version2 == null ? void 0 : version2.versionNumber) || "",
-        "BLL\u7248\u672C": (version2 == null ? void 0 : version2.bllVersion) || "",
-        "IPP\u7248\u672C": (version2 == null ? void 0 : version2.ippVersion) || "",
-        "Web\u7248\u672C": (version2 == null ? void 0 : version2.webVersion) || "",
-        "\u9879\u76EE\u7ECF\u7406": project.manager,
-        "\u9879\u76EE\u94FE\u63A5": project.projectLink,
-        "\u7EC4\u4EF6\u5E93\u94FE\u63A5": project.componentLink,
-        "\u7279\u6027": project.features || "",
-        "\u9879\u76EE\u9700\u6C42": project.requirements || "",
-        "\u9879\u76EE\u8FDB\u5EA6": project.progress,
-        "B1\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4": project.b1IntegrationTestTime,
-        "B1\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4": project.b1SystemTestTime,
-        "B2\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4": project.b2IntegrationTestTime,
-        "B2\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4": project.b2SystemTestTime,
-        "B3\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4": project.b3IntegrationTestTime,
-        "B3\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4": project.b3SystemTestTime,
-        "B4\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4": project.b4IntegrationTestTime,
-        "B4\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4": project.b4SystemTestTime,
-        "\u5B9E\u9645\u53D1\u5E03\u65F6\u95F4": project.actualReleaseTime,
-        "\u521B\u5EFA\u65F6\u95F4": project.createdAt,
-        "\u66F4\u65B0\u65F6\u95F4": project.updatedAt
+        \u9879\u76EE\u540D\u79F0: project.name,
+        APP\u7248\u672C\u53F7: (version2 == null ? void 0 : version2.versionNumber) || "",
+        BLL\u7248\u672C: (version2 == null ? void 0 : version2.bllVersion) || "",
+        IPP\u7248\u672C: (version2 == null ? void 0 : version2.ippVersion) || "",
+        Web\u7248\u672C: (version2 == null ? void 0 : version2.webVersion) || "",
+        \u9879\u76EE\u7ECF\u7406: project.manager,
+        \u9879\u76EE\u94FE\u63A5: project.projectLink,
+        \u7EC4\u4EF6\u5E93\u94FE\u63A5: project.componentLink,
+        \u7279\u6027: project.features || "",
+        \u9879\u76EE\u9700\u6C42: project.requirements || "",
+        \u9879\u76EE\u8FDB\u5EA6: project.progress,
+        B1\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4: project.b1IntegrationTestTime,
+        B1\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4: project.b1SystemTestTime,
+        B2\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4: project.b2IntegrationTestTime,
+        B2\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4: project.b2SystemTestTime,
+        B3\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4: project.b3IntegrationTestTime,
+        B3\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4: project.b3SystemTestTime,
+        B4\u96C6\u6210\u6D4B\u8BD5\u65F6\u95F4: project.b4IntegrationTestTime,
+        B4\u7CFB\u7EDF\u6D4B\u8BD5\u65F6\u95F4: project.b4SystemTestTime,
+        \u5B9E\u9645\u53D1\u5E03\u65F6\u95F4: project.actualReleaseTime,
+        \u521B\u5EFA\u65F6\u95F4: project.createdAt,
+        \u66F4\u65B0\u65F6\u95F4: project.updatedAt
       };
     });
     const ws = XLSX2.utils.json_to_sheet(data);
@@ -35798,11 +35870,11 @@ var ImportExportService = class {
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       try {
-        let version2 = await this.findOrCreateVersion(appId, {
-          "APP\u7248\u672C\u53F7": row["APP\u7248\u672C\u53F7"] || "",
-          "BLL\u7248\u672C": row["BLL\u7248\u672C"] || "",
-          "IPP\u7248\u672C": row["IPP\u7248\u672C"] || "",
-          "Web\u7248\u672C": row["Web\u7248\u672C"] || ""
+        const version2 = await this.findOrCreateVersion(appId, {
+          APP\u7248\u672C\u53F7: row["APP\u7248\u672C\u53F7"] || "",
+          BLL\u7248\u672C: row["BLL\u7248\u672C"] || "",
+          IPP\u7248\u672C: row["IPP\u7248\u672C"] || "",
+          Web\u7248\u672C: row["Web\u7248\u672C"] || ""
         });
         const projectName = row["\u9879\u76EE\u540D\u79F0"];
         if (!projectName) {
@@ -35885,20 +35957,17 @@ var CreateAppModal = class extends import_obsidian10.Modal {
     contentEl.createEl("h2", { text: "\u65B0\u5EFAAPP" });
     let appName = "";
     new import_obsidian10.Setting(contentEl).setName("APP\u540D\u79F0").addText((text) => text.setPlaceholder("\u8F93\u5165APP\u540D\u79F0").onChange((value) => appName = value));
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u521B\u5EFA",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          if (appName.trim()) {
-            this.onSubmit(appName.trim());
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
+    createActionButtons(contentEl, {
+      confirmText: "\u521B\u5EFA",
+      cancelText: "\u53D6\u6D88",
+      onConfirm: () => {
+        if (appName.trim()) {
+          this.onSubmit(appName.trim());
+          this.close();
+        }
+      },
+      onCancel: () => this.close()
+    });
   }
   onClose() {
     this.contentEl.empty();
@@ -35958,20 +36027,17 @@ var CreateVersionModal = class extends import_obsidian12.Modal {
     new import_obsidian12.Setting(contentEl).setName("IPP\u7248\u672C *").addText((text) => text.onChange((value) => data.ippVersion = value));
     new import_obsidian12.Setting(contentEl).setName("Web\u7248\u672C *").addText((text) => text.onChange((value) => data.webVersion = value));
     new import_obsidian12.Setting(contentEl).setName("\u66F4\u65B0\u5185\u5BB9").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.updateContent = value));
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u521B\u5EFA",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          if (data.versionNumber && data.bllVersion && data.ippVersion && data.webVersion) {
-            this.onSubmit(data);
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
+    createActionButtons(contentEl, {
+      confirmText: "\u521B\u5EFA",
+      cancelText: "\u53D6\u6D88",
+      onConfirm: () => {
+        if (data.versionNumber && data.bllVersion && data.ippVersion && data.webVersion) {
+          this.onSubmit(data);
+          this.close();
+        }
+      },
+      onCancel: () => this.close()
+    });
   }
   onClose() {
     this.contentEl.empty();
@@ -36018,20 +36084,17 @@ var CreateProjectModal = class extends import_obsidian13.Modal {
     new import_obsidian13.Setting(contentEl).setName("\u7279\u6027").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.features = value));
     new import_obsidian13.Setting(contentEl).setName("\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.spec = value));
     new import_obsidian13.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => text.setPlaceholder("\u53EF\u9009").onChange((value) => data.requirements = value));
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u521B\u5EFA",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          if (data.name) {
-            this.onSubmit(data);
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
-      }
-    );
+    createActionButtons(contentEl, {
+      confirmText: "\u521B\u5EFA",
+      cancelText: "\u53D6\u6D88",
+      onConfirm: () => {
+        if (data.name) {
+          this.onSubmit(data);
+          this.close();
+        }
+      },
+      onCancel: () => this.close()
+    });
   }
   onClose() {
     this.contentEl.empty();
@@ -36052,9 +36115,11 @@ var DeleteFilterModal = class extends import_obsidian14.Modal {
     contentEl.addClass("avm-modal");
     contentEl.createEl("h2", { text: "\u5220\u9664\u7B5B\u9009\u6761\u4EF6" });
     this.filters.forEach((filter) => {
-      new import_obsidian14.Setting(contentEl).setName(filter.name).addButton((btn) => btn.setButtonText("\u5220\u9664").setWarning().onClick(() => {
-        this.doDelete(filter.id);
-      }));
+      new import_obsidian14.Setting(contentEl).setName(filter.name).addButton(
+        (btn) => btn.setButtonText("\u5220\u9664").setWarning().onClick(() => {
+          this.doDelete(filter.id);
+        })
+      );
     });
     new import_obsidian14.Setting(contentEl).addButton((btn) => btn.setButtonText("\u5173\u95ED").onClick(() => this.close()));
   }
@@ -36102,30 +36167,27 @@ var ExportModal = class extends import_obsidian15.Modal {
       });
     });
     const statusEl = contentEl.createDiv({ cls: "avm-export-status" });
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u5BFC\u51FA",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: async () => {
-          statusEl.setText("\u5904\u7406\u4E2D...");
-          try {
-            if (this.format === "xlsx") {
-              const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
-              this.downloadFile(buffer, "projects.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            } else {
-              const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
-              this.downloadFile(csv, "projects.csv", "text/csv");
-            }
-            statusEl.setText("\u5BFC\u51FA\u6210\u529F");
-            setTimeout(() => this.close(), 800);
-          } catch (error) {
-            statusEl.setText(`\u5BFC\u51FA\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+    createActionButtons(contentEl, {
+      confirmText: "\u5BFC\u51FA",
+      cancelText: "\u53D6\u6D88",
+      onConfirm: async () => {
+        statusEl.setText("\u5904\u7406\u4E2D...");
+        try {
+          if (this.format === "xlsx") {
+            const buffer = await this.importExportService.exportToExcel(this.projects, this.versions);
+            this.downloadFile(buffer, "projects.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+          } else {
+            const csv = await this.importExportService.exportToCSV(this.projects, this.versions);
+            this.downloadFile(csv, "projects.csv", "text/csv");
           }
-        },
-        onCancel: () => this.close()
-      }
-    );
+          statusEl.setText("\u5BFC\u51FA\u6210\u529F");
+          setTimeout(() => this.close(), 800);
+        } catch (error) {
+          statusEl.setText(`\u5BFC\u51FA\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      },
+      onCancel: () => this.close()
+    });
   }
   downloadFile(content, filename, mimeType) {
     const blob = new Blob([content], { type: mimeType });
@@ -36162,68 +36224,65 @@ var ImportModal = class extends import_obsidian16.Modal {
     const hintEl = contentEl.createEl("p", { text: "\u652F\u6301 CSV\u3001Excel (.xlsx/.xls) \u548C\u5907\u4EFD\u6587\u4EF6 (.json)" });
     hintEl.style.color = "var(--text-muted)";
     hintEl.style.fontSize = "12px";
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: "\u5BFC\u5165",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: async () => {
-          var _a;
-          const file = (_a = fileInput.files) == null ? void 0 : _a[0];
-          if (!file) {
-            new import_obsidian16.Notice("\u8BF7\u9009\u62E9\u6587\u4EF6");
-            return;
-          }
-          statusEl.setText("\u5904\u7406\u4E2D...");
-          try {
-            if (file.name.endsWith(".json")) {
-              if (!this.backupService) {
-                throw new Error("\u5907\u4EFD\u6062\u590D\u529F\u80FD\u4E0D\u53EF\u7528");
-              }
-              if (!confirm("\u8FD9\u662F\u5907\u4EFD\u6587\u4EF6\uFF0C\u786E\u5B9A\u8981\u6062\u590D\u5417\uFF1F\u5F53\u524D\u6570\u636E\u5C06\u88AB\u8986\u76D6\u3002")) {
-                statusEl.setText("\u5DF2\u53D6\u6D88");
-                return;
-              }
-              const content = await file.text();
-              const success = await this.backupService.restoreFromContent(content);
-              if (success) {
-                new import_obsidian16.Notice("\u6062\u590D\u6210\u529F");
-                statusEl.setText("\u6062\u590D\u6210\u529F");
-                setTimeout(() => {
-                  this.onComplete();
-                  this.close();
-                }, 800);
-              } else {
-                throw new Error("\u6062\u590D\u5931\u8D25");
-              }
-            } else if (file.name.endsWith(".csv")) {
-              const content = await file.text();
-              const result = await this.importExportService.importFromCSV(content, this.appId);
-              new import_obsidian16.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF01\u6210\u529F: ${result.success} \u6761${result.errors.length > 0 ? `
-\u9519\u8BEF: ${result.errors.join("\n")}` : ""}`);
-              statusEl.setText("\u5BFC\u5165\u6210\u529F");
+    createActionButtons(contentEl, {
+      confirmText: "\u5BFC\u5165",
+      cancelText: "\u53D6\u6D88",
+      onConfirm: async () => {
+        var _a;
+        const file = (_a = fileInput.files) == null ? void 0 : _a[0];
+        if (!file) {
+          new import_obsidian16.Notice("\u8BF7\u9009\u62E9\u6587\u4EF6");
+          return;
+        }
+        statusEl.setText("\u5904\u7406\u4E2D...");
+        try {
+          if (file.name.endsWith(".json")) {
+            if (!this.backupService) {
+              throw new Error("\u5907\u4EFD\u6062\u590D\u529F\u80FD\u4E0D\u53EF\u7528");
+            }
+            if (!confirm("\u8FD9\u662F\u5907\u4EFD\u6587\u4EF6\uFF0C\u786E\u5B9A\u8981\u6062\u590D\u5417\uFF1F\u5F53\u524D\u6570\u636E\u5C06\u88AB\u8986\u76D6\u3002")) {
+              statusEl.setText("\u5DF2\u53D6\u6D88");
+              return;
+            }
+            const content = await file.text();
+            const success = await this.backupService.restoreFromContent(content);
+            if (success) {
+              new import_obsidian16.Notice("\u6062\u590D\u6210\u529F");
+              statusEl.setText("\u6062\u590D\u6210\u529F");
               setTimeout(() => {
                 this.onComplete();
                 this.close();
               }, 800);
             } else {
-              const buffer = await file.arrayBuffer();
-              const result = await this.importExportService.importFromExcel(buffer, this.appId);
-              new import_obsidian16.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF01\u6210\u529F: ${result.success} \u6761${result.errors.length > 0 ? `
-\u9519\u8BEF: ${result.errors.join("\n")}` : ""}`);
-              statusEl.setText("\u5BFC\u5165\u6210\u529F");
-              setTimeout(() => {
-                this.onComplete();
-                this.close();
-              }, 800);
+              throw new Error("\u6062\u590D\u5931\u8D25");
             }
-          } catch (error) {
-            statusEl.setText(`\u5BFC\u5165\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+          } else if (file.name.endsWith(".csv")) {
+            const content = await file.text();
+            const result = await this.importExportService.importFromCSV(content, this.appId);
+            new import_obsidian16.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF01\u6210\u529F: ${result.success} \u6761${result.errors.length > 0 ? `
+\u9519\u8BEF: ${result.errors.join("\n")}` : ""}`);
+            statusEl.setText("\u5BFC\u5165\u6210\u529F");
+            setTimeout(() => {
+              this.onComplete();
+              this.close();
+            }, 800);
+          } else {
+            const buffer = await file.arrayBuffer();
+            const result = await this.importExportService.importFromExcel(buffer, this.appId);
+            new import_obsidian16.Notice(`\u5BFC\u5165\u5B8C\u6210\uFF01\u6210\u529F: ${result.success} \u6761${result.errors.length > 0 ? `
+\u9519\u8BEF: ${result.errors.join("\n")}` : ""}`);
+            statusEl.setText("\u5BFC\u5165\u6210\u529F");
+            setTimeout(() => {
+              this.onComplete();
+              this.close();
+            }, 800);
           }
-        },
-        onCancel: () => this.close()
-      }
-    );
+        } catch (error) {
+          statusEl.setText(`\u5BFC\u5165\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      },
+      onCancel: () => this.close()
+    });
   }
   onClose() {
     this.contentEl.empty();
@@ -36250,44 +36309,51 @@ var PlanModal = class extends import_obsidian17.Modal {
       releaseDate: (_h = (_g = this.plan) == null ? void 0 : _g.releaseDate) != null ? _h : "",
       requirements: (_j = (_i = this.plan) == null ? void 0 : _i.requirements) != null ? _j : ""
     };
-    new import_obsidian17.Setting(contentEl).setName("\u9879\u76EE\u4E3B\u9898 *").addText((text) => text.setPlaceholder("\u8F93\u5165\u9879\u76EE\u4E3B\u9898").setValue(data.topic).onChange((value) => data.topic = value));
-    new import_obsidian17.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText((text) => {
-      var _a2;
-      return text.setPlaceholder("\u9009\u586B").setValue((_a2 = data.manager) != null ? _a2 : "").onChange((value) => data.manager = value || void 0);
-    });
-    new import_obsidian17.Setting(contentEl).setName("\u63D0\u6D4B\u65F6\u95F4").addText((text) => {
-      var _a2;
-      return text.setPlaceholder("\u9009\u586B\uFF0C\u5982 2026-04-01").setValue((_a2 = data.testDate) != null ? _a2 : "").onChange((value) => data.testDate = parseDateInput(value) || void 0);
-    });
-    new import_obsidian17.Setting(contentEl).setName("\u53D1\u5E03\u65F6\u95F4").addText((text) => {
-      var _a2;
-      return text.setPlaceholder("\u9009\u586B\uFF0C\u5982 2026-05-01").setValue((_a2 = data.releaseDate) != null ? _a2 : "").onChange((value) => data.releaseDate = parseDateInput(value) || void 0);
-    });
-    new import_obsidian17.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea((text) => {
-      var _a2;
-      return text.setPlaceholder("\u9009\u586B").setValue((_a2 = data.requirements) != null ? _a2 : "").onChange((value) => data.requirements = value || void 0);
-    });
-    createActionButtons(
-      contentEl,
-      {
-        confirmText: this.plan ? "\u4FDD\u5B58" : "\u521B\u5EFA",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          var _a2, _b2, _c2, _d2;
-          if (data.topic.trim()) {
-            this.onSubmit({
-              topic: data.topic.trim(),
-              manager: ((_a2 = data.manager) == null ? void 0 : _a2.trim()) || "",
-              testDate: ((_b2 = data.testDate) == null ? void 0 : _b2.trim()) || "",
-              releaseDate: ((_c2 = data.releaseDate) == null ? void 0 : _c2.trim()) || "",
-              requirements: ((_d2 = data.requirements) == null ? void 0 : _d2.trim()) || ""
-            });
-            this.close();
-          }
-        },
-        onCancel: () => this.close()
+    new import_obsidian17.Setting(contentEl).setName("\u9879\u76EE\u4E3B\u9898 *").addText(
+      (text) => text.setPlaceholder("\u8F93\u5165\u9879\u76EE\u4E3B\u9898").setValue(data.topic).onChange((value) => data.topic = value)
+    );
+    new import_obsidian17.Setting(contentEl).setName("\u9879\u76EE\u7ECF\u7406").addText(
+      (text) => {
+        var _a2;
+        return text.setPlaceholder("\u9009\u586B").setValue((_a2 = data.manager) != null ? _a2 : "").onChange((value) => data.manager = value || void 0);
       }
     );
+    new import_obsidian17.Setting(contentEl).setName("\u63D0\u6D4B\u65F6\u95F4").addText(
+      (text) => {
+        var _a2;
+        return text.setPlaceholder("\u9009\u586B\uFF0C\u5982 2026-04-01").setValue((_a2 = data.testDate) != null ? _a2 : "").onChange((value) => data.testDate = parseDateInput(value) || void 0);
+      }
+    );
+    new import_obsidian17.Setting(contentEl).setName("\u53D1\u5E03\u65F6\u95F4").addText(
+      (text) => {
+        var _a2;
+        return text.setPlaceholder("\u9009\u586B\uFF0C\u5982 2026-05-01").setValue((_a2 = data.releaseDate) != null ? _a2 : "").onChange((value) => data.releaseDate = parseDateInput(value) || void 0);
+      }
+    );
+    new import_obsidian17.Setting(contentEl).setName("\u9879\u76EE\u9700\u6C42").addTextArea(
+      (text) => {
+        var _a2;
+        return text.setPlaceholder("\u9009\u586B").setValue((_a2 = data.requirements) != null ? _a2 : "").onChange((value) => data.requirements = value || void 0);
+      }
+    );
+    createActionButtons(contentEl, {
+      confirmText: this.plan ? "\u4FDD\u5B58" : "\u521B\u5EFA",
+      cancelText: "\u53D6\u6D88",
+      onConfirm: () => {
+        var _a2, _b2, _c2, _d2;
+        if (data.topic.trim()) {
+          this.onSubmit({
+            topic: data.topic.trim(),
+            manager: ((_a2 = data.manager) == null ? void 0 : _a2.trim()) || "",
+            testDate: ((_b2 = data.testDate) == null ? void 0 : _b2.trim()) || "",
+            releaseDate: ((_c2 = data.releaseDate) == null ? void 0 : _c2.trim()) || "",
+            requirements: ((_d2 = data.requirements) == null ? void 0 : _d2.trim()) || ""
+          });
+          this.close();
+        }
+      },
+      onCancel: () => this.close()
+    });
   }
   onClose() {
     this.contentEl.empty();
@@ -36540,12 +36606,17 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
           new import_obsidian18.Notice("\u6CA1\u6709\u53EF\u5220\u9664\u7684\u7B5B\u9009\u6761\u4EF6");
           return;
         }
-        new DeleteFilterModal(this.app, this.savedFilters, async (filterId) => {
-          this.savedFilters = this.savedFilters.filter((f) => f.id !== filterId);
-          await this.saveSavedFilters();
-        }, () => {
-          this.render();
-        }).open();
+        new DeleteFilterModal(
+          this.app,
+          this.savedFilters,
+          async (filterId) => {
+            this.savedFilters = this.savedFilters.filter((f) => f.id !== filterId);
+            await this.saveSavedFilters();
+          },
+          () => {
+            this.render();
+          }
+        ).open();
       });
     }
     const actionButtons = filterBar.createDiv({ cls: "avm-action-buttons" });
@@ -36615,9 +36686,13 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
     var _a;
     let projects = this.projects;
     const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
-    if (lastProgress) {
-      projects = projects.filter((p) => p.progress !== lastProgress);
-    }
+    projects = projects.filter((p) => {
+      if (p.isArchived)
+        return false;
+      if (lastProgress && p.progress === lastProgress)
+        return false;
+      return true;
+    });
     const versionFilter = (_a = options == null ? void 0 : options.versionId) != null ? _a : this.selectedVersionId;
     if (versionFilter) {
       projects = projects.filter((p) => p.versionId === versionFilter);
@@ -36736,16 +36811,11 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
     const filter = this.savedFilters.find((f) => f.id === filterId);
     if (!filter)
       return;
-    new ConfirmModal(
-      this.app,
-      "\u5220\u9664\u7B5B\u9009\u6761\u4EF6",
-      `\u786E\u5B9A\u8981\u5220\u9664\u7B5B\u9009\u6761\u4EF6 "${filter.name}" \u5417\uFF1F`,
-      async () => {
-        this.savedFilters = this.savedFilters.filter((f) => f.id !== filterId);
-        await this.saveSavedFilters();
-        this.render();
-      }
-    ).open();
+    new ConfirmModal(this.app, "\u5220\u9664\u7B5B\u9009\u6761\u4EF6", `\u786E\u5B9A\u8981\u5220\u9664\u7B5B\u9009\u6761\u4EF6 "${filter.name}" \u5417\uFF1F`, async () => {
+      this.savedFilters = this.savedFilters.filter((f) => f.id !== filterId);
+      await this.saveSavedFilters();
+      this.render();
+    }).open();
   }
   showExportModal() {
     new ExportModal(this.app, this.importExportService, this.getFilteredProjects(), this.versions).open();
@@ -36786,22 +36856,16 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
       return;
     }
     const appVersions = this.versions.filter((v) => v.appId === this.selectedAppId);
-    new ConvertPlanModal(
-      this.app,
-      plan,
-      appVersions,
-      this.plugin.dataService,
-      async () => {
-        new import_obsidian18.Notice("\u5DF2\u8F6C\u4E3A\u6B63\u5F0F\u9879\u76EE");
-        this.currentTab = "projects";
-        await this.refresh();
-        const allProjects = await this.plugin.dataService.getAllProjects();
-        const newProject = allProjects.find((p) => p.versionId && appVersions.some((v) => v.id === p.versionId));
-        if (newProject) {
-          this.selectedVersionId = newProject.versionId;
-        }
+    new ConvertPlanModal(this.app, plan, appVersions, this.plugin.dataService, async () => {
+      new import_obsidian18.Notice("\u5DF2\u8F6C\u4E3A\u6B63\u5F0F\u9879\u76EE");
+      this.currentTab = "projects";
+      await this.refresh();
+      const allProjects = await this.plugin.dataService.getAllProjects();
+      const newProject = allProjects.find((p) => p.versionId && appVersions.some((v) => v.id === p.versionId));
+      if (newProject) {
+        this.selectedVersionId = newProject.versionId;
       }
-    ).open();
+    }).open();
   }
   async confirmDeletePlan(plan) {
     new ConfirmModal(
@@ -36853,9 +36917,9 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
   }
   getArchivedProjects() {
     const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
-    if (!lastProgress)
-      return [];
-    return this.projects.filter((p) => p.progress === lastProgress);
+    return this.projects.filter(
+      (p) => p.isArchived || (lastProgress ? p.progress === lastProgress : false)
+    );
   }
   renderArchivedView() {
     const archivedProjects = this.getArchivedProjects();
@@ -37174,6 +37238,13 @@ var DataService = class {
     this.app = app;
     this.plugin = plugin;
     this.cache = new DataCache(3e4);
+  }
+  /** 原地更新 projects:all 缓存，避免全量重读 */
+  updateProjectsAllCache(updater) {
+    const cached = this.cache.get("projects:all");
+    if (cached) {
+      this.cache.set("projects:all", updater(cached));
+    }
   }
   getDataPath() {
     return this.plugin.settings.dataPath || "app-version-manager";
@@ -37701,6 +37772,7 @@ var DataService = class {
         requirements: (_i = frontmatter.requirements) != null ? _i : "",
         progress: (_j = frontmatter.progress) != null ? _j : getFirstProgress(this.plugin.settings.progressStages),
         progressHistory: parseProgressHistory(frontmatter.progressHistory),
+        isArchived: frontmatter.isArchived === true,
         b1IntegrationTestTime: (_k = frontmatter.b1IntegrationTestTime) != null ? _k : "",
         b1SystemTestTime: (_l = frontmatter.b1SystemTestTime) != null ? _l : "",
         b2IntegrationTestTime: (_m = frontmatter.b2IntegrationTestTime) != null ? _m : "",
@@ -37739,10 +37811,13 @@ var DataService = class {
       spec: data.spec || "",
       requirements: data.requirements || "",
       progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
-      progressHistory: [{
-        progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
-        changedAt: now
-      }],
+      progressHistory: [
+        {
+          progress: data.progress || getFirstProgress(this.plugin.settings.progressStages),
+          changedAt: now
+        }
+      ],
+      isArchived: false,
       b1IntegrationTestTime: data.b1IntegrationTestTime || "",
       b1SystemTestTime: data.b1SystemTestTime || "",
       b2IntegrationTestTime: data.b2IntegrationTestTime || "",
@@ -37768,6 +37843,7 @@ var DataService = class {
       requirements: project.requirements,
       progress: project.progress,
       progressHistory: project.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
+      isArchived: project.isArchived,
       b1IntegrationTestTime: project.b1IntegrationTestTime,
       b1SystemTestTime: project.b1SystemTestTime,
       b2IntegrationTestTime: project.b2IntegrationTestTime,
@@ -37786,7 +37862,8 @@ var DataService = class {
     const memoFilePath = this.isAbsolutePath() ? (0, import_path.join)(this.getMemosFolder(), `${fileName}.md`) : (0, import_obsidian19.normalizePath)(`${this.getMemosFolder()}/${fileName}.md`);
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, "");
-    this.cache.invalidate("projects:all");
+    this.updateProjectsAllCache((projects) => [...projects, project]);
+    this.cache.set(`project:${project.id}`, project);
     const defaultTodos = this.plugin.settings.defaultTodos;
     if (defaultTodos.length > 0) {
       for (const template of defaultTodos) {
@@ -37820,10 +37897,11 @@ var DataService = class {
     const updatedProject = { ...project, ...data, updatedAt: Date.now().toString() };
     updatedProject.version = ((_a = project.version) != null ? _a : 1) + 1;
     if (progressChanged && data.progress) {
-      updatedProject.progressHistory = [
-        ...project.progressHistory,
-        { progress: data.progress, changedAt: Date.now().toString() }
-      ];
+      updatedProject.progressHistory = [...project.progressHistory, { progress: data.progress, changedAt: Date.now().toString() }];
+      const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
+      if (lastProgress && data.progress === lastProgress) {
+        updatedProject.isArchived = true;
+      }
     }
     const frontmatter = createFrontmatter({
       id: updatedProject.id,
@@ -37837,6 +37915,7 @@ var DataService = class {
       requirements: updatedProject.requirements,
       progress: updatedProject.progress,
       progressHistory: updatedProject.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
+      isArchived: updatedProject.isArchived,
       b1IntegrationTestTime: updatedProject.b1IntegrationTestTime,
       b1SystemTestTime: updatedProject.b1SystemTestTime,
       b2IntegrationTestTime: updatedProject.b2IntegrationTestTime,
@@ -37888,7 +37967,8 @@ var DataService = class {
         }
       }
     }
-    this.cache.invalidate("projects:all");
+    this.updateProjectsAllCache((projects) => projects.map((p) => p.id === updatedProject.id ? updatedProject : p));
+    this.cache.set(`project:${updatedProject.id}`, updatedProject);
     return updatedProject;
   }
   async deleteProject(id, expectedVersion) {
@@ -37940,7 +38020,8 @@ var DataService = class {
     if (memoFile) {
       await this.deleteFile(memoFile);
     }
-    this.cache.invalidate("projects:all");
+    this.updateProjectsAllCache((projects) => projects.filter((p) => p.id !== id));
+    this.cache.invalidate(`project:${id}`);
     return true;
   }
   async getAllProjects() {
@@ -37957,6 +38038,9 @@ var DataService = class {
         projects.push(project);
     }
     this.cache.set(cacheKey, projects);
+    for (const project of projects) {
+      this.cache.set(`project:${project.id}`, project);
+    }
     return projects;
   }
   async searchProjects(keyword) {
@@ -37967,6 +38051,9 @@ var DataService = class {
     );
   }
   async getProjectById(id) {
+    const cached = this.cache.get(`project:${id}`);
+    if (cached)
+      return cached;
     const allProjects = await this.getAllProjects();
     return allProjects.find((p) => p.id === id) || null;
   }
@@ -38533,8 +38620,8 @@ var TodoService = class {
   }
 };
 
-// src/styles.ts
-var STYLES = `
+// src/styles/common.ts
+var COMMON = `
 .app-version-manager {
   display: flex;
   flex-direction: column;
@@ -38565,15 +38652,9 @@ var STYLES = `
   flex: 1;
 }
 
-.avm-app-actions {
-  display: flex;
-  gap: 4px;
-}
+.avm-app-actions { display: flex; gap: 4px; }
 
-.avm-view-switcher {
-  display: flex;
-  gap: 4px;
-}
+.avm-view-switcher { display: flex; gap: 4px; }
 
 .avm-view-btn-active {
   background: var(--interactive-accent) !important;
@@ -38594,11 +38675,7 @@ var STYLES = `
   flex-wrap: wrap;
 }
 
-.avm-filter-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+.avm-filter-item { display: flex; align-items: center; gap: 4px; }
 
 .avm-filter-item select,
 .avm-filter-item input {
@@ -38616,9 +38693,7 @@ var STYLES = `
   border-color: var(--interactive-accent);
 }
 
-.avm-filter-item input {
-  min-width: 120px;
-}
+.avm-filter-item input { min-width: 120px; }
 
 .avm-search-input {
   flex: 1;
@@ -38646,35 +38721,15 @@ var STYLES = `
   cursor: pointer;
 }
 
-.avm-select:focus {
-  outline: none;
-  border-color: var(--interactive-accent);
-}
+.avm-select:focus { outline: none; border-color: var(--interactive-accent); }
 
-.avm-saved-filter {
-  min-width: 120px;
-}
+.avm-saved-filter { min-width: 120px; }
+.avm-filter-actions { display: flex; gap: 4px; }
+.avm-action-buttons { display: flex; gap: 4px; margin-left: auto; }
 
-.avm-filter-actions {
-  display: flex;
-  gap: 4px;
-}
+.avm-main { flex: 1; overflow: hidden; }
 
-.avm-action-buttons {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-}
-
-.avm-main {
-  flex: 1;
-  overflow: hidden;
-}
-
-.avm-dual-pane {
-  display: flex;
-  height: 100%;
-}
+.avm-dual-pane { display: flex; height: 100%; }
 
 .avm-left-pane {
   width: 280px;
@@ -38699,17 +38754,9 @@ var STYLES = `
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.avm-pane-header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
+.avm-pane-header h3 { margin: 0; font-size: 14px; font-weight: 600; }
 
-.avm-version-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px;
-}
+.avm-version-list { flex: 1; overflow-y: auto; padding: 8px; }
 
 .avm-version-item {
   padding: 10px 12px;
@@ -38719,29 +38766,16 @@ var STYLES = `
   transition: background-color 0.15s;
 }
 
-.avm-version-item:hover {
-  background: var(--background-modifier-hover);
-}
+.avm-version-item:hover { background: var(--background-modifier-hover); }
 
 .avm-version-item.avm-selected {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
 }
 
-.avm-version-item.avm-archived {
-  opacity: 0.6;
-}
-
-.avm-version-number {
-  font-weight: 600;
-  font-size: 13px;
-}
-
-.avm-version-meta {
-  font-size: 12px;
-  opacity: 0.7;
-  margin-top: 4px;
-}
+.avm-version-item.avm-archived { opacity: 0.6; }
+.avm-version-number { font-weight: 600; font-size: 13px; }
+.avm-version-meta { font-size: 12px; opacity: 0.7; margin-top: 4px; }
 
 .avm-archived-header {
   padding: 8px 12px;
@@ -38752,11 +38786,7 @@ var STYLES = `
   border-top: 1px solid var(--background-modifier-border);
 }
 
-.avm-project-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-}
+.avm-project-list { flex: 1; overflow-y: auto; padding: 12px; }
 
 .avm-project-item {
   padding: 12px;
@@ -38784,10 +38814,7 @@ var STYLES = `
   margin-bottom: 8px;
 }
 
-.avm-project-name {
-  font-weight: 600;
-  font-size: 14px;
-}
+.avm-project-name { font-weight: 600; font-size: 14px; }
 
 .avm-progress-badge {
   padding: 2px 8px;
@@ -38806,19 +38833,10 @@ var STYLES = `
   display: inline-block;
 }
 
-.avm-clickable {
-  cursor: pointer;
-  transition: transform 0.1s, opacity 0.1s;
-}
+.avm-clickable { cursor: pointer; transition: transform 0.1s, opacity 0.1s; }
+.avm-clickable:hover { opacity: 0.8; transform: scale(1.05); }
 
-.avm-clickable:hover {
-  opacity: 0.8;
-  transform: scale(1.05);
-}
-
-.avm-progress-confirm-modal .avm-confirm-info {
-  padding: 16px 0;
-}
+.avm-progress-confirm-modal .avm-confirm-info { padding: 16px 0; }
 
 .avm-progress-confirm-modal .avm-confirm-project {
   font-size: 14px;
@@ -38854,30 +38872,10 @@ var STYLES = `
   color: var(--text-muted);
 }
 
-.avm-project-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.avm-meta-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.avm-overdue-text {
-  color: #ef4444;
-  font-weight: 500;
-}
-
-.avm-project-links {
-  display: flex;
-  gap: 12px;
-}
+.avm-project-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+.avm-meta-item { display: flex; align-items: center; gap: 4px; }
+.avm-overdue-text { color: #ef4444; font-weight: 500; }
+.avm-project-links { display: flex; gap: 12px; }
 
 .avm-link {
   color: var(--interactive-accent);
@@ -38885,10 +38883,7 @@ var STYLES = `
   font-size: 12px;
   cursor: pointer;
 }
-
-.avm-link:hover {
-  text-decoration: underline;
-}
+.avm-link:hover { text-decoration: underline; }
 
 .avm-link-small {
   color: var(--interactive-accent);
@@ -38897,10 +38892,7 @@ var STYLES = `
   cursor: pointer;
   margin-right: 8px;
 }
-
-.avm-link-small:hover {
-  text-decoration: underline;
-}
+.avm-link-small:hover { text-decoration: underline; }
 
 .avm-project-requirements {
   font-size: 12px;
@@ -38910,13 +38902,87 @@ var STYLES = `
   border-top: 1px solid var(--background-modifier-border);
 }
 
-.avm-empty-state {
-  text-align: center;
-  padding: 24px;
-  color: var(--text-muted);
+.avm-empty-state { text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px; }
+
+/* Tab Bar */
+.avm-tab-bar { display: flex; gap: 4px; margin-bottom: 12px; }
+
+.avm-tab {
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
   font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.avm-tab:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.avm-tab.avm-tab-active {
+  color: var(--interactive-accent);
+  background: var(--background-secondary);
+  border-color: var(--background-modifier-border);
 }
 
+/* Icon button */
+.avm-btn-icon {
+  padding: 4px 6px !important;
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.avm-btn-icon:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-normal);
+}
+
+/* Modal */
+.avm-modal { padding: 20px; }
+.avm-modal h2 { margin-top: 0; margin-bottom: 20px; font-size: 18px; }
+.avm-modal .setting-item-control input[type="text"],
+.avm-modal .setting-item-control textarea,
+.avm-modal .setting-item-control select { width: 280px; }
+.avm-modal .setting-item-control textarea { min-height: 60px; resize: vertical; }
+.avm-modal-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+/* Loading & Error states */
+.avm-loading { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 16px; color: var(--text-muted); }
+.avm-error { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--text-muted); }
+.avm-error button { padding: 8px 16px; border-radius: 4px; background: var(--interactive-accent); color: var(--text-on-accent); border: none; cursor: pointer; }
+
+/* Import/Export status */
+.avm-export-status,
+.avm-import-status { margin-top: 12px; padding: 8px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+/* Plan action bar */
+.avm-plan-action-bar { display: flex; gap: 4px; }
+.avm-plans-wrapper { padding: 12px; height: 100%; overflow: auto; }
+.avm-plans-table { min-width: 600px; }
+.avm-plan-error { color: #ef4444; font-size: 13px; margin-bottom: 12px; }
+
+/* Dark theme */
+.theme-dark .avm-kanban-card:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+.theme-dark .avm-project-item.avm-overdue,
+.theme-dark .avm-table tr.avm-overdue-row { background: rgba(239, 68, 68, 0.1); }
+.theme-dark .avm-gantt-day-cell.avm-gantt-today { background: rgba(99, 102, 241, 0.3); }
+
+/* Scrollbar */
+.app-version-manager ::-webkit-scrollbar { width: 8px; height: 8px; }
+.app-version-manager ::-webkit-scrollbar-track { background: transparent; }
+.app-version-manager ::-webkit-scrollbar-thumb { background: var(--background-modifier-border); border-radius: 4px; }
+.app-version-manager ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+.theme-dark .app-version-manager ::-webkit-scrollbar-thumb { background: var(--background-modifier-border); }
+.theme-dark .app-version-manager ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+`;
+
+// src/styles/views.ts
+var VIEWS = `
 /* Kanban View */
 .avm-kanban {
   display: flex;
@@ -38943,10 +39009,7 @@ var STYLES = `
   gap: 8px;
 }
 
-.avm-kanban-column-title {
-  font-weight: 600;
-  font-size: 13px;
-}
+.avm-kanban-column-title { font-weight: 600; font-size: 13px; }
 
 .avm-kanban-column-count {
   background: var(--background-modifier-border);
@@ -38956,25 +39019,9 @@ var STYLES = `
   color: var(--text-muted);
 }
 
-.avm-kanban-column-indicator {
-  width: 4px;
-  height: 16px;
-  border-radius: 2px;
-  margin-left: auto;
-}
-
-.avm-kanban-cards {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px;
-}
-
-.avm-kanban-empty {
-  text-align: center;
-  padding: 16px;
-  color: var(--text-muted);
-  font-size: 12px;
-}
+.avm-kanban-column-indicator { width: 4px; height: 16px; border-radius: 2px; margin-left: auto; }
+.avm-kanban-cards { flex: 1; overflow-y: auto; padding: 8px; }
+.avm-kanban-empty { text-align: center; padding: 16px; color: var(--text-muted); font-size: 12px; }
 
 .avm-kanban-card {
   background: var(--background-primary);
@@ -38985,63 +39032,23 @@ var STYLES = `
   cursor: pointer;
   transition: box-shadow 0.15s;
 }
-
-.avm-kanban-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.avm-kanban-card.avm-overdue {
-  border-color: #ef4444;
-}
-
+.avm-kanban-card:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
+.avm-kanban-card.avm-overdue { border-color: #ef4444; }
 .avm-kanban-card.avm-highlighted-row {
   border-color: #ef4444;
   border-width: 2px;
   background: rgba(239, 68, 68, 0.05);
 }
 
-.avm-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 6px;
-}
-
-.avm-card-title {
-  font-weight: 600;
-  font-size: 13px;
-  flex: 1;
-}
-
-.avm-card-version {
-  font-size: 11px;
-  color: var(--text-muted);
-  background: var(--background-modifier-border);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.avm-card-meta {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.avm-card-links {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-}
+.avm-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.avm-card-title { font-weight: 600; font-size: 13px; flex: 1; }
+.avm-card-version { font-size: 11px; color: var(--text-muted); background: var(--background-modifier-border); padding: 2px 6px; border-radius: 4px; }
+.avm-card-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.avm-card-links { display: flex; gap: 8px; margin-top: 6px; }
 
 /* Table View */
-.avm-table-view {
-  height: 100%;
-  overflow: auto;
-}
-
-.avm-table-wrapper {
-  min-width: 100%;
-}
+.avm-table-view { height: 100%; overflow: auto; }
+.avm-table-wrapper { min-width: 100%; }
 
 .avm-table {
   width: 100%;
@@ -39060,451 +39067,60 @@ var STYLES = `
   z-index: 1;
 }
 
-.avm-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  vertical-align: middle;
-}
+.avm-table td { padding: 10px 12px; border-bottom: 1px solid var(--background-modifier-border); vertical-align: middle; }
+.avm-table tr:hover { background: var(--background-modifier-hover); }
+.avm-table tr.avm-overdue-row { background: rgba(239, 68, 68, 0.05); }
+.avm-table tr.avm-overdue-row:hover { background: rgba(239, 68, 68, 0.1); }
+.avm-table tr.avm-highlighted-row { background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; }
+.avm-table tr.avm-highlighted-row:hover { background: rgba(239, 68, 68, 0.15); }
 
-.avm-table tr:hover {
-  background: var(--background-modifier-hover);
-}
+.avm-cell-name { font-weight: 500; }
+.avm-cell-links { display: flex; gap: 8px; }
+.avm-cell-actions { display: flex; gap: 4px; }
 
-.avm-table tr.avm-overdue-row {
-  background: rgba(239, 68, 68, 0.05);
-}
-
-.avm-table tr.avm-overdue-row:hover {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.avm-table tr.avm-highlighted-row {
-  background: rgba(239, 68, 68, 0.1);
-  border-left: 3px solid #ef4444;
-}
-
-.avm-table tr.avm-highlighted-row:hover {
-  background: rgba(239, 68, 68, 0.15);
-}
-
-.avm-cell-name {
-  font-weight: 500;
-}
-
-.avm-cell-links {
-  display: flex;
-  gap: 8px;
-}
-
-.avm-cell-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.avm-btn-small {
-  padding: 4px 8px;
-  border: none;
-  background: var(--background-modifier-border);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.avm-btn-small:hover {
-  background: var(--background-modifier-hover);
-}
-
-.avm-btn-danger:hover {
-  background: rgba(239, 68, 68, 0.2);
-}
-
-/* Icon button */
-.avm-btn-icon {
-  padding: 4px 6px !important;
-  border: none !important;
-  background: transparent !important;
-  cursor: pointer;
-  color: var(--text-muted);
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avm-btn-icon:hover {
-  background: var(--background-modifier-hover) !important;
-  color: var(--text-normal);
-}
-
-/* Modal */
-.avm-modal {
-  padding: 20px;
-}
-
-.avm-modal h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  font-size: 18px;
-}
-
-.avm-modal .setting-item-control input[type="text"],
-.avm-modal .setting-item-control textarea,
-.avm-modal .setting-item-control select {
-  width: 280px;
-}
-
-.avm-modal .setting-item-control textarea {
-  min-height: 60px;
-  resize: vertical;
-}
-
-.avm-modal-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
-/* Tab Bar */
-.avm-tab-bar {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-
-.avm-tab {
-  padding: 6px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: transparent;
-  border: 1px solid transparent;
-  transition: all 0.15s;
-}
-
-.avm-tab:hover {
-  color: var(--text-normal);
-  background: var(--background-modifier-hover);
-}
-
-.avm-tab.avm-tab-active {
-  color: var(--interactive-accent);
-  background: var(--background-secondary);
-  border-color: var(--background-modifier-border);
-}
-
-/* Loading state */
-.avm-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  font-size: 16px;
-  color: var(--text-muted);
-}
-
-/* Error state */
-.avm-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  gap: 12px;
-  color: var(--text-muted);
-}
-
-.avm-error button {
-  padding: 8px 16px;
-  border-radius: 4px;
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border: none;
-  cursor: pointer;
-}
-
-/* Import/Export status */
-.avm-export-status,
-.avm-import-status {
-  margin-top: 12px;
-  padding: 8px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-/* Plan action bar */
-.avm-plan-action-bar {
-  display: flex;
-  gap: 4px;
-}
-
-/* Plans table wrapper */
-.avm-plans-wrapper {
-  padding: 12px;
-  height: 100%;
-  overflow: auto;
-}
-
-.avm-plans-table {
-  min-width: 600px;
-}
-
-.avm-plan-error {
-  color: #ef4444;
-  font-size: 13px;
-  margin-bottom: 12px;
-}
-
-/* Dark theme */
-.theme-dark .avm-kanban-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.theme-dark .avm-project-item.avm-overdue,
-.theme-dark .avm-table tr.avm-overdue-row {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-/* Scrollbar */
-.app-version-manager ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.app-version-manager ::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.app-version-manager ::-webkit-scrollbar-thumb {
-  background: var(--background-modifier-border);
-  border-radius: 4px;
-}
-
-.app-version-manager ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-.theme-dark .app-version-manager ::-webkit-scrollbar-thumb {
-  background: var(--background-modifier-border);
-}
-
-.theme-dark .app-version-manager ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
+.avm-btn-small { padding: 4px 8px; border: none; background: var(--background-modifier-border); border-radius: 4px; cursor: pointer; font-size: 12px; }
+.avm-btn-small:hover { background: var(--background-modifier-hover); }
+.avm-btn-danger:hover { background: rgba(239, 68, 68, 0.2); }
 
 /* Gantt View (disabled \u2014 preserved for future use) */
-.avm-gantt {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
+.avm-gantt { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.avm-gantt-header { padding: 12px; border-bottom: 1px solid var(--background-modifier-border); background: var(--background-primary); }
+.avm-gantt-title { font-size: 16px; font-weight: 600; }
+.avm-gantt-chart { flex: 1; overflow: hidden; display: flex; }
 
-.avm-gantt-header {
-  padding: 12px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  background: var(--background-primary);
-}
+.avm-gantt-sidebar { width: 280px; min-width: 280px; flex-shrink: 0; border-right: 1px solid var(--background-modifier-border); background: var(--background-secondary); display: flex; flex-direction: column; overflow-y: auto; }
+.avm-gantt-timeline-container { flex: 1; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; }
+.avm-gantt-timeline-header { display: flex; position: sticky; top: 0; z-index: 10; background: var(--background-secondary); border-bottom: 1px solid var(--background-modifier-border); }
+.avm-gantt-sidebar-header { height: 40px; min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid var(--background-modifier-border); font-weight: 600; font-size: 13px; background: var(--background-secondary); position: sticky; top: 0; z-index: 10; box-sizing: border-box; }
 
-.avm-gantt-title {
-  font-size: 16px;
-  font-weight: 600;
-}
+.avm-gantt-timeline { display: flex; }
+.avm-gantt-day-cell { height: 40px; display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--background-modifier-border); font-size: 11px; color: var(--text-muted); box-sizing: border-box; }
+.avm-gantt-day-cell.avm-gantt-weekend { background: var(--background-modifier-hover); }
+.avm-gantt-day-cell.avm-gantt-today { background: rgba(99, 102, 241, 0.2); color: var(--interactive-accent); font-weight: 600; }
+.avm-gantt-date-label { white-space: nowrap; }
 
-.avm-gantt-chart {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-}
+.avm-gantt-row { display: flex; border-bottom: 1px solid var(--background-modifier-border); height: 40px; min-height: 40px; align-items: stretch; }
+.avm-gantt-row:hover { background: var(--background-modifier-hover); }
 
-.avm-gantt-sidebar {
-  width: 280px;
-  min-width: 280px;
-  flex-shrink: 0;
-  border-right: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
+.avm-gantt-sidebar-row { width: 280px; min-width: 280px; height: 40px; min-height: 40px; padding: 0 12px; border-right: 1px solid var(--background-modifier-border); display: flex; flex-direction: column; justify-content: center; gap: 2px; background: var(--background-secondary); box-sizing: border-box; }
+.avm-gantt-project-name { font-weight: 500; font-size: 13px; white-space: normal; word-break: break-word; }
+.avm-gantt-project-version { font-size: 11px; color: var(--text-muted); }
 
-.avm-gantt-timeline-container {
-  flex: 1;
-  overflow-x: hidden;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
+.avm-gantt-cells { display: flex; position: relative; overflow: hidden; }
+.avm-gantt-time-cell { width: 40px; min-width: 40px; height: 40px; border-right: 1px solid var(--background-modifier-border); box-sizing: border-box; }
 
-.avm-gantt-timeline-header {
-  display: flex;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--background-secondary);
-  border-bottom: 1px solid var(--background-modifier-border);
-}
+.avm-gantt-bar { position: absolute; height: 24px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; cursor: pointer; transition: opacity 0.15s; overflow: hidden; }
+.avm-gantt-bar:hover { opacity: 0.85; }
+.avm-gantt-bar-label { font-size: 11px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.avm-gantt-empty { text-align: center; padding: 48px; color: var(--text-muted); font-size: 14px; }
 
-.avm-gantt-sidebar-header {
-  height: 40px;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  font-weight: 600;
-  font-size: 13px;
-  background: var(--background-secondary);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  box-sizing: border-box;
-}
+.avm-gantt-project-bar { position: absolute; display: flex; align-items: center; cursor: pointer; transition: opacity 0.15s; overflow: visible; }
+.avm-gantt-project-bar:hover { opacity: 0.85; }
+.avm-gantt-marker { position: absolute; width: 12px; height: 12px; top: 50%; transform: translateX(-50%) translateY(-50%) rotate(45deg); border-radius: 2px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
+`;
 
-.avm-gantt-timeline {
-  display: flex;
-}
-
-.avm-gantt-day-cell {
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid var(--background-modifier-border);
-  font-size: 11px;
-  color: var(--text-muted);
-  box-sizing: border-box;
-}
-
-.avm-gantt-day-cell.avm-gantt-weekend {
-  background: var(--background-modifier-hover);
-}
-
-.avm-gantt-day-cell.avm-gantt-today {
-  background: rgba(99, 102, 241, 0.2);
-  color: var(--interactive-accent);
-  font-weight: 600;
-}
-
-.avm-gantt-date-label {
-  white-space: nowrap;
-}
-
-.avm-gantt-row {
-  display: flex;
-  border-bottom: 1px solid var(--background-modifier-border);
-  height: 40px;
-  min-height: 40px;
-  align-items: stretch;
-}
-
-.avm-gantt-row:hover {
-  background: var(--background-modifier-hover);
-}
-
-.avm-gantt-sidebar-row {
-  width: 280px;
-  min-width: 280px;
-  height: 40px;
-  min-height: 40px;
-  padding: 0 12px;
-  border-right: 1px solid var(--background-modifier-border);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  background: var(--background-secondary);
-  box-sizing: border-box;
-}
-
-.avm-gantt-project-name {
-  font-weight: 500;
-  font-size: 13px;
-  white-space: normal;
-  word-break: break-word;
-}
-
-.avm-gantt-project-version {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.avm-gantt-cells {
-  display: flex;
-  position: relative;
-  overflow: hidden;
-}
-
-.avm-gantt-time-cell {
-  width: 40px;
-  min-width: 40px;
-  height: 40px;
-  border-right: 1px solid var(--background-modifier-border);
-  box-sizing: border-box;
-}
-
-.avm-gantt-bar {
-  position: absolute;
-  height: 24px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  overflow: hidden;
-}
-
-.avm-gantt-bar:hover {
-  opacity: 0.85;
-}
-
-.avm-gantt-bar-label {
-  font-size: 11px;
-  color: white;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.avm-gantt-empty {
-  text-align: center;
-  padding: 48px;
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
-.theme-dark .avm-gantt-day-cell.avm-gantt-today {
-  background: rgba(99, 102, 241, 0.3);
-}
-
-.avm-gantt-project-bar {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  overflow: visible;
-}
-
-.avm-gantt-project-bar:hover {
-  opacity: 0.85;
-}
-
-.avm-gantt-marker {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  top: 50%;
-  transform: translateX(-50%) translateY(-50%) rotate(45deg);
-  border-radius: 2px;
-  border: 2px solid white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
+// src/styles/todo.ts
+var TODO = `
 /* Todo side panel */
 .avm-todo-overlay {
   position: absolute;
@@ -39528,153 +39144,59 @@ var STYLES = `
 }
 .avm-todo-panel.open { transform: translateX(0); }
 
-.avm-todo-panel-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  flex-shrink: 0;
-}
+.avm-todo-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--background-modifier-border); flex-shrink: 0; }
 .avm-todo-panel-title { font-weight: 600; font-size: 15px; }
-.avm-todo-panel-close {
-  cursor: pointer; border: none; background: none;
-  font-size: 18px; color: var(--text-muted); padding: 4px 8px;
-}
+.avm-todo-panel-close { cursor: pointer; border: none; background: none; font-size: 18px; color: var(--text-muted); padding: 4px 8px; }
 
-.avm-todo-list {
-  flex: 1; overflow-y: auto; padding: 8px 0;
-}
-.avm-todo-empty {
-  text-align: center; color: var(--text-muted);
-  padding: 40px 16px; font-size: 14px;
-}
+.avm-todo-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+.avm-todo-empty { text-align: center; color: var(--text-muted); padding: 40px 16px; font-size: 14px; }
 
-.avm-todo-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 16px; border-bottom: 1px solid var(--background-modifier-border-hover);
-}
+.avm-todo-item { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--background-modifier-border-hover); }
 .avm-todo-item.overdue { border-left: 3px solid #ef4444; }
 .avm-todo-item.completed .avm-todo-content { text-decoration: line-through; color: var(--text-muted); }
 
-.avm-todo-checkbox {
-  flex-shrink: 0; width: 16px; height: 16px;
-  cursor: pointer;
-}
-.avm-todo-content {
-  flex: 1; font-size: 13px; cursor: pointer;
-}
-.avm-todo-due {
-  font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0;
-  cursor: pointer;
-}
+.avm-todo-checkbox { flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; }
+.avm-todo-content { flex: 1; font-size: 13px; cursor: pointer; }
+.avm-todo-due { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; cursor: pointer; }
 .avm-todo-due.overdue { color: #ef4444; font-weight: 600; }
-.avm-todo-link {
-  flex-shrink: 0; cursor: pointer; color: var(--text-accent);
-  font-size: 14px; opacity: 0.7;
-}
+.avm-todo-link { flex-shrink: 0; cursor: pointer; color: var(--text-accent); font-size: 14px; opacity: 0.7; }
 .avm-todo-link:hover { opacity: 1; }
-.avm-todo-delete {
-  flex-shrink: 0; cursor: pointer; color: var(--text-muted);
-  font-size: 12px; opacity: 0; padding: 2px 4px;
-}
+.avm-todo-delete { flex-shrink: 0; cursor: pointer; color: var(--text-muted); font-size: 12px; opacity: 0; padding: 2px 4px; }
 .avm-todo-item:hover .avm-todo-delete { opacity: 0.6; }
 .avm-todo-delete:hover { opacity: 1 !important; color: #ef4444; }
 
-.avm-todo-display-wrap {
-  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
-}
-.avm-todo-edit-btn {
-  flex-shrink: 0; cursor: pointer; color: var(--text-muted);
-  font-size: 12px; opacity: 0; padding: 2px 4px;
-}
+.avm-todo-display-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.avm-todo-edit-btn { flex-shrink: 0; cursor: pointer; color: var(--text-muted); font-size: 12px; opacity: 0; padding: 2px 4px; }
 .avm-todo-item:hover .avm-todo-edit-btn { opacity: 0.6; }
 .avm-todo-edit-btn:hover { opacity: 1 !important; color: var(--interactive-accent); }
 
-.avm-todo-edit-container {
-  display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0;
-}
-.avm-todo-edit-content {
-  padding: 4px 8px; font-size: 13px;
-  border: 1px solid var(--interactive-accent);
-  border-radius: 4px; background: var(--background-primary);
-}
-.avm-todo-edit-row {
-  display: flex; gap: 6px;
-}
-.avm-todo-edit-btns {
-  display: flex; gap: 6px; justify-content: flex-end;
-}
-.avm-todo-save-btn {
-  padding: 3px 12px; font-size: 12px;
-  background: var(--interactive-accent); color: white;
-  border: none; border-radius: 4px; cursor: pointer;
-}
-.avm-todo-cancel-btn {
-  padding: 3px 12px; font-size: 12px;
-  background: var(--background-modifier-hover); color: var(--text-muted);
-  border: none; border-radius: 4px; cursor: pointer;
-}
+.avm-todo-edit-container { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.avm-todo-edit-content { padding: 4px 8px; font-size: 13px; border: 1px solid var(--interactive-accent); border-radius: 4px; background: var(--background-primary); }
+.avm-todo-edit-row { display: flex; gap: 6px; }
+.avm-todo-edit-btns { display: flex; gap: 6px; justify-content: flex-end; }
+.avm-todo-save-btn { padding: 3px 12px; font-size: 12px; background: var(--interactive-accent); color: white; border: none; border-radius: 4px; cursor: pointer; }
+.avm-todo-cancel-btn { padding: 3px 12px; font-size: 12px; background: var(--background-modifier-hover); color: var(--text-muted); border: none; border-radius: 4px; cursor: pointer; }
 
-.avm-todo-footer {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--background-modifier-border);
-  flex-shrink: 0;
-}
-.avm-todo-input-row {
-  display: flex; gap: 8px;
-}
-.avm-todo-input {
-  flex: 1; padding: 6px 10px; font-size: 13px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px; background: var(--background-primary);
-}
-.avm-todo-extra-row {
-  display: flex; gap: 8px;
-}
-.avm-todo-input-link {
-  flex: 1; padding: 5px 8px; font-size: 12px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px; background: var(--background-primary);
-}
-.avm-todo-input-date {
-  width: 140px; padding: 5px 8px; font-size: 12px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px; background: var(--background-primary);
-  flex-shrink: 0;
-}
-.avm-todo-add-btn {
-  padding: 6px 14px; font-size: 13px;
-  background: var(--interactive-accent); color: white;
-  border: none; border-radius: 4px; cursor: pointer;
-}
+.avm-todo-footer { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--background-modifier-border); flex-shrink: 0; }
+.avm-todo-input-row { display: flex; gap: 8px; }
+.avm-todo-input { flex: 1; padding: 6px 10px; font-size: 13px; border: 1px solid var(--background-modifier-border); border-radius: 4px; background: var(--background-primary); }
+.avm-todo-extra-row { display: flex; gap: 8px; }
+.avm-todo-input-link { flex: 1; padding: 5px 8px; font-size: 12px; border: 1px solid var(--background-modifier-border); border-radius: 4px; background: var(--background-primary); }
+.avm-todo-input-date { width: 140px; padding: 5px 8px; font-size: 12px; border: 1px solid var(--background-modifier-border); border-radius: 4px; background: var(--background-primary); flex-shrink: 0; }
+.avm-todo-add-btn { padding: 6px 14px; font-size: 13px; background: var(--interactive-accent); color: white; border: none; border-radius: 4px; cursor: pointer; }
 
 /* Todo badge on project cards */
-.avm-todo-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px; border-radius: 10px;
-  font-size: 11px; cursor: pointer;
-  background: var(--background-modifier-hover);
-  color: var(--text-muted);
-}
-.avm-todo-badge.has-overdue {
-  background: #fef2f2; color: #ef4444;
-}
+.avm-todo-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 11px; cursor: pointer; background: var(--background-modifier-hover); color: var(--text-muted); }
+.avm-todo-badge.has-overdue { background: #fef2f2; color: #ef4444; }
+`;
 
+// src/styles/archived.ts
+var ARCHIVED = `
 /* Archived projects view */
-.avm-archived-search-bar {
-  padding: 12px;
-  border-bottom: 1px solid var(--background-modifier-border);
-}
-.avm-archived-list {
-  padding: 12px;
-  overflow-y: auto;
-  height: calc(100% - 60px);
-}
-.avm-archived-items {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+.avm-archived-search-bar { padding: 12px; border-bottom: 1px solid var(--background-modifier-border); }
+.avm-archived-list { padding: 12px; overflow-y: auto; height: calc(100% - 60px); }
+.avm-archived-items { display: flex; flex-direction: column; gap: 8px; }
+
 .avm-archived-item {
   display: flex;
   align-items: center;
@@ -39684,33 +39206,20 @@ var STYLES = `
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
 }
-.avm-archived-item:hover {
-  background: var(--background-modifier-hover);
-}
-.avm-archived-name {
-  font-weight: 600;
-  min-width: 180px;
-}
-.avm-archived-manager {
-  color: var(--text-muted);
-  font-size: 13px;
-  min-width: 100px;
-}
-.avm-archived-date {
-  color: var(--text-muted);
-  font-size: 12px;
-  min-width: 120px;
-}
-.avm-archived-app {
-  color: var(--interactive-accent);
-  font-size: 12px;
-}
-.avm-archived-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 4px;
-}
+.avm-archived-item:hover { background: var(--background-modifier-hover); }
+
+.avm-archived-name { font-weight: 600; min-width: 180px; }
+.avm-archived-manager { color: var(--text-muted); font-size: 13px; min-width: 100px; }
+.avm-archived-date { color: var(--text-muted); font-size: 12px; min-width: 120px; }
+.avm-archived-app { color: var(--interactive-accent); font-size: 12px; }
+.avm-archived-actions { margin-left: auto; display: flex; gap: 4px; }
 `;
+
+// src/styles.ts
+var STYLES = `${COMMON}
+${VIEWS}
+${TODO}
+${ARCHIVED}`;
 
 // src/main.ts
 var STYLE_ID = "app-version-manager-styles";
@@ -39725,10 +39234,7 @@ var AppVersionManagerPlugin = class extends import_obsidian22.Plugin {
     this.dataService = new DataService(this.app, this);
     this.backupService = new BackupService(this.app, this);
     this.todoService = new TodoService(this);
-    this.registerView(
-      VIEW_TYPE_APP_VERSION_MANAGER,
-      (leaf) => new AppVersionManagerView(leaf, this)
-    );
+    this.registerView(VIEW_TYPE_APP_VERSION_MANAGER, (leaf) => new AppVersionManagerView(leaf, this));
     this.addRibbonIcon("layers", "APP Version Manager", () => {
       this.activateView();
     });
@@ -39818,71 +39324,87 @@ var AppVersionManagerSettingTab = class extends import_obsidian22.PluginSettingT
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian22.Setting(containerEl).setName("\u6570\u636E\u5B58\u50A8\u8DEF\u5F84").setDesc("\u8BBE\u7F6E\u63D2\u4EF6\u6570\u636E\u5B58\u50A8\u7684\u6839\u76EE\u5F55\u8DEF\u5F84\u3002\u652F\u6301\u76F8\u5BF9\u8DEF\u5F84\uFF08\u76F8\u5BF9\u4E8Evault\u6839\u76EE\u5F55\uFF09\u6216\u7EDD\u5BF9\u8DEF\u5F84").addText((text) => text.setPlaceholder("app-version-manager \u6216 C:\\MyData\\app-versions").setValue(this.plugin.settings.dataPath).onChange(async (value) => {
-      const newPath = value.trim() || "app-version-manager";
-      if (newPath !== this.plugin.settings.dataPath) {
-        this.plugin.settings.dataPath = newPath;
-        await this.plugin.saveSettings();
-        this.plugin.dataService = new DataService(this.app, this.plugin);
-      }
-    }));
-    new import_obsidian22.Setting(containerEl).setName("\u6253\u5F00\u6570\u636E\u76EE\u5F55").setDesc("\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u6253\u5F00\u6570\u636E\u5B58\u50A8\u76EE\u5F55").addButton((btn) => btn.setButtonText("\u6253\u5F00\u6570\u636E\u76EE\u5F55").onClick(() => {
-      const dataPath = this.plugin.settings.dataPath;
-      if (this.plugin.dataService.isAbsolutePath()) {
-        new import_obsidian22.Notice(`\u6570\u636E\u5B58\u50A8\u8DEF\u5F84: ${dataPath}
+    new import_obsidian22.Setting(containerEl).setName("\u6570\u636E\u5B58\u50A8\u8DEF\u5F84").setDesc("\u8BBE\u7F6E\u63D2\u4EF6\u6570\u636E\u5B58\u50A8\u7684\u6839\u76EE\u5F55\u8DEF\u5F84\u3002\u652F\u6301\u76F8\u5BF9\u8DEF\u5F84\uFF08\u76F8\u5BF9\u4E8Evault\u6839\u76EE\u5F55\uFF09\u6216\u7EDD\u5BF9\u8DEF\u5F84").addText(
+      (text) => text.setPlaceholder("app-version-manager \u6216 C:\\MyData\\app-versions").setValue(this.plugin.settings.dataPath).onChange(async (value) => {
+        const newPath = value.trim() || "app-version-manager";
+        if (newPath !== this.plugin.settings.dataPath) {
+          this.plugin.settings.dataPath = newPath;
+          await this.plugin.saveSettings();
+          this.plugin.dataService = new DataService(this.app, this.plugin);
+        }
+      })
+    );
+    new import_obsidian22.Setting(containerEl).setName("\u6253\u5F00\u6570\u636E\u76EE\u5F55").setDesc("\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u6253\u5F00\u6570\u636E\u5B58\u50A8\u76EE\u5F55").addButton(
+      (btn) => btn.setButtonText("\u6253\u5F00\u6570\u636E\u76EE\u5F55").onClick(() => {
+        const dataPath = this.plugin.settings.dataPath;
+        if (this.plugin.dataService.isAbsolutePath()) {
+          new import_obsidian22.Notice(`\u6570\u636E\u5B58\u50A8\u8DEF\u5F84: ${dataPath}
 
 \u8BF7\u624B\u52A8\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u6253\u5F00\u6B64\u8DEF\u5F84\u3002`);
-      } else {
-        const dataFolder = this.app.vault.getAbstractFileByPath(dataPath);
-        if (dataFolder) {
-          const appWithShowInFolder = this.app;
-          if (typeof appWithShowInFolder.showInFolder === "function") {
-            appWithShowInFolder.showInFolder(dataFolder.path);
-          } else {
-            new import_obsidian22.Notice("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u6253\u5F00\u7CFB\u7EDF\u6587\u4EF6\u7BA1\u7406\u5668");
-          }
         } else {
-          new import_obsidian22.Notice("\u6570\u636E\u76EE\u5F55\u5C1A\u672A\u521B\u5EFA\uFF0C\u8BF7\u5148\u521B\u5EFA\u4E00\u4E9B\u6570\u636E\u540E\u518D\u8BD5");
+          const dataFolder = this.app.vault.getAbstractFileByPath(dataPath);
+          if (dataFolder) {
+            const appWithShowInFolder = this.app;
+            if (typeof appWithShowInFolder.showInFolder === "function") {
+              appWithShowInFolder.showInFolder(dataFolder.path);
+            } else {
+              new import_obsidian22.Notice("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u6253\u5F00\u7CFB\u7EDF\u6587\u4EF6\u7BA1\u7406\u5668");
+            }
+          } else {
+            new import_obsidian22.Notice("\u6570\u636E\u76EE\u5F55\u5C1A\u672A\u521B\u5EFA\uFF0C\u8BF7\u5148\u521B\u5EFA\u4E00\u4E9B\u6570\u636E\u540E\u518D\u8BD5");
+          }
         }
-      }
-    }));
-    new import_obsidian22.Setting(containerEl).setName("\u81EA\u52A8\u5907\u4EFD").setDesc("\u542F\u7528\u81EA\u52A8\u6BCF\u5468\u5907\u4EFD").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoBackup).onChange(async (value) => {
-      this.plugin.settings.autoBackup = value;
-      await this.plugin.saveSettings();
-      if (value) {
-        this.plugin.backupService.scheduleBackup();
-      } else {
-        this.plugin.backupService.clearBackupSchedule();
-      }
-    }));
-    new import_obsidian22.Setting(containerEl).setName("\u5907\u4EFD\u8DEF\u5F84").setDesc("\u5907\u4EFD\u6587\u4EF6\u5B58\u50A8\u8DEF\u5F84\uFF0C\u4E0D\u586B\u5219\u9ED8\u8BA4\u4E3A\u7B14\u8BB0\u6839\u76EE\u5F55\u4E0B\u7684 app-version-manager/backups \u6587\u4EF6\u5939").addText((text) => text.setPlaceholder("app-version-manager/backups \u6216\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\u8DEF\u5F84").setValue(this.plugin.settings.backupPath).onChange(async (value) => {
-      this.plugin.settings.backupPath = value.trim();
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian22.Setting(containerEl).setName("\u624B\u52A8\u5907\u4EFD").setDesc("\u7ACB\u5373\u521B\u5EFA\u4E00\u4E2A\u5907\u4EFD\u6587\u4EF6").addButton((btn) => btn.setButtonText("\u7ACB\u5373\u5907\u4EFD").onClick(async () => {
-      try {
-        const backupPath = await this.plugin.backupService.performBackup();
-        new import_obsidian22.Notice(`\u5907\u4EFD\u6210\u529F\uFF01
+      })
+    );
+    new import_obsidian22.Setting(containerEl).setName("\u81EA\u52A8\u5907\u4EFD").setDesc("\u542F\u7528\u81EA\u52A8\u6BCF\u5468\u5907\u4EFD").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.autoBackup).onChange(async (value) => {
+        this.plugin.settings.autoBackup = value;
+        await this.plugin.saveSettings();
+        if (value) {
+          this.plugin.backupService.scheduleBackup();
+        } else {
+          this.plugin.backupService.clearBackupSchedule();
+        }
+      })
+    );
+    new import_obsidian22.Setting(containerEl).setName("\u5907\u4EFD\u8DEF\u5F84").setDesc("\u5907\u4EFD\u6587\u4EF6\u5B58\u50A8\u8DEF\u5F84\uFF0C\u4E0D\u586B\u5219\u9ED8\u8BA4\u4E3A\u7B14\u8BB0\u6839\u76EE\u5F55\u4E0B\u7684 app-version-manager/backups \u6587\u4EF6\u5939").addText(
+      (text) => text.setPlaceholder("app-version-manager/backups \u6216\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\u8DEF\u5F84").setValue(this.plugin.settings.backupPath).onChange(async (value) => {
+        this.plugin.settings.backupPath = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian22.Setting(containerEl).setName("\u624B\u52A8\u5907\u4EFD").setDesc("\u7ACB\u5373\u521B\u5EFA\u4E00\u4E2A\u5907\u4EFD\u6587\u4EF6").addButton(
+      (btn) => btn.setButtonText("\u7ACB\u5373\u5907\u4EFD").onClick(async () => {
+        try {
+          const backupPath = await this.plugin.backupService.performBackup();
+          new import_obsidian22.Notice(`\u5907\u4EFD\u6210\u529F\uFF01
 \u5907\u4EFD\u6587\u4EF6\uFF1A${backupPath}`);
-      } catch (error) {
-        new import_obsidian22.Notice(`\u5907\u4EFD\u5931\u8D25\uFF1A${error instanceof Error ? error.message : String(error)}`);
-      }
-    }));
-    new import_obsidian22.Setting(containerEl).setName("\u5907\u4EFD\u65E5").setDesc("\u6BCF\u5468\u5907\u4EFD\u65E5\uFF080=\u5468\u65E5\uFF0C5=\u5468\u4E94\uFF09").addSlider((slider) => slider.setLimits(0, 6, 1).setValue(this.plugin.settings.backupDay).setDynamicTooltip().onChange(async (value) => {
-      this.plugin.settings.backupDay = value;
-      await this.plugin.saveSettings();
-      this.plugin.backupService.scheduleBackup();
-    }));
-    new import_obsidian22.Setting(containerEl).setName("\u5907\u4EFD\u65F6\u95F4").setDesc("\u6BCF\u5929\u5907\u4EFD\u65F6\u95F4\uFF080-23\u65F6\uFF09").addSlider((slider) => slider.setLimits(0, 23, 1).setValue(this.plugin.settings.backupHour).setDynamicTooltip().onChange(async (value) => {
-      this.plugin.settings.backupHour = value;
-      await this.plugin.saveSettings();
-      this.plugin.backupService.scheduleBackup();
-    }));
+        } catch (error) {
+          new import_obsidian22.Notice(`\u5907\u4EFD\u5931\u8D25\uFF1A${error instanceof Error ? error.message : String(error)}`);
+        }
+      })
+    );
+    new import_obsidian22.Setting(containerEl).setName("\u5907\u4EFD\u65E5").setDesc("\u6BCF\u5468\u5907\u4EFD\u65E5\uFF080=\u5468\u65E5\uFF0C5=\u5468\u4E94\uFF09").addSlider(
+      (slider) => slider.setLimits(0, 6, 1).setValue(this.plugin.settings.backupDay).setDynamicTooltip().onChange(async (value) => {
+        this.plugin.settings.backupDay = value;
+        await this.plugin.saveSettings();
+        this.plugin.backupService.scheduleBackup();
+      })
+    );
+    new import_obsidian22.Setting(containerEl).setName("\u5907\u4EFD\u65F6\u95F4").setDesc("\u6BCF\u5929\u5907\u4EFD\u65F6\u95F4\uFF080-23\u65F6\uFF09").addSlider(
+      (slider) => slider.setLimits(0, 23, 1).setValue(this.plugin.settings.backupHour).setDynamicTooltip().onChange(async (value) => {
+        this.plugin.settings.backupHour = value;
+        await this.plugin.saveSettings();
+        this.plugin.backupService.scheduleBackup();
+      })
+    );
     containerEl.createEl("h3", { text: "\u5EF6\u671F\u9884\u8B66\u8BBE\u7F6E" });
-    new import_obsidian22.Setting(containerEl).setName("\u9884\u8B66\u5929\u6570").setDesc("\u9879\u76EE\u5728\u622A\u6B62\u65E5\u671F\u524D\u591A\u5C11\u5929\u5185\u663E\u793A\u9884\u8B66\uFF081-14\u5929\uFF09").addSlider((slider) => slider.setLimits(1, 14, 1).setValue(this.plugin.settings.overdueWarningDays).setDynamicTooltip().onChange(async (value) => {
-      this.plugin.settings.overdueWarningDays = value;
-      await this.plugin.saveSettings();
-    }));
+    new import_obsidian22.Setting(containerEl).setName("\u9884\u8B66\u5929\u6570").setDesc("\u9879\u76EE\u5728\u622A\u6B62\u65E5\u671F\u524D\u591A\u5C11\u5929\u5185\u663E\u793A\u9884\u8B66\uFF081-14\u5929\uFF09").addSlider(
+      (slider) => slider.setLimits(1, 14, 1).setValue(this.plugin.settings.overdueWarningDays).setDynamicTooltip().onChange(async (value) => {
+        this.plugin.settings.overdueWarningDays = value;
+        await this.plugin.saveSettings();
+      })
+    );
     containerEl.createEl("h3", { text: "\u81EA\u52A8\u5237\u65B0\u8BBE\u7F6E" });
     new import_obsidian22.Setting(containerEl).setName("\u81EA\u52A8\u5237\u65B0\u95F4\u9694").setDesc("\u81EA\u52A8\u5237\u65B0\u5F53\u524D\u89C6\u56FE\u6570\u636E\u7684\u65F6\u95F4\u95F4\u9694\uFF080=\u5173\u95ED\uFF09").addDropdown((dropdown) => {
       dropdown.addOption("0", "\u5173\u95ED");
@@ -39902,19 +39424,23 @@ var AppVersionManagerSettingTab = class extends import_obsidian22.PluginSettingT
     progressDesc.style.fontSize = "13px";
     progressDesc.setText("\u81EA\u5B9A\u4E49\u9879\u76EE\u8FDB\u5EA6\u7684\u5404\u4E2A\u9636\u6BB5\u540D\u79F0\u548C\u989C\u8272\u3002\u9636\u6BB5\u7684\u987A\u5E8F\u5373\u4E3A\u9879\u76EE\u6D41\u7A0B\u7684\u987A\u5E8F\u3002");
     this.renderProgressStagesSettings(containerEl);
-    new import_obsidian22.Setting(containerEl).setName("\u6DFB\u52A0\u65B0\u9636\u6BB5").addButton((btn) => btn.setButtonText("\u6DFB\u52A0\u9636\u6BB5").onClick(async () => {
-      const stages = this.plugin.settings.progressStages;
-      const newColor = this.generateRandomColor();
-      stages.push({ name: `\u65B0\u9636\u6BB5${stages.length + 1}`, color: newColor });
-      this.plugin.settings.progressStages = stages;
-      await this.plugin.saveSettings();
-      this.display();
-    }));
-    new import_obsidian22.Setting(containerEl).setName("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u9636\u6BB5").setDesc("\u6062\u590D\u9ED8\u8BA4\u7684\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E").addButton((btn) => btn.setButtonText("\u91CD\u7F6E").setWarning().onClick(async () => {
-      this.plugin.settings.progressStages = JSON.parse(JSON.stringify(DEFAULT_PROGRESS_STAGES));
-      await this.plugin.saveSettings();
-      this.display();
-    }));
+    new import_obsidian22.Setting(containerEl).setName("\u6DFB\u52A0\u65B0\u9636\u6BB5").addButton(
+      (btn) => btn.setButtonText("\u6DFB\u52A0\u9636\u6BB5").onClick(async () => {
+        const stages = this.plugin.settings.progressStages;
+        const newColor = this.generateRandomColor();
+        stages.push({ name: `\u65B0\u9636\u6BB5${stages.length + 1}`, color: newColor });
+        this.plugin.settings.progressStages = stages;
+        await this.plugin.saveSettings();
+        this.display();
+      })
+    );
+    new import_obsidian22.Setting(containerEl).setName("\u91CD\u7F6E\u4E3A\u9ED8\u8BA4\u9636\u6BB5").setDesc("\u6062\u590D\u9ED8\u8BA4\u7684\u9879\u76EE\u8FDB\u5EA6\u9636\u6BB5\u914D\u7F6E").addButton(
+      (btn) => btn.setButtonText("\u91CD\u7F6E").setWarning().onClick(async () => {
+        this.plugin.settings.progressStages = JSON.parse(JSON.stringify(DEFAULT_PROGRESS_STAGES));
+        await this.plugin.saveSettings();
+        this.display();
+      })
+    );
     containerEl.createEl("h3", { text: "\u9ED8\u8BA4\u5F85\u529E\u8BBE\u7F6E" });
     const defaultTodoDesc = containerEl.createDiv({ cls: "avm-default-todo-desc" });
     defaultTodoDesc.style.marginBottom = "12px";
@@ -39927,67 +39453,83 @@ var AppVersionManagerSettingTab = class extends import_obsidian22.PluginSettingT
     const stages = this.plugin.settings.progressStages;
     stages.forEach((stage, index) => {
       const setting = new import_obsidian22.Setting(containerEl).setName(`\u9636\u6BB5 ${index + 1}`).setClass("avm-progress-stage-setting");
-      setting.addText((text) => text.setValue(stage.name).setPlaceholder("\u9636\u6BB5\u540D\u79F0").onChange(async (value) => {
-        stages[index].name = value;
-        this.plugin.settings.progressStages = stages;
-        await this.plugin.saveSettings();
-      }));
-      setting.addColorPicker((picker) => picker.setValue(stage.color).onChange(async (value) => {
-        stages[index].color = value;
-        this.plugin.settings.progressStages = stages;
-        await this.plugin.saveSettings();
-      }));
-      if (stages.length > 1) {
-        setting.addExtraButton((btn) => btn.setIcon("arrow-up").setTooltip("\u4E0A\u79FB").onClick(async () => {
-          if (index > 0) {
-            [stages[index - 1], stages[index]] = [stages[index], stages[index - 1]];
-            this.plugin.settings.progressStages = stages;
-            await this.plugin.saveSettings();
-            this.display();
-          }
-        }));
-        setting.addExtraButton((btn) => btn.setIcon("arrow-down").setTooltip("\u4E0B\u79FB").onClick(async () => {
-          if (index < stages.length - 1) {
-            [stages[index], stages[index + 1]] = [stages[index + 1], stages[index]];
-            this.plugin.settings.progressStages = stages;
-            await this.plugin.saveSettings();
-            this.display();
-          }
-        }));
-      }
-      setting.addExtraButton((btn) => btn.setIcon("trash").setTooltip("\u5220\u9664").onClick(async () => {
-        if (stages.length > 1) {
-          stages.splice(index, 1);
+      setting.addText(
+        (text) => text.setValue(stage.name).setPlaceholder("\u9636\u6BB5\u540D\u79F0").onChange(async (value) => {
+          stages[index].name = value;
           this.plugin.settings.progressStages = stages;
           await this.plugin.saveSettings();
-          this.display();
-        } else {
-          new import_obsidian22.Notice("\u81F3\u5C11\u9700\u8981\u4FDD\u7559\u4E00\u4E2A\u9636\u6BB5");
-        }
-      }));
+        })
+      );
+      setting.addColorPicker(
+        (picker) => picker.setValue(stage.color).onChange(async (value) => {
+          stages[index].color = value;
+          this.plugin.settings.progressStages = stages;
+          await this.plugin.saveSettings();
+        })
+      );
+      if (stages.length > 1) {
+        setting.addExtraButton(
+          (btn) => btn.setIcon("arrow-up").setTooltip("\u4E0A\u79FB").onClick(async () => {
+            if (index > 0) {
+              [stages[index - 1], stages[index]] = [stages[index], stages[index - 1]];
+              this.plugin.settings.progressStages = stages;
+              await this.plugin.saveSettings();
+              this.display();
+            }
+          })
+        );
+        setting.addExtraButton(
+          (btn) => btn.setIcon("arrow-down").setTooltip("\u4E0B\u79FB").onClick(async () => {
+            if (index < stages.length - 1) {
+              [stages[index], stages[index + 1]] = [stages[index + 1], stages[index]];
+              this.plugin.settings.progressStages = stages;
+              await this.plugin.saveSettings();
+              this.display();
+            }
+          })
+        );
+      }
+      setting.addExtraButton(
+        (btn) => btn.setIcon("trash").setTooltip("\u5220\u9664").onClick(async () => {
+          if (stages.length > 1) {
+            stages.splice(index, 1);
+            this.plugin.settings.progressStages = stages;
+            await this.plugin.saveSettings();
+            this.display();
+          } else {
+            new import_obsidian22.Notice("\u81F3\u5C11\u9700\u8981\u4FDD\u7559\u4E00\u4E2A\u9636\u6BB5");
+          }
+        })
+      );
     });
   }
   renderDefaultTodosSettings(containerEl) {
     const todos = this.plugin.settings.defaultTodos;
     todos.forEach((todo, index) => {
       const setting = new import_obsidian22.Setting(containerEl).setClass("avm-default-todo-setting");
-      setting.addText((text) => text.setValue(todo.content).setPlaceholder("\u5F85\u529E\u5185\u5BB9").onChange(async (value) => {
-        todos[index].content = value;
-        await this.plugin.saveSettings();
-      }));
-      setting.addExtraButton((btn) => btn.setIcon("trash").setTooltip("\u5220\u9664").onClick(async () => {
-        todos.splice(index, 1);
+      setting.addText(
+        (text) => text.setValue(todo.content).setPlaceholder("\u5F85\u529E\u5185\u5BB9").onChange(async (value) => {
+          todos[index].content = value;
+          await this.plugin.saveSettings();
+        })
+      );
+      setting.addExtraButton(
+        (btn) => btn.setIcon("trash").setTooltip("\u5220\u9664").onClick(async () => {
+          todos.splice(index, 1);
+          this.plugin.settings.defaultTodos = todos;
+          await this.plugin.saveSettings();
+          this.display();
+        })
+      );
+    });
+    new import_obsidian22.Setting(containerEl).setName("\u6DFB\u52A0\u9ED8\u8BA4\u5F85\u529E").addButton(
+      (btn) => btn.setButtonText("\u6DFB\u52A0").onClick(async () => {
+        todos.push({ content: "", link: "", dueDate: "" });
         this.plugin.settings.defaultTodos = todos;
         await this.plugin.saveSettings();
         this.display();
-      }));
-    });
-    new import_obsidian22.Setting(containerEl).setName("\u6DFB\u52A0\u9ED8\u8BA4\u5F85\u529E").addButton((btn) => btn.setButtonText("\u6DFB\u52A0").onClick(async () => {
-      todos.push({ content: "", link: "", dueDate: "" });
-      this.plugin.settings.defaultTodos = todos;
-      await this.plugin.saveSettings();
-      this.display();
-    }));
+      })
+    );
   }
   generateRandomColor() {
     const colors = ["#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#3b82f6", "#10b981", "#ef4444", "#f97316", "#14b8a6", "#64748b"];

@@ -41,6 +41,14 @@ export class DataService {
     this.cache = new DataCache(30000);
   }
 
+  /** 原地更新 projects:all 缓存，避免全量重读 */
+  private updateProjectsAllCache(updater: (projects: Project[]) => Project[]): void {
+    const cached = this.cache.get<Project[]>('projects:all');
+    if (cached) {
+      this.cache.set('projects:all', updater(cached));
+    }
+  }
+
   private getDataPath(): string {
     return this.plugin.settings.dataPath || 'app-version-manager';
   }
@@ -680,6 +688,7 @@ export class DataService {
         requirements: frontmatter.requirements ?? '',
         progress: frontmatter.progress ?? getFirstProgress(this.plugin.settings.progressStages),
         progressHistory: parseProgressHistory(frontmatter.progressHistory),
+        isArchived: frontmatter.isArchived === true,
         b1IntegrationTestTime: frontmatter.b1IntegrationTestTime ?? '',
         b1SystemTestTime: frontmatter.b1SystemTestTime ?? '',
         b2IntegrationTestTime: frontmatter.b2IntegrationTestTime ?? '',
@@ -746,6 +755,7 @@ export class DataService {
           changedAt: now,
         },
       ],
+      isArchived: false,
       b1IntegrationTestTime: data.b1IntegrationTestTime || '',
       b1SystemTestTime: data.b1SystemTestTime || '',
       b2IntegrationTestTime: data.b2IntegrationTestTime || '',
@@ -772,6 +782,7 @@ export class DataService {
       requirements: project.requirements,
       progress: project.progress,
       progressHistory: project.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
+      isArchived: project.isArchived,
       b1IntegrationTestTime: project.b1IntegrationTestTime,
       b1SystemTestTime: project.b1SystemTestTime,
       b2IntegrationTestTime: project.b2IntegrationTestTime,
@@ -796,7 +807,8 @@ export class DataService {
 
     await this.writeFile(projectFilePath, frontmatter);
     await this.writeFile(memoFilePath, '');
-    this.cache.invalidate('projects:all');
+    this.updateProjectsAllCache((projects) => [...projects, project]);
+    this.cache.set(`project:${project.id}`, project);
 
     // Create default todos for the new project
     const defaultTodos = this.plugin.settings.defaultTodos;
@@ -838,6 +850,11 @@ export class DataService {
 
     if (progressChanged && data.progress) {
       updatedProject.progressHistory = [...project.progressHistory, { progress: data.progress, changedAt: Date.now().toString() }];
+      // 到达最后一个阶段时自动归档
+      const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
+      if (lastProgress && data.progress === lastProgress) {
+        updatedProject.isArchived = true;
+      }
     }
 
     const frontmatter = createFrontmatter({
@@ -852,6 +869,7 @@ export class DataService {
       requirements: updatedProject.requirements,
       progress: updatedProject.progress,
       progressHistory: updatedProject.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
+      isArchived: updatedProject.isArchived,
       b1IntegrationTestTime: updatedProject.b1IntegrationTestTime,
       b1SystemTestTime: updatedProject.b1SystemTestTime,
       b2IntegrationTestTime: updatedProject.b2IntegrationTestTime,
@@ -917,7 +935,8 @@ export class DataService {
       }
     }
 
-    this.cache.invalidate('projects:all');
+    this.updateProjectsAllCache((projects) => projects.map((p) => (p.id === updatedProject.id ? updatedProject : p)));
+    this.cache.set(`project:${updatedProject.id}`, updatedProject);
     return updatedProject;
   }
 
@@ -980,7 +999,8 @@ export class DataService {
       await this.deleteFile(memoFile);
     }
 
-    this.cache.invalidate('projects:all');
+    this.updateProjectsAllCache((projects) => projects.filter((p) => p.id !== id));
+    this.cache.invalidate(`project:${id}`);
     return true;
   }
 
@@ -999,6 +1019,10 @@ export class DataService {
     }
 
     this.cache.set(cacheKey, projects);
+    // 同时也缓存每个项目用于单实体查询
+    for (const project of projects) {
+      this.cache.set(`project:${project.id}`, project);
+    }
     return projects;
   }
 
@@ -1015,6 +1039,8 @@ export class DataService {
   }
 
   async getProjectById(id: string): Promise<Project | null> {
+    const cached = this.cache.get<Project>(`project:${id}`);
+    if (cached) return cached;
     const allProjects = await this.getAllProjects();
     return allProjects.find((p) => p.id === id) || null;
   }

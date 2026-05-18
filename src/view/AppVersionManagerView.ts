@@ -460,11 +460,13 @@ export class AppVersionManagerView extends ItemView {
     // this.projects 已在 loadData() 中按 app 过滤，无需再次过滤 appVersionIds
     let projects = this.projects;
 
-    // 排除已归档项目（最后一个进度阶段）
+    // 排除已归档项目
     const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
-    if (lastProgress) {
-      projects = projects.filter((p) => p.progress !== lastProgress);
-    }
+    projects = projects.filter((p) => {
+      if (p.isArchived) return false;
+      if (lastProgress && p.progress === lastProgress) return false;
+      return true;
+    });
 
     const versionFilter = options?.versionId ?? this.selectedVersionId;
     if (versionFilter) {
@@ -743,8 +745,9 @@ export class AppVersionManagerView extends ItemView {
 
   private getArchivedProjects(): Project[] {
     const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
-    if (!lastProgress) return [];
-    return this.projects.filter((p) => p.progress === lastProgress);
+    return this.projects.filter(
+      (p) => p.isArchived || (lastProgress ? p.progress === lastProgress : false),
+    );
   }
 
   private renderArchivedView() {
