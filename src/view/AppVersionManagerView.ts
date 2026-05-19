@@ -825,11 +825,36 @@ export class AppVersionManagerView extends ItemView {
 
       const actions = item.createDiv({ cls: 'avm-archived-actions' });
       new ButtonComponent(actions)
+        .setIcon('rotate-ccw')
+        .setTooltip('恢复项目')
+        .setClass('avm-btn-icon')
+        .onClick(() => this.restoreArchivedProject(project));
+
+      new ButtonComponent(actions)
         .setIcon('eye')
         .setTooltip('查看详情')
         .setClass('avm-btn-icon')
         .onClick(() => this.showArchivedProjectDetail(project));
     });
+  }
+
+  private async restoreArchivedProject(project: Project) {
+    try {
+      const updates: Partial<Project> = { isArchived: false };
+      const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
+      if (lastProgress && project.progress === lastProgress) {
+        const stages = getProgressOrder(this.plugin.settings.progressStages);
+        const currentIdx = stages.indexOf(project.progress);
+        if (currentIdx > 0) {
+          updates.progress = stages[currentIdx - 1];
+        }
+      }
+      await this.plugin.dataService.updateProject(project.id, updates, project.version);
+      new Notice(`已恢复项目: ${project.name}`);
+      await this.refresh();
+    } catch (error) {
+      new Notice(`恢复失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private showArchivedProjectDetail(project: Project) {

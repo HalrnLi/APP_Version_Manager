@@ -651,6 +651,14 @@ export class DataService {
     return this.updateVersion(id, { isArchived: false }, expectedVersion);
   }
 
+  async archiveProject(id: string, expectedVersion?: number): Promise<Project | null> {
+    return this.updateProject(id, { isArchived: true }, expectedVersion);
+  }
+
+  async unarchiveProject(id: string, expectedVersion?: number): Promise<Project | null> {
+    return this.updateProject(id, { isArchived: false }, expectedVersion);
+  }
+
   async getProjectsByVersionId(versionId: string): Promise<Project[]> {
     const allProjects = await this.getAllProjects();
     const filtered = allProjects.filter((p) => p.versionId === versionId);

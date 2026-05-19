@@ -401,6 +401,28 @@ export class DualPaneView {
         .onClick(() => this.onOpenTodos(project.id, project.name)),
     );
 
+    if (project.isArchived) {
+      menu.addItem((item) =>
+        item
+          .setTitle('取消归档')
+          .setIcon('archive')
+          .onClick(async () => {
+            await this.plugin.dataService.unarchiveProject(project.id);
+            this.onRefresh();
+          }),
+      );
+    } else {
+      menu.addItem((item) =>
+        item
+          .setTitle('归档')
+          .setIcon('archive')
+          .onClick(async () => {
+            await this.plugin.dataService.archiveProject(project.id);
+            this.onRefresh();
+          }),
+      );
+    }
+
     menu.addSeparator();
 
     menu.addItem((item) =>
