@@ -1,14 +1,18 @@
-import { ItemView, WorkspaceLeaf, App as ObsidianApp, Setting, ButtonComponent, Notice } from 'obsidian';
+import { ItemView, WorkspaceLeaf, App as ObsidianApp, Setting, ButtonComponent, Notice, Menu, TFile } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { App, Version, Project, ProjectProgress, SavedFilter, Plan, getProgressOrder } from '../types';
+import { App, Version, Project, ProjectProgress, SavedFilter, Plan, getProgressOrder, getProgressColors } from '../types';
 import { DualPaneView } from './DualPaneView';
 import { KanbanView } from './KanbanView';
 import { TableView } from './TableView';
 // import { GanttView } from './GanttView';
 import { TodoSidePanel } from './TodoSidePanel';
 import { ConfirmModal } from './ConfirmModal';
+import { EditProjectModal } from './EditProjectModal';
+import { TestPlanModal } from './TestPlanModal';
 import { ConvertPlanModal } from './ConvertPlanModal';
 import { ImportExportService } from '../services/ImportExportService';
+import { openExternalLink, openProjectNote } from '../utils/linkUtils';
+import { checkOverdue, isProjectHighlighted } from '../utils/projectSorting';
 import {
   CreateAppModal,
   RenameAppModal,
@@ -214,7 +218,7 @@ export class AppVersionManagerView extends ItemView {
       tabEl.addEventListener('click', () => {
         if (this.currentTab !== key) {
           this.currentTab = key;
-          this.updateTabBar();
+          this.renderHeader();
           this.renderMainView();
         }
       });
@@ -782,12 +786,12 @@ export class AppVersionManagerView extends ItemView {
       this.renderArchivedList(archivedProjects, searchKeyword);
     });
 
-    const listContainer = this.mainEl.createDiv({ cls: 'avm-archived-list' });
+    const listContainer = this.mainEl.createDiv({ cls: 'avm-project-list' });
     this.renderArchivedList(archivedProjects, searchKeyword, listContainer);
   }
 
   private renderArchivedList(archivedProjects: Project[], keyword: string, listContainer?: HTMLElement) {
-    const container = listContainer || this.mainEl.querySelector('.avm-archived-list') || this.mainEl;
+    const container = listContainer || this.mainEl.querySelector('.avm-project-list') || this.mainEl;
     const existingList = container.querySelector('.avm-archived-items');
     if (existingList) existingList.remove();
 
@@ -801,49 +805,202 @@ export class AppVersionManagerView extends ItemView {
       : archivedProjects;
 
     if (filtered.length === 0) {
-      const empty = container.createDiv({ cls: 'avm-empty-state', text: '没有找到匹配的项目' });
+      container.createDiv({ cls: 'avm-empty-state', text: '没有找到匹配的项目' });
       return;
     }
 
     const itemsEl = container.createDiv({ cls: 'avm-archived-items' });
     filtered.forEach((project) => {
-      const item = itemsEl.createDiv({ cls: 'avm-archived-item' });
-      item.createEl('span', { cls: 'avm-archived-name', text: project.name });
-      item.createEl('span', { cls: 'avm-archived-manager', text: project.manager || '-' });
-      if (project.actualReleaseTime) {
-        item.createEl('span', { cls: 'avm-archived-date', text: `发布于 ${project.actualReleaseTime}` });
-      }
-
-      const version = this.versions.find((v) => v.id === project.versionId);
-      const app = version ? this.apps.find((a) => a.id === version.appId) : null;
-      if (app) {
-        item.createEl('span', { cls: 'avm-archived-app', text: `${app.name} / ${version?.versionNumber || '-'}` });
-      }
-
-      const actions = item.createDiv({ cls: 'avm-archived-actions' });
-      new ButtonComponent(actions)
-        .setIcon('eye')
-        .setTooltip('查看详情')
-        .setClass('avm-btn-icon')
-        .onClick(() => this.showArchivedProjectDetail(project));
+      this.renderArchivedProjectCard(itemsEl, project);
     });
   }
 
-  private showArchivedProjectDetail(project: Project) {
+  private renderArchivedProjectCard(container: HTMLElement, project: Project) {
+    const item = container.createDiv({ cls: 'avm-project-item' });
+
+    if (isProjectHighlighted(project, this.plugin.settings.overdueWarningDays)) {
+      item.addClass('avm-highlighted-row');
+    }
+
+    // Header: name + progress badge
+    const header = item.createDiv({ cls: 'avm-project-header' });
+    header.createDiv({ cls: 'avm-project-name', text: project.name });
+
+    const progressColors = getProgressColors(this.plugin.settings.progressStages);
+    const progressBadge = header.createDiv({
+      cls: 'avm-progress-badge',
+      text: project.progress,
+    });
+    progressBadge.style.backgroundColor = progressColors[project.progress] || '#64748b';
+
+    // Todo badge
+    const todoBadge = header.createDiv({ cls: 'avm-todo-badge', text: '📋' });
+    todoBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.onOpenTodos(project.id, project.name);
+    });
+    this.getTodoStats(project.id)
+      .then((stats) => {
+        if (stats.total > 0) {
+          todoBadge.setText(`${stats.completed}/${stats.total}`);
+          if (stats.overdue > 0) todoBadge.addClass('has-overdue');
+        }
+      })
+      .catch(console.error);
+
+    // Features
+    if (project.features) {
+      const featuresEl = item.createDiv({ cls: 'avm-project-features' });
+      featuresEl.createEl('strong', { text: '特性:' });
+      featuresEl.createSpan({ text: project.features.substring(0, 100) + (project.features.length > 100 ? '...' : '') });
+    }
+
+    // Spec
+    if (project.spec) {
+      const specEl = item.createDiv({ cls: 'avm-project-spec' });
+      specEl.createEl('strong', { text: '配置组件/规格:' });
+      specEl.createSpan({ text: project.spec.substring(0, 100) + (project.spec.length > 100 ? '...' : '') });
+    }
+
+    // Overdue
+    if (checkOverdue(project, this.plugin.settings.progressStages, this.plugin.settings.overdueWarningDays)) {
+      item.addClass('avm-overdue');
+    }
+
+    // Meta info
+    const meta = item.createDiv({ cls: 'avm-project-meta' });
+    if (project.manager) {
+      meta.createSpan({ cls: 'avm-meta-item', text: `👤 ${project.manager}` });
+    }
     const version = this.versions.find((v) => v.id === project.versionId);
     const app = version ? this.apps.find((a) => a.id === version.appId) : null;
+    if (app) {
+      meta.createSpan({ cls: 'avm-meta-item', text: `📦 ${app.name} / ${version?.versionNumber || '-'}` });
+    }
+    if (project.actualReleaseTime) {
+      meta.createSpan({ cls: 'avm-meta-item', text: `📅 ${project.actualReleaseTime}` });
+    }
 
-    const info = [
-      `APP: ${app?.name || '-'}`,
-      `版本: ${version?.versionNumber || '-'}`,
-      `项目经理: ${project.manager || '-'}`,
-      `发布时间: ${project.actualReleaseTime || '-'}`,
-      `功能: ${project.features || '-'}`,
-      ``,
-      `已在"已归档"视图，可通过项目列表恢复状态`,
-    ].join('\n');
+    // Links
+    const links = item.createDiv({ cls: 'avm-project-links' });
+    if (project.projectLink) {
+      const link = links.createEl('a', {
+        cls: 'avm-link',
+        text: '项目链接',
+        attr: { href: project.projectLink, target: '_blank', rel: 'noopener noreferrer' },
+      });
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openExternalLink(project.projectLink);
+      });
+    }
+    if (project.componentLink) {
+      const link = links.createEl('a', {
+        cls: 'avm-link',
+        text: '组件库',
+        attr: { href: project.componentLink, target: '_blank', rel: 'noopener noreferrer' },
+      });
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openExternalLink(project.componentLink);
+      });
+    }
 
-    new Notice(info, 4000);
+    // Requirements
+    if (project.requirements) {
+      const req = item.createDiv({ cls: 'avm-project-requirements' });
+      req.createEl('strong', { text: '需求:' });
+      req.createSpan({ text: project.requirements.substring(0, 100) + (project.requirements.length > 100 ? '...' : '') });
+    }
+
+    // Context menu
+    item.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      this.showArchivedContextMenu(project, e);
+    });
+
+    // Double-click to open memo
+    item.addEventListener('dblclick', async (e) => {
+      e.preventDefault();
+      const memoPath = await this.plugin.dataService.ensureMemoFile(project.name);
+      await openProjectNote(this.plugin.app, memoPath, this.plugin.dataService.isAbsolutePath());
+    });
+  }
+
+  private showArchivedContextMenu(project: Project, event: MouseEvent) {
+    const menu = new Menu();
+
+    menu.addItem((item) =>
+      item
+        .setTitle('编辑')
+        .setIcon('pencil')
+        .onClick(() => this.showEditArchivedProject(project)),
+    );
+
+    menu.addItem((item) =>
+      item
+        .setTitle('提测计划')
+        .setIcon('calendar')
+        .onClick(() => this.showTestPlanForArchived(project)),
+    );
+
+    menu.addItem((item) =>
+      item
+        .setTitle('待办事项')
+        .setIcon('checkmark')
+        .onClick(() => this.onOpenTodos(project.id, project.name)),
+    );
+
+    menu.addSeparator();
+
+    menu.addItem((item) =>
+      item
+        .setTitle('删除')
+        .setIcon('trash')
+        .onClick(() => {
+          new ConfirmModal(
+            this.plugin.app,
+            '删除项目',
+            `确定要删除项目 "${project.name}" 吗？`,
+            async () => {
+              try {
+                await this.plugin.dataService.deleteProject(project.id);
+                await this.refresh();
+              } catch (error) {
+                new Notice(error instanceof Error ? error.message : String(error));
+              }
+            },
+            undefined,
+            true,
+          ).open();
+        }),
+    );
+
+    menu.showAtMouseEvent(event);
+  }
+
+  private showEditArchivedProject(project: Project) {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
+      try {
+        await this.plugin.dataService.updateProject(project.id, data, project.version);
+        await this.refresh();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : String(error));
+      }
+    }).open();
+  }
+
+  private showTestPlanForArchived(project: Project) {
+    new TestPlanModal(this.plugin.app, project, async (data) => {
+      try {
+        await this.plugin.dataService.updateProject(project.id, data, project.version);
+        await this.refresh();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : String(error));
+      }
+    }).open();
   }
 
   async onClose() {

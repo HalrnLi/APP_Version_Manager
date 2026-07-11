@@ -1,4 +1,3 @@
-/* ... */
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -36513,7 +36512,7 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
       tabEl.addEventListener("click", () => {
         if (this.currentTab !== key) {
           this.currentTab = key;
-          this.updateTabBar();
+          this.renderHeader();
           this.renderMainView();
         }
       });
@@ -36946,11 +36945,11 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
       searchKeyword = e.target.value.toLowerCase();
       this.renderArchivedList(archivedProjects, searchKeyword);
     });
-    const listContainer = this.mainEl.createDiv({ cls: "avm-archived-list" });
+    const listContainer = this.mainEl.createDiv({ cls: "avm-project-list" });
     this.renderArchivedList(archivedProjects, searchKeyword, listContainer);
   }
   renderArchivedList(archivedProjects, keyword, listContainer) {
-    const container = listContainer || this.mainEl.querySelector(".avm-archived-list") || this.mainEl;
+    const container = listContainer || this.mainEl.querySelector(".avm-project-list") || this.mainEl;
     const existingList = container.querySelector(".avm-archived-items");
     if (existingList)
       existingList.remove();
@@ -36958,39 +36957,156 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
       (p) => p.name.toLowerCase().includes(keyword) || p.manager.toLowerCase().includes(keyword) || p.features.toLowerCase().includes(keyword)
     ) : archivedProjects;
     if (filtered.length === 0) {
-      const empty = container.createDiv({ cls: "avm-empty-state", text: "\u6CA1\u6709\u627E\u5230\u5339\u914D\u7684\u9879\u76EE" });
+      container.createDiv({ cls: "avm-empty-state", text: "\u6CA1\u6709\u627E\u5230\u5339\u914D\u7684\u9879\u76EE" });
       return;
     }
     const itemsEl = container.createDiv({ cls: "avm-archived-items" });
     filtered.forEach((project) => {
-      const item = itemsEl.createDiv({ cls: "avm-archived-item" });
-      item.createEl("span", { cls: "avm-archived-name", text: project.name });
-      item.createEl("span", { cls: "avm-archived-manager", text: project.manager || "-" });
-      if (project.actualReleaseTime) {
-        item.createEl("span", { cls: "avm-archived-date", text: `\u53D1\u5E03\u4E8E ${project.actualReleaseTime}` });
-      }
-      const version2 = this.versions.find((v) => v.id === project.versionId);
-      const app = version2 ? this.apps.find((a) => a.id === version2.appId) : null;
-      if (app) {
-        item.createEl("span", { cls: "avm-archived-app", text: `${app.name} / ${(version2 == null ? void 0 : version2.versionNumber) || "-"}` });
-      }
-      const actions = item.createDiv({ cls: "avm-archived-actions" });
-      new import_obsidian18.ButtonComponent(actions).setIcon("eye").setTooltip("\u67E5\u770B\u8BE6\u60C5").setClass("avm-btn-icon").onClick(() => this.showArchivedProjectDetail(project));
+      this.renderArchivedProjectCard(itemsEl, project);
     });
   }
-  showArchivedProjectDetail(project) {
+  renderArchivedProjectCard(container, project) {
+    const item = container.createDiv({ cls: "avm-project-item" });
+    if (isProjectHighlighted(project, this.plugin.settings.overdueWarningDays)) {
+      item.addClass("avm-highlighted-row");
+    }
+    const header = item.createDiv({ cls: "avm-project-header" });
+    header.createDiv({ cls: "avm-project-name", text: project.name });
+    const progressColors = getProgressColors(this.plugin.settings.progressStages);
+    const progressBadge = header.createDiv({
+      cls: "avm-progress-badge",
+      text: project.progress
+    });
+    progressBadge.style.backgroundColor = progressColors[project.progress] || "#64748b";
+    const todoBadge = header.createDiv({ cls: "avm-todo-badge", text: "\u{1F4CB}" });
+    todoBadge.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.onOpenTodos(project.id, project.name);
+    });
+    this.getTodoStats(project.id).then((stats) => {
+      if (stats.total > 0) {
+        todoBadge.setText(`${stats.completed}/${stats.total}`);
+        if (stats.overdue > 0)
+          todoBadge.addClass("has-overdue");
+      }
+    }).catch(console.error);
+    if (project.features) {
+      const featuresEl = item.createDiv({ cls: "avm-project-features" });
+      featuresEl.createEl("strong", { text: "\u7279\u6027:" });
+      featuresEl.createSpan({ text: project.features.substring(0, 100) + (project.features.length > 100 ? "..." : "") });
+    }
+    if (project.spec) {
+      const specEl = item.createDiv({ cls: "avm-project-spec" });
+      specEl.createEl("strong", { text: "\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C:" });
+      specEl.createSpan({ text: project.spec.substring(0, 100) + (project.spec.length > 100 ? "..." : "") });
+    }
+    if (checkOverdue(project, this.plugin.settings.progressStages, this.plugin.settings.overdueWarningDays)) {
+      item.addClass("avm-overdue");
+    }
+    const meta = item.createDiv({ cls: "avm-project-meta" });
+    if (project.manager) {
+      meta.createSpan({ cls: "avm-meta-item", text: `\u{1F464} ${project.manager}` });
+    }
     const version2 = this.versions.find((v) => v.id === project.versionId);
     const app = version2 ? this.apps.find((a) => a.id === version2.appId) : null;
-    const info = [
-      `APP: ${(app == null ? void 0 : app.name) || "-"}`,
-      `\u7248\u672C: ${(version2 == null ? void 0 : version2.versionNumber) || "-"}`,
-      `\u9879\u76EE\u7ECF\u7406: ${project.manager || "-"}`,
-      `\u53D1\u5E03\u65F6\u95F4: ${project.actualReleaseTime || "-"}`,
-      `\u529F\u80FD: ${project.features || "-"}`,
-      ``,
-      `\u5DF2\u5728"\u5DF2\u5F52\u6863"\u89C6\u56FE\uFF0C\u53EF\u901A\u8FC7\u9879\u76EE\u5217\u8868\u6062\u590D\u72B6\u6001`
-    ].join("\n");
-    new import_obsidian18.Notice(info, 4e3);
+    if (app) {
+      meta.createSpan({ cls: "avm-meta-item", text: `\u{1F4E6} ${app.name} / ${(version2 == null ? void 0 : version2.versionNumber) || "-"}` });
+    }
+    if (project.actualReleaseTime) {
+      meta.createSpan({ cls: "avm-meta-item", text: `\u{1F4C5} ${project.actualReleaseTime}` });
+    }
+    const links = item.createDiv({ cls: "avm-project-links" });
+    if (project.projectLink) {
+      const link = links.createEl("a", {
+        cls: "avm-link",
+        text: "\u9879\u76EE\u94FE\u63A5",
+        attr: { href: project.projectLink, target: "_blank", rel: "noopener noreferrer" }
+      });
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openExternalLink(project.projectLink);
+      });
+    }
+    if (project.componentLink) {
+      const link = links.createEl("a", {
+        cls: "avm-link",
+        text: "\u7EC4\u4EF6\u5E93",
+        attr: { href: project.componentLink, target: "_blank", rel: "noopener noreferrer" }
+      });
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openExternalLink(project.componentLink);
+      });
+    }
+    if (project.requirements) {
+      const req = item.createDiv({ cls: "avm-project-requirements" });
+      req.createEl("strong", { text: "\u9700\u6C42:" });
+      req.createSpan({ text: project.requirements.substring(0, 100) + (project.requirements.length > 100 ? "..." : "") });
+    }
+    item.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      this.showArchivedContextMenu(project, e);
+    });
+    item.addEventListener("dblclick", async (e) => {
+      e.preventDefault();
+      const memoPath = await this.plugin.dataService.ensureMemoFile(project.name);
+      await openProjectNote(this.plugin.app, memoPath, this.plugin.dataService.isAbsolutePath());
+    });
+  }
+  showArchivedContextMenu(project, event) {
+    const menu = new import_obsidian18.Menu();
+    menu.addItem(
+      (item) => item.setTitle("\u7F16\u8F91").setIcon("pencil").onClick(() => this.showEditArchivedProject(project))
+    );
+    menu.addItem(
+      (item) => item.setTitle("\u63D0\u6D4B\u8BA1\u5212").setIcon("calendar").onClick(() => this.showTestPlanForArchived(project))
+    );
+    menu.addItem(
+      (item) => item.setTitle("\u5F85\u529E\u4E8B\u9879").setIcon("checkmark").onClick(() => this.onOpenTodos(project.id, project.name))
+    );
+    menu.addSeparator();
+    menu.addItem(
+      (item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
+        new ConfirmModal(
+          this.plugin.app,
+          "\u5220\u9664\u9879\u76EE",
+          `\u786E\u5B9A\u8981\u5220\u9664\u9879\u76EE "${project.name}" \u5417\uFF1F`,
+          async () => {
+            try {
+              await this.plugin.dataService.deleteProject(project.id);
+              await this.refresh();
+            } catch (error) {
+              new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
+            }
+          },
+          void 0,
+          true
+        ).open();
+      })
+    );
+    menu.showAtMouseEvent(event);
+  }
+  showEditArchivedProject(project) {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
+      try {
+        await this.plugin.dataService.updateProject(project.id, data, project.version);
+        await this.refresh();
+      } catch (error) {
+        new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
+      }
+    }).open();
+  }
+  showTestPlanForArchived(project) {
+    new TestPlanModal(this.plugin.app, project, async (data) => {
+      try {
+        await this.plugin.dataService.updateProject(project.id, data, project.version);
+        await this.refresh();
+      } catch (error) {
+        new import_obsidian18.Notice(error instanceof Error ? error.message : String(error));
+      }
+    }).open();
   }
   async onClose() {
     if (this.searchDebounceTimer) {
