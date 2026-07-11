@@ -34638,21 +34638,6 @@ var DualPaneView = class {
     menu.addItem(
       (item) => item.setTitle("\u5F85\u529E\u4E8B\u9879").setIcon("checkmark").onClick(() => this.onOpenTodos(project.id, project.name))
     );
-    if (project.isArchived) {
-      menu.addItem(
-        (item) => item.setTitle("\u53D6\u6D88\u5F52\u6863").setIcon("archive").onClick(async () => {
-          await this.plugin.dataService.unarchiveProject(project.id);
-          this.onRefresh();
-        })
-      );
-    } else {
-      menu.addItem(
-        (item) => item.setTitle("\u5F52\u6863").setIcon("archive").onClick(async () => {
-          await this.plugin.dataService.archiveProject(project.id);
-          this.onRefresh();
-        })
-      );
-    }
     menu.addSeparator();
     menu.addItem(
       (item) => item.setTitle("\u5220\u9664").setIcon("trash").onClick(() => {
@@ -36998,27 +36983,8 @@ var AppVersionManagerView = class extends import_obsidian18.ItemView {
         item.createEl("span", { cls: "avm-archived-app", text: `${app.name} / ${(version2 == null ? void 0 : version2.versionNumber) || "-"}` });
       }
       const actions = item.createDiv({ cls: "avm-archived-actions" });
-      new import_obsidian18.ButtonComponent(actions).setIcon("rotate-ccw").setTooltip("\u6062\u590D\u9879\u76EE").setClass("avm-btn-icon").onClick(() => this.restoreArchivedProject(project));
       new import_obsidian18.ButtonComponent(actions).setIcon("eye").setTooltip("\u67E5\u770B\u8BE6\u60C5").setClass("avm-btn-icon").onClick(() => this.showArchivedProjectDetail(project));
     });
-  }
-  async restoreArchivedProject(project) {
-    try {
-      const updates = { isArchived: false };
-      const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
-      if (lastProgress && project.progress === lastProgress) {
-        const stages = getProgressOrder(this.plugin.settings.progressStages);
-        const currentIdx = stages.indexOf(project.progress);
-        if (currentIdx > 0) {
-          updates.progress = stages[currentIdx - 1];
-        }
-      }
-      await this.plugin.dataService.updateProject(project.id, updates, project.version);
-      new import_obsidian18.Notice(`\u5DF2\u6062\u590D\u9879\u76EE: ${project.name}`);
-      await this.refresh();
-    } catch (error) {
-      new import_obsidian18.Notice(`\u6062\u590D\u5931\u8D25: ${error instanceof Error ? error.message : String(error)}`);
-    }
   }
   showArchivedProjectDetail(project) {
     const version2 = this.versions.find((v) => v.id === project.versionId);
@@ -37791,12 +37757,6 @@ var DataService = class {
   }
   async unarchiveVersion(id, expectedVersion) {
     return this.updateVersion(id, { isArchived: false }, expectedVersion);
-  }
-  async archiveProject(id, expectedVersion) {
-    return this.updateProject(id, { isArchived: true }, expectedVersion);
-  }
-  async unarchiveProject(id, expectedVersion) {
-    return this.updateProject(id, { isArchived: false }, expectedVersion);
   }
   async getProjectsByVersionId(versionId) {
     const allProjects = await this.getAllProjects();
