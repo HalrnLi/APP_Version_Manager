@@ -58,9 +58,12 @@ export class DataService {
     return isAbsolute(path) || /^[A-Za-z]:/.test(path); // Windows drive letter or absolute path
   }
 
-  /** 统一路径拼接：join + normalize，消除 isAbsolutePath 分支 */
+  /** 统一路径拼接：仅相对路径进行 normalize，绝对路径保持 path.join 原生结果 */
   private joinPath(...parts: string[]): string {
-    return normalizePath(join(...parts));
+    const joined = join(...parts);
+    // 绝对路径（含 UNC 如 \\server\share）不经过 normalizePath，
+    // 因为 normalizePath 会将 \\ → / 并折叠 //，破坏 Windows UNC 前缀
+    return isAbsolute(joined) ? joined : normalizePath(joined);
   }
 
   private getAppsFolder(): string {
@@ -685,7 +688,6 @@ export class DataService {
         requirements: frontmatter.requirements ?? '',
         progress: frontmatter.progress ?? getFirstProgress(this.plugin.settings.progressStages),
         progressHistory: parseProgressHistory(frontmatter.progressHistory),
-        isArchived: frontmatter.isArchived === true,
         b1IntegrationTestTime: frontmatter.b1IntegrationTestTime ?? '',
         b1SystemTestTime: frontmatter.b1SystemTestTime ?? '',
         b2IntegrationTestTime: frontmatter.b2IntegrationTestTime ?? '',
@@ -752,7 +754,6 @@ export class DataService {
           changedAt: now,
         },
       ],
-      isArchived: false,
       b1IntegrationTestTime: data.b1IntegrationTestTime || '',
       b1SystemTestTime: data.b1SystemTestTime || '',
       b2IntegrationTestTime: data.b2IntegrationTestTime || '',
@@ -779,7 +780,6 @@ export class DataService {
       requirements: project.requirements,
       progress: project.progress,
       progressHistory: project.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
-      isArchived: project.isArchived,
       b1IntegrationTestTime: project.b1IntegrationTestTime,
       b1SystemTestTime: project.b1SystemTestTime,
       b2IntegrationTestTime: project.b2IntegrationTestTime,
@@ -843,11 +843,6 @@ export class DataService {
 
     if (progressChanged && data.progress) {
       updatedProject.progressHistory = [...project.progressHistory, { progress: data.progress, changedAt: Date.now().toString() }];
-      // 到达最后一个阶段时自动归档
-      const lastProgress = getProgressOrder(this.plugin.settings.progressStages).at(-1);
-      if (lastProgress && data.progress === lastProgress) {
-        updatedProject.isArchived = true;
-      }
     }
 
     const frontmatter = createFrontmatter({
@@ -862,7 +857,6 @@ export class DataService {
       requirements: updatedProject.requirements,
       progress: updatedProject.progress,
       progressHistory: updatedProject.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
-      isArchived: updatedProject.isArchived,
       b1IntegrationTestTime: updatedProject.b1IntegrationTestTime,
       b1SystemTestTime: updatedProject.b1SystemTestTime,
       b2IntegrationTestTime: updatedProject.b2IntegrationTestTime,
