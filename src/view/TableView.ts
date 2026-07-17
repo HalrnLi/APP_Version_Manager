@@ -398,7 +398,7 @@ export class TableView {
   }
 
   private showEditProjectModal(project: Project) {
-    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, this.plugin.settings.responsiblePersons, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         this.onRefresh();

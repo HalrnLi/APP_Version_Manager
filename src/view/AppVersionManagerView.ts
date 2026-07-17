@@ -299,6 +299,7 @@ export class AppVersionManagerView extends ItemView {
         .setTooltip(label)
         .onClick(() => {
           this.currentView = type;
+          this.renderHeader();
           this.renderMainView();
         });
       if (this.currentView === type) {
@@ -310,7 +311,7 @@ export class AppVersionManagerView extends ItemView {
 
     const searchInput = filterBar.createEl('input', {
       cls: 'avm-search-input',
-      attr: { type: 'text', placeholder: '搜索项目、项目经理、项目需求...' },
+      attr: { type: 'text', placeholder: '搜索项目、项目经理、负责人、项目需求...' },
     });
     searchInput.value = this.currentFilter.keyword;
     searchInput.addEventListener('input', (e) => {
@@ -400,6 +401,7 @@ export class AppVersionManagerView extends ItemView {
 
   private renderMainView() {
     this.mainEl.empty();
+    this.mainEl.removeClass('avm-archived-main');
 
     if (this.currentTab === 'plans') {
       this.renderPlansView();
@@ -498,6 +500,7 @@ export class AppVersionManagerView extends ItemView {
         (p) =>
           p.name.toLowerCase().includes(keyword) ||
           p.manager.toLowerCase().includes(keyword) ||
+          p.responsiblePerson.toLowerCase().includes(keyword) ||
           p.features.toLowerCase().includes(keyword) ||
           p.requirements.toLowerCase().includes(keyword),
       );
@@ -572,7 +575,7 @@ export class AppVersionManagerView extends ItemView {
   private showCreateProjectModal() {
     if (!this.selectedVersionId) return;
 
-    new CreateProjectModal(this.app, this.selectedVersionId, this.plugin.settings.progressStages, async (data) => {
+    new CreateProjectModal(this.app, this.selectedVersionId, this.plugin.settings.progressStages, this.plugin.settings.responsiblePersons, async (data) => {
       try {
         await this.plugin.dataService.createProject(data);
         await this.refresh();
@@ -775,6 +778,8 @@ export class AppVersionManagerView extends ItemView {
       return;
     }
 
+    this.mainEl.addClass('avm-archived-main');
+
     const searchBar = this.mainEl.createDiv({ cls: 'avm-archived-search-bar' });
     const searchInput = searchBar.createEl('input', {
       cls: 'avm-search-input',
@@ -786,20 +791,23 @@ export class AppVersionManagerView extends ItemView {
       this.renderArchivedList(archivedProjects, searchKeyword);
     });
 
-    const listContainer = this.mainEl.createDiv({ cls: 'avm-project-list' });
+    const listContainer = this.mainEl.createDiv({ cls: 'avm-archived-list' });
     this.renderArchivedList(archivedProjects, searchKeyword, listContainer);
   }
 
   private renderArchivedList(archivedProjects: Project[], keyword: string, listContainer?: HTMLElement) {
-    const container = listContainer || this.mainEl.querySelector('.avm-project-list') || this.mainEl;
+    const container = listContainer || this.mainEl.querySelector('.avm-archived-list') || this.mainEl;
     const existingList = container.querySelector('.avm-archived-items');
     if (existingList) existingList.remove();
+    const existingEmpty = container.querySelector('.avm-empty-state');
+    if (existingEmpty) existingEmpty.remove();
 
     const filtered = keyword
       ? archivedProjects.filter(
           (p) =>
             p.name.toLowerCase().includes(keyword) ||
             p.manager.toLowerCase().includes(keyword) ||
+            p.responsiblePerson.toLowerCase().includes(keyword) ||
             p.features.toLowerCase().includes(keyword),
         )
       : archivedProjects;
@@ -982,7 +990,7 @@ export class AppVersionManagerView extends ItemView {
   }
 
   private showEditArchivedProject(project: Project) {
-    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, async (data) => {
+    new EditProjectModal(this.plugin.app, project, this.apps, this.versions, this.plugin.settings.progressStages, this.plugin.settings.responsiblePersons, async (data) => {
       try {
         await this.plugin.dataService.updateProject(project.id, data, project.version);
         await this.refresh();

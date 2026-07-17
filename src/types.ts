@@ -38,6 +38,7 @@ export interface Project {
   name: string;
   versionId: string;
   manager: string;
+  responsiblePerson: string;
   projectLink: string;
   componentLink: string;
   features: string;
@@ -146,6 +147,7 @@ export interface PluginSettings {
   overdueWarningDays: number;
   autoRefreshInterval: number;
   defaultTodos: DefaultTodoTemplate[];
+  responsiblePersons: string[];
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -160,6 +162,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   overdueWarningDays: 3,
   autoRefreshInterval: 2,
   defaultTodos: [],
+  responsiblePersons: [],
 };
 
 export function getProgressOrder(stages: ProgressStage[]): ProjectProgress[] {

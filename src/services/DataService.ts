@@ -681,6 +681,7 @@ export class DataService {
         name: frontmatter.name ?? '',
         versionId: frontmatter.versionId ?? '',
         manager: frontmatter.manager ?? '',
+        responsiblePerson: frontmatter.responsiblePerson ?? '',
         projectLink: frontmatter.projectLink ?? '',
         componentLink: frontmatter.componentLink ?? '',
         features: frontmatter.features ?? '',
@@ -711,6 +712,7 @@ export class DataService {
     name: string;
     versionId: string;
     manager?: string;
+    responsiblePerson?: string;
     projectLink?: string;
     componentLink?: string;
     features?: string;
@@ -742,6 +744,7 @@ export class DataService {
       name: data.name,
       versionId: data.versionId,
       manager: data.manager || '',
+      responsiblePerson: data.responsiblePerson || '',
       projectLink: data.projectLink || '',
       componentLink: data.componentLink || '',
       features: data.features || '',
@@ -773,6 +776,7 @@ export class DataService {
       name: project.name,
       versionId: project.versionId,
       manager: project.manager,
+      responsiblePerson: project.responsiblePerson,
       projectLink: project.projectLink,
       componentLink: project.componentLink,
       features: project.features,
@@ -850,6 +854,7 @@ export class DataService {
       name: updatedProject.name,
       versionId: updatedProject.versionId,
       manager: updatedProject.manager,
+      responsiblePerson: updatedProject.responsiblePerson,
       projectLink: updatedProject.projectLink,
       componentLink: updatedProject.componentLink,
       features: updatedProject.features,
@@ -1019,6 +1024,7 @@ export class DataService {
       (p) =>
         p.name.toLowerCase().includes(lowerKeyword) ||
         p.manager.toLowerCase().includes(lowerKeyword) ||
+        p.responsiblePerson.toLowerCase().includes(lowerKeyword) ||
         p.requirements.toLowerCase().includes(lowerKeyword),
     );
   }
@@ -1107,6 +1113,7 @@ export class DataService {
     const targetPath = this.joinPath(this.getProjectsFolder(), `${fileName}__${record.id}.md`);
     const frontmatter = createFrontmatter({
       ...record,
+      responsiblePerson: record.responsiblePerson || '',
       progressHistory: record.progressHistory.map((h) => `${h.progress}@${h.changedAt}`),
     } as Record<string, unknown>);
     const existingFile = await this.findEntityFileById<Project>(this.getProjectsFolder(), this.parseProjectFile, record.id);

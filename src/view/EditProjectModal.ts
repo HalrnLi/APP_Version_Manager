@@ -8,6 +8,7 @@ export class EditProjectModal extends Modal {
   apps: App[];
   versions: Version[];
   progressStages: ProgressStage[];
+  responsiblePersons: string[];
   versionLabelFn?: (v: Version, app?: App) => string;
 
   constructor(
@@ -16,6 +17,7 @@ export class EditProjectModal extends Modal {
     apps: App[],
     versions: Version[],
     progressStages: ProgressStage[],
+    responsiblePersons: string[],
     onSubmit: (data: Partial<Project>) => void,
     options?: { versionLabelFn?: (v: Version, app?: App) => string },
   ) {
@@ -24,6 +26,7 @@ export class EditProjectModal extends Modal {
     this.apps = apps;
     this.versions = versions;
     this.progressStages = progressStages;
+    this.responsiblePersons = responsiblePersons;
     this.onSubmit = onSubmit;
     this.versionLabelFn = options?.versionLabelFn;
   }
@@ -38,6 +41,7 @@ export class EditProjectModal extends Modal {
       name: this.project.name,
       versionId: this.project.versionId,
       manager: this.project.manager,
+      responsiblePerson: this.project.responsiblePerson,
       projectLink: this.project.projectLink,
       componentLink: this.project.componentLink,
       features: this.project.features,
@@ -61,6 +65,20 @@ export class EditProjectModal extends Modal {
     });
 
     new Setting(contentEl).setName('项目经理').addText((text) => text.setValue(data.manager).onChange((value) => (data.manager = value)));
+
+    // 负责人下拉选择，从插件配置中读取可选列表
+    new Setting(contentEl).setName('负责人').addDropdown((dropdown) => {
+      dropdown.addOption('', '无');
+      this.responsiblePersons.forEach((person) => {
+        dropdown.addOption(person, person);
+      });
+      // 若当前值不在配置列表中（如已被删除），仍保留该选项以便显示
+      if (data.responsiblePerson && !this.responsiblePersons.includes(data.responsiblePerson)) {
+        dropdown.addOption(data.responsiblePerson, `${data.responsiblePerson} (已删除)`);
+      }
+      dropdown.setValue(data.responsiblePerson);
+      dropdown.onChange((value) => (data.responsiblePerson = value));
+    });
 
     new Setting(contentEl)
       .setName('项目链接')

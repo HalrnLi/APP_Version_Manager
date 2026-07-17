@@ -6,6 +6,7 @@ export interface CreateProjectData {
   name: string;
   versionId: string;
   manager: string;
+  responsiblePerson: string;
   projectLink: string;
   componentLink: string;
   features: string;
@@ -17,12 +18,14 @@ export interface CreateProjectData {
 export class CreateProjectModal extends Modal {
   versionId: string;
   progressStages: ProgressStage[];
+  responsiblePersons: string[];
   onSubmit: (data: CreateProjectData) => void;
 
-  constructor(app: ObsidianApp, versionId: string, progressStages: ProgressStage[], onSubmit: (data: CreateProjectData) => void) {
+  constructor(app: ObsidianApp, versionId: string, progressStages: ProgressStage[], responsiblePersons: string[], onSubmit: (data: CreateProjectData) => void) {
     super(app);
     this.versionId = versionId;
     this.progressStages = progressStages;
+    this.responsiblePersons = responsiblePersons;
     this.onSubmit = onSubmit;
   }
 
@@ -37,6 +40,7 @@ export class CreateProjectModal extends Modal {
       name: '',
       versionId: this.versionId,
       manager: '',
+      responsiblePerson: '',
       projectLink: '',
       componentLink: '',
       features: '',
@@ -50,6 +54,16 @@ export class CreateProjectModal extends Modal {
       .addText((text) => text.setPlaceholder('输入项目名称').onChange((value) => (data.name = value)));
 
     new Setting(contentEl).setName('项目经理').addText((text) => text.onChange((value) => (data.manager = value)));
+
+    // 负责人下拉选择，从插件配置中读取可选列表
+    new Setting(contentEl).setName('负责人').addDropdown((dropdown) => {
+      dropdown.addOption('', '无');
+      this.responsiblePersons.forEach((person) => {
+        dropdown.addOption(person, person);
+      });
+      dropdown.setValue(data.responsiblePerson);
+      dropdown.onChange((value) => (data.responsiblePerson = value));
+    });
 
     new Setting(contentEl)
       .setName('项目链接')

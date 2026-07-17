@@ -320,6 +320,16 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
           }),
       );
 
+    containerEl.createEl('h3', { text: '负责人设置' });
+
+    const responsibleDesc = containerEl.createDiv({ cls: 'avm-responsible-desc' });
+    responsibleDesc.style.marginBottom = '12px';
+    responsibleDesc.style.color = 'var(--text-muted)';
+    responsibleDesc.style.fontSize = '13px';
+    responsibleDesc.setText('预先配置负责人名单，创建/编辑项目时可直接从下拉列表中选择。');
+
+    this.renderResponsiblePersonsSettings(containerEl);
+
     containerEl.createEl('h3', { text: '默认待办设置' });
 
     const defaultTodoDesc = containerEl.createDiv({ cls: 'avm-default-todo-desc' });
@@ -437,6 +447,46 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
       btn.setButtonText('添加').onClick(async () => {
         todos.push({ content: '', link: '', dueDate: '' });
         this.plugin.settings.defaultTodos = todos;
+        await this.plugin.saveSettings();
+        this.display();
+      }),
+    );
+  }
+
+  private renderResponsiblePersonsSettings(containerEl: HTMLElement) {
+    const persons = this.plugin.settings.responsiblePersons;
+
+    persons.forEach((person, index) => {
+      const setting = new Setting(containerEl).setClass('avm-responsible-person-setting');
+
+      setting.addText((text) =>
+        text
+          .setValue(person)
+          .setPlaceholder('负责人姓名')
+          .onChange(async (value) => {
+            persons[index] = value;
+            this.plugin.settings.responsiblePersons = persons;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+      setting.addExtraButton((btn) =>
+        btn
+          .setIcon('trash')
+          .setTooltip('删除')
+          .onClick(async () => {
+            persons.splice(index, 1);
+            this.plugin.settings.responsiblePersons = persons;
+            await this.plugin.saveSettings();
+            this.display();
+          }),
+      );
+    });
+
+    new Setting(containerEl).setName('添加负责人').addButton((btn) =>
+      btn.setButtonText('添加').onClick(async () => {
+        persons.push('');
+        this.plugin.settings.responsiblePersons = persons;
         await this.plugin.saveSettings();
         this.display();
       }),

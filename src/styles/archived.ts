@@ -1,7 +1,18 @@
 export const ARCHIVED = `
 /* Archived projects view */
-.avm-archived-search-bar { padding: 12px; border-bottom: 1px solid var(--background-modifier-border); }
-.avm-archived-list { padding: 12px; overflow-y: auto; height: calc(100% - 60px); }
+.avm-archived-main {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.avm-archived-search-bar {
+  padding: 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  flex-shrink: 0;
+}
+.avm-archived-list { flex: 1; overflow-y: auto; padding: 12px; min-height: 0; }
 .avm-archived-items { display: flex; flex-direction: column; gap: 8px; }
 
 .avm-archived-item {
