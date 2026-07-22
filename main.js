@@ -33890,7 +33890,8 @@ var DEFAULT_SETTINGS = {
   overdueWarningDays: 3,
   autoRefreshInterval: 2,
   defaultTodos: [],
-  responsiblePersons: []
+  responsiblePersons: [],
+  preReleaseRound: "B3"
 };
 function getProgressOrder(stages) {
   return stages.map((s) => s.name);
@@ -33918,6 +33919,13 @@ var TEST_STAGES = [
   { key: "b4IntegrationTestTime", label: "B4\u96C6\u6210\u6D4B\u8BD5" },
   { key: "b4SystemTestTime", label: "B4\u7CFB\u7EDF\u6D4B\u8BD5" }
 ];
+var ROUND_COLORS = {
+  B1: "#3b82f6",
+  B2: "#8b5cf6",
+  B3: "#f59e0b",
+  B4: "#ef4444",
+  \u672A\u5B89\u6392: "#64748b"
+};
 function parseDateInput(input) {
   if (!input || input.trim() === "")
     return null;
@@ -34012,6 +34020,44 @@ function parseDateInput(input) {
     }
   }
   return null;
+}
+var PREVIOUS_SYSTEM_TEST_MAP = {
+  B2: "b1SystemTestTime",
+  B3: "b2SystemTestTime",
+  B4: "b3SystemTestTime"
+};
+function isProjectInPreRelease(project, preReleaseRound, lastProgress) {
+  if (project.progress === lastProgress)
+    return false;
+  const roundNum = parseInt(preReleaseRound.replace("B", ""), 10);
+  let triggerDate;
+  if (roundNum === 1) {
+    triggerDate = project.b1IntegrationTestTime;
+  } else {
+    const prevKey = PREVIOUS_SYSTEM_TEST_MAP[preReleaseRound];
+    triggerDate = prevKey ? project[prevKey] : void 0;
+  }
+  if (!triggerDate)
+    return false;
+  const date = new Date(triggerDate);
+  date.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date <= today;
+}
+function getCurrentBRound(project) {
+  const nextInfo = getNextStageInfo(project);
+  if (nextInfo.stage !== "\u65E0") {
+    const match = nextInfo.stage.match(/B(\d)/);
+    return match ? `B${match[1]}` : "\u672A\u5B89\u6392";
+  }
+  for (let i = TEST_STAGES.length - 1; i >= 0; i--) {
+    if (project[TEST_STAGES[i].key]) {
+      const match = TEST_STAGES[i].key.match(/b(\d)/);
+      return match ? `B${match[1]}` : "\u672A\u5B89\u6392";
+    }
+  }
+  return "\u672A\u5B89\u6392";
 }
 function getNextStageInfo(project) {
   const now = new Date();
@@ -34560,6 +34606,16 @@ var DualPaneView = class {
     if (this.isProjectHighlighted(project)) {
       item.addClass("avm-highlighted-row");
     }
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
+    if (isProjectInPreRelease(project, this.plugin.settings.preReleaseRound, lastProgress)) {
+      const banner = item.createDiv({ cls: "avm-pre-release-banner" });
+      banner.createSpan({ cls: "avm-pre-release-icon", text: "\u26A0" });
+      banner.createSpan({
+        cls: "avm-pre-release-text",
+        text: `\u5DF2\u8FDB\u5165\u9884\u53D1\u5E03\u9636\u6BB5\uFF08${this.plugin.settings.preReleaseRound}\uFF09\uFF0C\u540E\u7EED\u4FEE\u6539\u8BF7\u8C28\u614E`
+      });
+      item.addClass("avm-pre-release-item");
+    }
     const header = item.createDiv({ cls: "avm-project-header" });
     header.createDiv({ cls: "avm-project-name", text: project.name });
     const progressColors = getProgressColors(this.plugin.settings.progressStages);
@@ -34595,6 +34651,12 @@ var DualPaneView = class {
       item.addClass("avm-overdue");
     }
     const meta = item.createDiv({ cls: "avm-project-meta" });
+    const currentRound = getCurrentBRound(project);
+    const stageBadge = meta.createSpan({ cls: "avm-meta-item avm-current-stage-badge" });
+    stageBadge.createSpan({ cls: "avm-stage-label", text: "\u5F53\u524D\u9636\u6BB5:" });
+    const stageValue = stageBadge.createSpan({ cls: "avm-stage-value", text: currentRound });
+    stageValue.style.color = ROUND_COLORS[currentRound] || "#64748b";
+    stageValue.style.fontWeight = "600";
     if (project.manager) {
       meta.createSpan({ cls: "avm-meta-item", text: `\u{1F464} ${project.manager}` });
     }
@@ -34806,6 +34868,16 @@ var KanbanView = class {
     if (isOverdue) {
       card.addClass("avm-overdue");
     }
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
+    if (isProjectInPreRelease(project, this.plugin.settings.preReleaseRound, lastProgress)) {
+      const banner = card.createDiv({ cls: "avm-pre-release-banner avm-pre-release-banner-small" });
+      banner.createSpan({ cls: "avm-pre-release-icon", text: "\u26A0" });
+      banner.createSpan({
+        cls: "avm-pre-release-text",
+        text: `\u9884\u53D1\u5E03\uFF08${this.plugin.settings.preReleaseRound}\uFF09`
+      });
+      card.addClass("avm-pre-release-item");
+    }
     const header = card.createDiv({ cls: "avm-card-header" });
     header.createDiv({ cls: "avm-card-title", text: project.name });
     const todoBadge = header.createDiv({ cls: "avm-todo-badge", text: "\u{1F4CB}" });
@@ -34820,6 +34892,12 @@ var KanbanView = class {
           todoBadge.addClass("has-overdue");
       }
     }).catch(console.error);
+    const currentRound = getCurrentBRound(project);
+    const stageMeta = card.createDiv({ cls: "avm-card-meta avm-kanban-stage" });
+    stageMeta.createSpan({ cls: "avm-stage-label", text: "\u9636\u6BB5:" });
+    const stageValue = stageMeta.createSpan({ cls: "avm-stage-value", text: currentRound });
+    stageValue.style.color = ROUND_COLORS[currentRound] || "#64748b";
+    stageValue.style.fontWeight = "600";
     if (project.manager) {
       card.createDiv({ cls: "avm-card-meta", text: `\u{1F464} ${project.manager}` });
     }
@@ -35075,6 +35153,7 @@ var TableView = class {
       { key: "features", label: "\u7279\u6027", width: "150px", sortable: true },
       { key: "spec", label: "\u914D\u7F6E\u7EC4\u4EF6/\u89C4\u683C", width: "150px" },
       { key: "progress", label: "\u8FDB\u5EA6", width: "120px", sortable: true },
+      { key: "currentRound", label: "\u5F53\u524D\u9636\u6BB5", width: "80px" },
       { key: "nextStage", label: "\u4E0B\u4E00\u9636\u6BB5", width: "120px" },
       { key: "nextStageTime", label: "\u4E0B\u4E00\u9636\u6BB5\u65F6\u95F4", width: "120px", sortable: true },
       { key: "links", label: "\u94FE\u63A5", width: "120px" },
@@ -35119,6 +35198,11 @@ var TableView = class {
     if (isOverdue) {
       row.addClass("avm-overdue-row");
     }
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
+    const isPreRelease = isProjectInPreRelease(project, this.plugin.settings.preReleaseRound, lastProgress);
+    if (isPreRelease) {
+      row.addClass("avm-pre-release-row");
+    }
     const version2 = this.versions.find((v) => v.id === project.versionId);
     const nextStageInfo = getNextStageInfo(project);
     columns.forEach((col) => {
@@ -35147,6 +35231,15 @@ var TableView = class {
             e.stopPropagation();
             this.handleProgressClick(project);
           });
+          break;
+        }
+        case "currentRound": {
+          const round = getCurrentBRound(project);
+          const roundBadge = td.createSpan({ cls: "avm-round-badge", text: round });
+          roundBadge.style.backgroundColor = ROUND_COLORS[round] || "#64748b";
+          if (isPreRelease) {
+            roundBadge.addClass("avm-round-badge-prerelease");
+          }
           break;
         }
         case "todos": {
@@ -39061,6 +39154,104 @@ var COMMON = `
   border-top: 1px solid var(--background-modifier-border);
 }
 
+/* Pre-release banner */
+.avm-pre-release-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -12px -12px 10px -12px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-bottom: 1px solid #f59e0b;
+  border-radius: 8px 8px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+.theme-dark .avm-pre-release-banner {
+  background: linear-gradient(135deg, #78350f, #92400e);
+  border-bottom-color: #d97706;
+  color: #fde68a;
+}
+
+.avm-pre-release-icon { font-size: 14px; flex-shrink: 0; }
+.avm-pre-release-text { line-height: 1.3; }
+
+.avm-pre-release-item {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 1px #f59e0b;
+}
+
+/* Pre-release banner small (Kanban) */
+.avm-pre-release-banner-small {
+  margin: -8px -8px 6px -8px;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 6px 6px 0 0;
+}
+
+/* Table pre-release row */
+.avm-table tr.avm-pre-release-row {
+  background: rgba(245, 158, 11, 0.06);
+  border-left: 3px solid #f59e0b;
+}
+.theme-dark .avm-table tr.avm-pre-release-row {
+  background: rgba(245, 158, 11, 0.12);
+}
+
+/* Table round badge */
+.avm-round-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: white;
+  font-weight: 600;
+}
+.avm-round-badge-prerelease {
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+
+/* Gantt pre-release */
+.avm-gantt-prerelease-icon {
+  color: #f59e0b;
+  font-size: 13px;
+}
+.avm-gantt-round-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  color: white;
+  font-weight: 600;
+  margin: 2px 4px;
+  flex-shrink: 0;
+  align-self: center;
+}
+.avm-gantt-round-badge-prerelease {
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+
+/* Current stage badge */
+.avm-current-stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--background-secondary);
+  border-radius: 10px;
+}
+
+.avm-stage-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.avm-stage-value {
+  font-size: 11px;
+}
+
 .avm-empty-state { text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px; }
 
 /* Tab Bar */
@@ -39576,6 +39767,18 @@ var AppVersionManagerSettingTab = class extends import_obsidian22.PluginSettingT
         await this.plugin.saveSettings();
       })
     );
+    containerEl.createEl("h3", { text: "\u9884\u53D1\u5E03\u8F6E\u6B21\u8BBE\u7F6E" });
+    new import_obsidian22.Setting(containerEl).setName("\u9884\u53D1\u5E03\u8F6E\u6B21").setDesc("\u8BBE\u7F6E\u54EA\u4E2A B \u8F6E\u4E3A\u9884\u53D1\u5E03\u8F6E\u6B21\u3002\u5230\u8FBE\u8BE5\u8F6E\u6B21\u540E\uFF0C\u9879\u76EE\u5361\u7247\u5C06\u663E\u793A\u9884\u53D1\u5E03\u63D0\u793A\u3002\u89E6\u53D1\u6761\u4EF6\uFF1A\u4E0A\u4E00\u8F6E\u7CFB\u7EDF\u6D4B\u8BD5\u65E5\u671F\u5DF2\u5230\u8FBE/\u5DF2\u8FC7\uFF0C\u76F4\u5230\u9879\u76EE\u72B6\u6001\u7F6E\u4E3A\u5DF2\u53D1\u5E03\u3002").addDropdown((dropdown) => {
+      dropdown.addOption("B1", "B1");
+      dropdown.addOption("B2", "B2");
+      dropdown.addOption("B3", "B3\uFF08\u9ED8\u8BA4\uFF09");
+      dropdown.addOption("B4", "B4");
+      dropdown.setValue(this.plugin.settings.preReleaseRound);
+      dropdown.onChange(async (value) => {
+        this.plugin.settings.preReleaseRound = value;
+        await this.plugin.saveSettings();
+      });
+    });
     containerEl.createEl("h3", { text: "\u81EA\u52A8\u5237\u65B0\u8BBE\u7F6E" });
     new import_obsidian22.Setting(containerEl).setName("\u81EA\u52A8\u5237\u65B0\u95F4\u9694").setDesc("\u81EA\u52A8\u5237\u65B0\u5F53\u524D\u89C6\u56FE\u6570\u636E\u7684\u65F6\u95F4\u95F4\u9694\uFF080=\u5173\u95ED\uFF09").addDropdown((dropdown) => {
       dropdown.addOption("0", "\u5173\u95ED");

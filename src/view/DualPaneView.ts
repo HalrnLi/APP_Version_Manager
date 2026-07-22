@@ -10,6 +10,9 @@ import {
   parseDateInput,
   getNextStageInfo,
   getLastProgress,
+  isProjectInPreRelease,
+  getCurrentBRound,
+  ROUND_COLORS,
   ProgressStage,
 } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -279,6 +282,18 @@ export class DualPaneView {
       item.addClass('avm-highlighted-row');
     }
 
+    // 预发布横幅：项目到达预发布轮次后醒目提示
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
+    if (isProjectInPreRelease(project, this.plugin.settings.preReleaseRound, lastProgress)) {
+      const banner = item.createDiv({ cls: 'avm-pre-release-banner' });
+      banner.createSpan({ cls: 'avm-pre-release-icon', text: '⚠' });
+      banner.createSpan({
+        cls: 'avm-pre-release-text',
+        text: `已进入预发布阶段（${this.plugin.settings.preReleaseRound}），后续修改请谨慎`,
+      });
+      item.addClass('avm-pre-release-item');
+    }
+
     const header = item.createDiv({ cls: 'avm-project-header' });
     header.createDiv({ cls: 'avm-project-name', text: project.name });
 
@@ -322,6 +337,15 @@ export class DualPaneView {
     }
 
     const meta = item.createDiv({ cls: 'avm-project-meta' });
+
+    // 当前 B 轮阶段徽章
+    const currentRound = getCurrentBRound(project);
+    const stageBadge = meta.createSpan({ cls: 'avm-meta-item avm-current-stage-badge' });
+    stageBadge.createSpan({ cls: 'avm-stage-label', text: '当前阶段:' });
+    const stageValue = stageBadge.createSpan({ cls: 'avm-stage-value', text: currentRound });
+    // 为不同 B 轮设置不同颜色（集中定义在 types.ts 的 ROUND_COLORS）
+    stageValue.style.color = ROUND_COLORS[currentRound] || '#64748b';
+    stageValue.style.fontWeight = '600';
 
     if (project.manager) {
       meta.createSpan({ cls: 'avm-meta-item', text: `👤 ${project.manager}` });

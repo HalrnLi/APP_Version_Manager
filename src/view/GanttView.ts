@@ -1,6 +1,6 @@
 import { Menu, App as ObsidianApp } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Project, Version, ProjectProgress, getProgressOrder, App, TEST_STAGES, getNextStageInfo } from '../types';
+import { Project, Version, ProjectProgress, getProgressOrder, App, TEST_STAGES, getNextStageInfo, getLastProgress, isProjectInPreRelease, getCurrentBRound, ROUND_COLORS } from '../types';
 
 interface TestDateMarker {
   date: Date;
@@ -215,7 +215,25 @@ export class GanttView {
 
     // 左侧项目信息 - 在 sidebar 中
     const sidebarRow = sidebar.createDiv({ cls: 'avm-gantt-sidebar-row' });
-    sidebarRow.createDiv({ cls: 'avm-gantt-project-name', text: project.name });
+
+    // 预发布指示
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
+    const isPreRelease = isProjectInPreRelease(project, this.plugin.settings.preReleaseRound, lastProgress);
+
+    const nameEl = sidebarRow.createDiv({ cls: 'avm-gantt-project-name' });
+    if (isPreRelease) {
+      nameEl.createSpan({ cls: 'avm-gantt-prerelease-icon', text: '⚠ ' });
+    }
+    nameEl.createSpan({ text: project.name });
+
+    // 当前阶段标注
+    const currentRound = getCurrentBRound(project);
+    const roundBadge = sidebarRow.createSpan({ cls: 'avm-gantt-round-badge', text: currentRound });
+    roundBadge.style.backgroundColor = ROUND_COLORS[currentRound] || '#64748b';
+    if (isPreRelease) {
+      roundBadge.addClass('avm-gantt-round-badge-prerelease');
+    }
+
     const version = this.getProjectVersion(project.versionId);
     if (version) {
       sidebarRow.createDiv({ cls: 'avm-gantt-project-version', text: version.versionNumber });

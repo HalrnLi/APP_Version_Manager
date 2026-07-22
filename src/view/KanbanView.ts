@@ -1,6 +1,6 @@
 import { Menu, Modal, App as ObsidianApp, Setting, Notice } from 'obsidian';
 import AppVersionManagerPlugin from '../main';
-import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, getNextStageInfo, getLastProgress } from '../types';
+import { Project, Version, ProjectProgress, getProgressOrder, getProgressColors, App, getNextStageInfo, getLastProgress, isProjectInPreRelease, getCurrentBRound, ROUND_COLORS } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 import { createActionButtons } from './ModalUtils';
 import { EditProjectModal } from './EditProjectModal';
@@ -122,6 +122,18 @@ export class KanbanView {
       card.addClass('avm-overdue');
     }
 
+    // 预发布横幅
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
+    if (isProjectInPreRelease(project, this.plugin.settings.preReleaseRound, lastProgress)) {
+      const banner = card.createDiv({ cls: 'avm-pre-release-banner avm-pre-release-banner-small' });
+      banner.createSpan({ cls: 'avm-pre-release-icon', text: '⚠' });
+      banner.createSpan({
+        cls: 'avm-pre-release-text',
+        text: `预发布（${this.plugin.settings.preReleaseRound}）`,
+      });
+      card.addClass('avm-pre-release-item');
+    }
+
     const header = card.createDiv({ cls: 'avm-card-header' });
     header.createDiv({ cls: 'avm-card-title', text: project.name });
 
@@ -139,6 +151,14 @@ export class KanbanView {
         }
       })
       .catch(console.error);
+
+    // 当前 B 轮阶段徽章
+    const currentRound = getCurrentBRound(project);
+    const stageMeta = card.createDiv({ cls: 'avm-card-meta avm-kanban-stage' });
+    stageMeta.createSpan({ cls: 'avm-stage-label', text: '阶段:' });
+    const stageValue = stageMeta.createSpan({ cls: 'avm-stage-value', text: currentRound });
+    stageValue.style.color = ROUND_COLORS[currentRound] || '#64748b';
+    stageValue.style.fontWeight = '600';
 
     if (project.manager) {
       card.createDiv({ cls: 'avm-card-meta', text: `👤 ${project.manager}` });

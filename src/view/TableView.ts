@@ -11,6 +11,9 @@ import {
   parseDateInput,
   getLastProgress,
   getNextStageInfo,
+  isProjectInPreRelease,
+  getCurrentBRound,
+  ROUND_COLORS,
 } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 import { createActionButtons } from './ModalUtils';
@@ -162,6 +165,7 @@ export class TableView {
       { key: 'features', label: '特性', width: '150px', sortable: true },
       { key: 'spec', label: '配置组件/规格', width: '150px' },
       { key: 'progress', label: '进度', width: '120px', sortable: true },
+      { key: 'currentRound', label: '当前阶段', width: '80px' },
       { key: 'nextStage', label: '下一阶段', width: '120px' },
       { key: 'nextStageTime', label: '下一阶段时间', width: '120px', sortable: true },
       { key: 'links', label: '链接', width: '120px' },
@@ -219,6 +223,13 @@ export class TableView {
       row.addClass('avm-overdue-row');
     }
 
+    // 预发布行高亮
+    const lastProgress = getLastProgress(this.plugin.settings.progressStages);
+    const isPreRelease = isProjectInPreRelease(project, this.plugin.settings.preReleaseRound, lastProgress);
+    if (isPreRelease) {
+      row.addClass('avm-pre-release-row');
+    }
+
     const version = this.versions.find((v) => v.id === project.versionId);
 
     const nextStageInfo = getNextStageInfo(project);
@@ -255,6 +266,15 @@ export class TableView {
             e.stopPropagation();
             this.handleProgressClick(project);
           });
+          break;
+        }
+        case 'currentRound': {
+          const round = getCurrentBRound(project);
+          const roundBadge = td.createSpan({ cls: 'avm-round-badge', text: round });
+          roundBadge.style.backgroundColor = ROUND_COLORS[round] || '#64748b';
+          if (isPreRelease) {
+            roundBadge.addClass('avm-round-badge-prerelease');
+          }
           break;
         }
         case 'todos': {

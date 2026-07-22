@@ -268,6 +268,23 @@ class AppVersionManagerSettingTab extends PluginSettingTab {
           }),
       );
 
+    containerEl.createEl('h3', { text: '预发布轮次设置' });
+
+    new Setting(containerEl)
+      .setName('预发布轮次')
+      .setDesc('设置哪个 B 轮为预发布轮次。到达该轮次后，项目卡片将显示预发布提示。触发条件：上一轮系统测试日期已到达/已过，直到项目状态置为已发布。')
+      .addDropdown((dropdown) => {
+        dropdown.addOption('B1', 'B1');
+        dropdown.addOption('B2', 'B2');
+        dropdown.addOption('B3', 'B3（默认）');
+        dropdown.addOption('B4', 'B4');
+        dropdown.setValue(this.plugin.settings.preReleaseRound);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.preReleaseRound = value;
+          await this.plugin.saveSettings();
+        });
+      });
+
     containerEl.createEl('h3', { text: '自动刷新设置' });
 
     new Setting(containerEl)

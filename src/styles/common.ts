@@ -279,6 +279,104 @@ export const COMMON = `
   border-top: 1px solid var(--background-modifier-border);
 }
 
+/* Pre-release banner */
+.avm-pre-release-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -12px -12px 10px -12px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-bottom: 1px solid #f59e0b;
+  border-radius: 8px 8px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+.theme-dark .avm-pre-release-banner {
+  background: linear-gradient(135deg, #78350f, #92400e);
+  border-bottom-color: #d97706;
+  color: #fde68a;
+}
+
+.avm-pre-release-icon { font-size: 14px; flex-shrink: 0; }
+.avm-pre-release-text { line-height: 1.3; }
+
+.avm-pre-release-item {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 1px #f59e0b;
+}
+
+/* Pre-release banner small (Kanban) */
+.avm-pre-release-banner-small {
+  margin: -8px -8px 6px -8px;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 6px 6px 0 0;
+}
+
+/* Table pre-release row */
+.avm-table tr.avm-pre-release-row {
+  background: rgba(245, 158, 11, 0.06);
+  border-left: 3px solid #f59e0b;
+}
+.theme-dark .avm-table tr.avm-pre-release-row {
+  background: rgba(245, 158, 11, 0.12);
+}
+
+/* Table round badge */
+.avm-round-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: white;
+  font-weight: 600;
+}
+.avm-round-badge-prerelease {
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+
+/* Gantt pre-release */
+.avm-gantt-prerelease-icon {
+  color: #f59e0b;
+  font-size: 13px;
+}
+.avm-gantt-round-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  color: white;
+  font-weight: 600;
+  margin: 2px 4px;
+  flex-shrink: 0;
+  align-self: center;
+}
+.avm-gantt-round-badge-prerelease {
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+
+/* Current stage badge */
+.avm-current-stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--background-secondary);
+  border-radius: 10px;
+}
+
+.avm-stage-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.avm-stage-value {
+  font-size: 11px;
+}
+
 .avm-empty-state { text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px; }
 
 /* Tab Bar */

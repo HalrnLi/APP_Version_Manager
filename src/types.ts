@@ -148,6 +148,7 @@ export interface PluginSettings {
   autoRefreshInterval: number;
   defaultTodos: DefaultTodoTemplate[];
   responsiblePersons: string[];
+  preReleaseRound: string; // 哪个B轮为预发布轮次，B1/B2/B3/B4，默认B3
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -163,6 +164,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   autoRefreshInterval: 2,
   defaultTodos: [],
   responsiblePersons: [],
+  preReleaseRound: 'B3',
 };
 
 export function getProgressOrder(stages: ProgressStage[]): ProjectProgress[] {
@@ -195,6 +197,15 @@ export const TEST_STAGES = [
   { key: 'b4IntegrationTestTime', label: 'B4集成测试' },
   { key: 'b4SystemTestTime', label: 'B4系统测试' },
 ] as const;
+
+// B 轮阶段配色，供各视图的轮次徽章统一使用（避免重复定义）
+export const ROUND_COLORS: Record<string, string> = {
+  B1: '#3b82f6',
+  B2: '#8b5cf6',
+  B3: '#f59e0b',
+  B4: '#ef4444',
+  未安排: '#64748b',
+};
 
 // 日期解析函数，支持多种格式
 export function parseDateInput(input: string): string | null {
@@ -313,6 +324,65 @@ export function parseDateInput(input: string): string | null {
   }
 
   return null; // 无法解析
+}
+
+// 预发布轮次的上一轮系统测试字段映射（key: Project 字段名）
+const PREVIOUS_SYSTEM_TEST_MAP: Record<string, string> = {
+  B2: 'b1SystemTestTime',
+  B3: 'b2SystemTestTime',
+  B4: 'b3SystemTestTime',
+};
+
+/**
+ * 判断项目是否已进入预发布状态。
+ * 规则：上一轮系统测试日期已到达/已过，且项目未到最后一个进度阶段（已发布）。
+ * 若上一轮系统测试日期未设置，则不触发。
+ */
+export function isProjectInPreRelease(project: Project, preReleaseRound: string, lastProgress: string): boolean {
+  // 已发布的项目不显示预发布提示
+  if (project.progress === lastProgress) return false;
+
+  const roundNum = parseInt(preReleaseRound.replace('B', ''), 10);
+
+  let triggerDate: string | undefined;
+
+  if (roundNum === 1) {
+    // B1 为预发布轮次：以 B1 集成测试日期为触发点
+    triggerDate = project.b1IntegrationTestTime;
+  } else {
+    // B2+ 为预发布轮次：以上一轮系统测试日期为触发点
+    const prevKey = PREVIOUS_SYSTEM_TEST_MAP[preReleaseRound];
+    triggerDate = prevKey ? (project as any)[prevKey] as string : undefined;
+  }
+
+  if (!triggerDate) return false;
+
+  const date = new Date(triggerDate);
+  date.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return date <= today;
+}
+
+/**
+ * 获取项目当前所在的 B 轮阶段。
+ * 基于最近的未来日期判断；若所有日期已过，取最晚的 B 轮；若无日期则返回 '未安排'。
+ */
+export function getCurrentBRound(project: Project): string {
+  const nextInfo = getNextStageInfo(project);
+  if (nextInfo.stage !== '无') {
+    const match = nextInfo.stage.match(/B(\d)/);
+    return match ? `B${match[1]}` : '未安排';
+  }
+  // 所有日期已过 — 找最晚有日期的 B 轮
+  for (let i = TEST_STAGES.length - 1; i >= 0; i--) {
+    if ((project as any)[TEST_STAGES[i].key]) {
+      const match = TEST_STAGES[i].key.match(/b(\d)/);
+      return match ? `B${match[1]}` : '未安排';
+    }
+  }
+  return '未安排';
 }
 
 // 获取项目的下一阶段信息
